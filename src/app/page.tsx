@@ -1,65 +1,84 @@
-import Image from "next/image";
+import { Glitch } from "@/components/glitch";
 
+/* Homepage.
+   NOTE: this is a functional placeholder that already mounts the shared glitch effect as the hero.
+   The Figma-accurate build (type scale, spacing, exact layout) is the next phase — see the
+   GLITCH MOUNT POINT below, which is where the effect drops into the final design. */
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="flex flex-1 flex-col">
+      {/* ===== HERO ===== */}
+      <section className="relative h-[min(100vh,1040px)] min-h-[640px] w-full overflow-hidden">
+        {/* faint 12.5% vertical guides */}
+        <div
+          className="pointer-events-none absolute inset-0 z-[2] opacity-50"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(to right,transparent 0,transparent calc(12.5% - 1px),var(--hair) calc(12.5% - 1px),var(--hair) 12.5%)",
+          }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+        {/* ===== GLITCH MOUNT POINT — shared component, same source as /lab ===== */}
+        <Glitch className="absolute inset-0 z-[1]" mode="landing" background={[0.988, 0.988, 0.988]} />
+
+        {/* wordmark — complementary knock-out over the boxes via difference blend */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logotype.svg"
+          alt="Different Thinking"
+          aria-hidden
+          className="pointer-events-none absolute bottom-[8%] left-[2%] right-[2%] z-[2] w-[96%]"
+          style={{ filter: "invert(1)", mixBlendMode: "difference" }}
+        />
+
+        {/* overlay chrome */}
+        <div className="pointer-events-none absolute inset-0 z-[3]">
+          <div className="absolute left-[clamp(20px,3vw,54px)] top-[clamp(18px,4vh,50px)] text-[clamp(20px,2.1vw,31px)] font-medium tracking-tight">
+            Your Bugs are Cool.
+          </div>
+          <nav className="pointer-events-auto absolute right-[clamp(18px,3vw,54px)] top-[clamp(18px,4vh,50px)] grid grid-cols-[auto_auto] gap-x-[18px] gap-y-[9px] text-[15px] tracking-tight">
+            {[
+              ["01", "About"],
+              ["02", "Different Thinkers"],
+              ["03", "Alex"],
+              ["04", "Specimen"],
+            ].map(([n, label]) => (
+              <div key={n} className="contents">
+                <span className="font-mono text-[12px] opacity-80">[{n}]</span>
+                <a href="#about" className="transition-opacity hover:opacity-50">
+                  {label}
+                </a>
+              </div>
+            ))}
+          </nav>
+          <div className="absolute inset-x-0 bottom-[clamp(14px,3vh,34px)] flex justify-between px-[clamp(20px,3vw,54px)] font-mono text-[15px]">
+            <span>{"{reSrch}"}</span>
+            <span className="-ml-[16vw]">; @{"}"}</span>
+            <span>&lt;&quot;aiLab&quot;&gt;</span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+      </section>
+
+      {/* ===== INTRO ===== */}
+      <section
+        id="about"
+        className="border-t border-hair px-[clamp(20px,4vw,72px)] py-[clamp(48px,7vw,110px)]"
+      >
+        <h1 className="max-w-4xl text-[clamp(28px,4vw,56px)] font-semibold leading-[1.05] tracking-[-0.03em]">
+          An AI research lab building products for people who think differently.
+        </h1>
+        <p className="mt-6 max-w-xl text-lg leading-8 text-neutral-600">
+          Different Thinking designs tools around cognitive difference rather than against it.
+          The outliers in a system — the bugs — are usually the most interesting signal.
+        </p>
+        <p className="mt-10 font-mono text-xs text-neutral-500">
+          Tune the hero effect at{" "}
+          <a href="/lab" className="text-blue underline">
+            /lab
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          .
+        </p>
+      </section>
+    </main>
   );
 }

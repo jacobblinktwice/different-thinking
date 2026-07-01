@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Different Thinking — Glitch Lab</title>
+<link rel="stylesheet" href="assets/fonts.css" />
+<style>
+  :root{
+    --paper:#FCFCFC;
+    --ink:#0A0A0A;
+    --blue:#0022FF;
+    --hair:rgba(10,10,10,.12);
+    --hair2:rgba(10,10,10,.07);
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Neue Montreal","PP Neue Montreal","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --panelW:392px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:#f1f1f0;color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden;}
+  button{font-family:inherit;}
+
+  /* ---------------- STAGE ---------------- */
+  .stage{position:fixed;inset:0 var(--panelW) 0 0;display:flex;flex-direction:column;background:#f1f1f0;}
+  .stage-bar{height:52px;flex:0 0 52px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--hair);background:var(--paper);}
+  .stage-bar .logo{font-weight:600;font-size:15px;letter-spacing:-.02em;}
+  .stage-bar .logo b{color:var(--blue);}
+  .stage-bar .tag{font-family:var(--mono);font-size:11px;color:#888;letter-spacing:-.01em;}
+  .stage-bar .sp{flex:1;}
+  .seg{display:flex;border:1px solid var(--hair);border-radius:8px;overflow:hidden;}
+  .seg button{padding:7px 12px;font-size:12px;background:var(--paper);border:0;border-right:1px solid var(--hair);cursor:pointer;color:#555;letter-spacing:-.01em;transition:.12s;}
+  .seg button:last-child{border-right:0;}
+  .seg button:hover{background:#f0f0ef;}
+  .seg button.act{background:var(--ink);color:var(--paper);}
+  .toggle-mini{display:flex;align-items:center;gap:7px;font-size:12px;color:#555;cursor:pointer;user-select:none;}
+  .sw{width:30px;height:17px;border-radius:9px;background:#d3d3d1;position:relative;transition:.15s;}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2);}
+  .toggle-mini.on .sw{background:var(--blue);}
+  .toggle-mini.on .sw::after{left:15px;}
+
+  .canvas-wrap{position:relative;flex:1;min-height:0;display:grid;place-items:center;padding:22px;overflow:hidden;}
+  .stageframe{position:relative;width:100%;max-width:calc((100vh - 130px) * 1.7);aspect-ratio:17/10;background:#fff;box-shadow:0 10px 44px rgba(0,0,0,.10);}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  #boxlayer{position:absolute;inset:0;pointer-events:none;}
+  .boxlabel{position:absolute;pointer-events:auto;cursor:pointer;border:1.5px solid transparent;border-radius:2px;transition:border-color .12s;}
+  .boxlabel .tab{position:absolute;top:-1px;left:-1px;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;
+    background:rgba(252,252,252,.82);backdrop-filter:blur(3px);padding:3px 7px;color:#666;border:1px solid var(--hair);border-radius:0 0 6px 0;white-space:nowrap;}
+  .boxlabel.sel{border-color:var(--blue);}
+  .boxlabel.sel .tab{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+  /* ---------------- PANEL ---------------- */
+  .panel{position:fixed;top:0;right:0;bottom:0;width:var(--panelW);z-index:10;background:var(--paper);
+    border-left:1px solid var(--hair);display:flex;flex-direction:column;}
+  .panel .phead{padding:14px 16px 12px;border-bottom:1px solid var(--hair);}
+  .phead .t1{display:flex;align-items:center;gap:10px;}
+  .phead .t1 h2{font-size:15px;font-weight:600;letter-spacing:-.01em;flex:1;}
+  .phead .t1 .cnt{font-family:var(--mono);font-size:11px;color:#999;}
+  .phead .subrow{display:flex;align-items:center;gap:8px;margin-top:11px;}
+  .boxsel{display:flex;gap:6px;flex:1;}
+  .boxsel button{width:30px;height:30px;border-radius:7px;border:1px solid var(--hair);background:var(--paper);cursor:pointer;
+    font-size:12.5px;color:#555;display:grid;place-items:center;position:relative;transition:.12s;}
+  .boxsel button:hover{border-color:#bbb;}
+  .boxsel button.act{border-color:var(--ink);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--ink);}
+  .boxsel button .dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;}
+  .addfx{position:relative;}
+  .addfx>.plus{width:30px;height:30px;border-radius:7px;border:1px solid var(--hair);background:var(--paper);cursor:pointer;font-size:17px;color:#555;display:grid;place-items:center;line-height:1;}
+  .addfx>.plus:hover{border-color:var(--ink);color:var(--ink);}
+  .addmenu{position:absolute;right:0;top:36px;z-index:30;background:var(--paper);border:1px solid var(--hair);border-radius:9px;box-shadow:0 10px 34px rgba(0,0,0,.14);padding:5px;display:none;min-width:170px;}
+  .addmenu.open{display:block;}
+  .addmenu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:8px 9px;font-size:13px;background:none;border:0;border-radius:6px;cursor:pointer;color:#333;}
+  .addmenu button:hover{background:#f0f0ef;}
+
+  .pbody{overflow-y:auto;flex:1 1 0;min-height:0;padding:10px;display:flex;flex-direction:column;gap:8px;}
+  .pbody::-webkit-scrollbar{width:9px;}
+  .pbody::-webkit-scrollbar-thumb{background:rgba(0,0,0,.16);border-radius:5px;border:2px solid var(--paper);}
+
+  .fx{border:1px solid var(--hair);border-radius:10px;background:var(--paper);overflow:hidden;transition:opacity .15s,border-color .12s,box-shadow .12s;}
+  .fx.off{opacity:.5;}
+  .fx.drag{opacity:.4;}
+  .fx.dragover{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue);}
+  .fx .row{display:flex;align-items:center;gap:8px;padding:10px 10px;user-select:none;}
+  .fx .grip{cursor:grab;color:#bbb;font-size:13px;letter-spacing:-2px;padding:0 1px;line-height:1;}
+  .fx .grip:active{cursor:grabbing;}
+  .fx .wave{font-size:14px;color:#444;line-height:1;}
+  .fx .name{flex:1;font-size:13.5px;letter-spacing:-.01em;cursor:pointer;}
+  .fx .idxnum{font-family:var(--mono);font-size:10px;color:#bbb;margin-right:2px;}
+  .fx .eye,.fx .del,.fx .caret{width:25px;height:25px;display:grid;place-items:center;border-radius:6px;color:#555;cursor:pointer;transition:.12s;}
+  .fx .eye:hover,.fx .del:hover,.fx .caret:hover{background:rgba(0,0,0,.06);}
+  .fx.off .eye{color:#c0c0c0;}
+  .fx .caret i{display:inline-block;transition:transform .18s;font-style:normal;color:#888;}
+  .fx.open .caret i{transform:rotate(90deg);}
+  .fx .items{display:none;flex-direction:column;gap:9px;padding:4px 13px 14px;}
+  .fx.open .items{display:flex;}
+
+  .ctl{display:grid;grid-template-columns:74px 1fr 46px;gap:8px;align-items:center;}
+  .ctl>label{font-size:11.5px;color:#444;letter-spacing:-.01em;}
+  .ctl .val{font-family:var(--mono);font-size:10.5px;color:#666;text-align:right;font-variant-numeric:tabular-nums;}
+  .ctl input[type=range]{width:100%;height:16px;-webkit-appearance:none;background:transparent;cursor:pointer;}
+  .ctl input[type=range]::-webkit-slider-runnable-track{height:2px;border-radius:2px;background:linear-gradient(90deg,var(--ink) 0 var(--fill,0%),var(--hair) var(--fill,0%) 100%);}
+  .ctl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--paper);border:1.5px solid var(--ink);margin-top:-5px;transition:background .1s,transform .1s;}
+  .ctl input[type=range]:active::-webkit-slider-thumb{background:var(--blue);border-color:var(--blue);transform:scale(1.15);}
+  .ctl input[type=range]::-moz-range-track{height:2px;background:var(--hair);}
+  .ctl input[type=range]::-moz-range-thumb{width:11px;height:11px;border:1.5px solid var(--ink);border-radius:50%;background:var(--paper);}
+
+  .ctl select{grid-column:2/4;font-family:var(--sans);font-size:12px;padding:5px 7px;border:1px solid var(--hair);border-radius:6px;background:var(--paper);color:#222;cursor:pointer;}
+  .ctl.wide{grid-template-columns:74px 1fr;}
+  .ctl .toggle-mini{grid-column:2/4;}
+  .ctl .colorbox{grid-column:2/4;display:flex;align-items:center;gap:8px;}
+  .ctl .colorbox input[type=color]{width:26px;height:22px;padding:0;border:1px solid var(--hair);border-radius:5px;background:none;cursor:pointer;}
+  .ctl .colorbox .hex{font-family:var(--mono);font-size:11px;color:#555;}
+
+  .grad{grid-column:1/4;}
+  .grad .glabel{font-size:11.5px;color:#444;margin-bottom:5px;}
+  .grad .bar{height:22px;border-radius:5px;border:1px solid var(--hair);}
+  .grad .stops{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;}
+  .grad .stop{display:flex;align-items:center;gap:4px;}
+  .grad .stop input[type=color]{width:22px;height:20px;padding:0;border:1px solid var(--hair);border-radius:4px;background:none;cursor:pointer;}
+  .grad .stop .sd{font-family:var(--mono);font-size:9px;color:#aaa;}
+
+  .subhead{grid-column:1/4;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#aaa;margin:3px 0 -2px;}
+
+  .pfoot{border-top:1px solid var(--hair);padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .btn{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;padding:9px 6px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);cursor:pointer;transition:.12s;border-radius:7px;}
+  .btn:hover{background:var(--ink);color:var(--paper);}
+  .btn.blue{border-color:var(--blue);color:var(--blue);}
+  .btn.blue:hover{background:var(--blue);color:#fff;}
+  .btn.wide{grid-column:1/3;}
+
+  .toast{position:fixed;bottom:16px;left:16px;z-index:80;background:var(--ink);color:var(--paper);font-family:var(--mono);font-size:11px;padding:9px 13px;border-radius:7px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  /* copy-from select styled as a footer button */
+  select.btn{-webkit-appearance:none;appearance:none;text-align:center;text-align-last:center;}
+
+  /* ---------------- LANDING VIEW (in-document preview) ---------------- */
+  .landing-chrome{position:absolute;inset:0;z-index:3;pointer-events:none;display:none;font-family:var(--sans);color:var(--ink);}
+  body.landing .landing-chrome{display:block;}
+  body.landing .panel{display:none;}
+  body.landing .stage{right:0;}
+  body.landing .canvas-wrap{padding:0;}
+  body.landing .stageframe{max-width:none;width:100%;height:100%;aspect-ratio:auto;box-shadow:none;}
+  body.landing #boxlayer{display:none;}
+  .lc-brand{position:absolute;left:clamp(16px,3vw,40px);top:clamp(14px,3vh,30px);font-size:clamp(16px,1.8vw,25px);font-weight:500;letter-spacing:-.02em;}
+  .lc-nav{position:absolute;right:clamp(16px,3vw,40px);top:clamp(14px,3vh,30px);display:grid;grid-template-columns:auto auto;gap:6px 14px;font-size:14px;letter-spacing:-.01em;}
+  .lc-nav span:nth-child(odd){font-family:var(--mono);font-size:11px;color:#666;}
+  .lc-code{position:absolute;left:0;right:0;bottom:clamp(12px,3vh,26px);display:flex;justify-content:space-between;padding:0 clamp(16px,3vw,40px);font-family:var(--mono);font-size:14px;color:#222;}
+  .lc-code .mid{margin-left:-14vw;}
+  .lc-word{position:absolute;left:2%;right:2%;bottom:9%;z-index:2;mix-blend-mode:difference;display:none;pointer-events:none;}
+  body.landing .lc-word{display:block;}
+  .lc-word svg{width:100%;height:auto;display:block;}
+  .lc-word svg path{fill:#fff !important;}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="stage-bar">
+    <div class="logo">Different <b>Thinking</b></div>
+    <div class="tag">glitch lab · specimens 01–04</div>
+    <div class="sp"></div>
+    <label class="toggle-mini on" id="gridToggle"><span class="sw"></span>Grid</label>
+    <div class="seg" id="viewSeg">
+      <button data-v="lab" class="act">Lab</button>
+      <button data-v="landing">Landing</button>
+    </div>
+  </div>
+  <div class="canvas-wrap">
+    <div class="stageframe" id="stageframe">
+      <canvas id="gl"></canvas>
+      <div id="boxlayer"></div>
+      <div class="lc-word" id="lcWord"></div>
+      <div class="landing-chrome" id="landingChrome">
+        <div class="lc-brand">Your Bugs are Cool.</div>
+        <nav class="lc-nav">
+          <span>[01]</span><span>About</span><span>[02]</span><span>Different Thinkers</span>
+          <span>[03]</span><span>Alex</span><span>[04]</span><span>Specimen</span>
+        </nav>
+        <div class="lc-code"><span>{reSrch}</span><span class="mid">; @}</span><span>&lt;"aiLab"&gt;</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside class="panel">
+  <div class="phead">
+    <div class="t1"><span class="wave">≈</span><h2>Effects</h2><span class="cnt" id="fxcnt"></span></div>
+    <div class="subrow">
+      <div class="boxsel" id="boxsel"></div>
+      <div class="addfx">
+        <button class="plus" id="addBtn" title="Add effect">+</button>
+        <div class="addmenu" id="addMenu"></div>
+      </div>
+    </div>
+  </div>
+  <div class="pbody" id="stack"></div>
+  <div class="pfoot">
+    <button class="btn blue" id="rand">Randomize</button>
+    <button class="btn" id="reset">Reset box</button>
+    <button class="btn" id="copyall">Copy → all</button>
+    <select class="btn" id="copyFrom" title="Copy another box's effects into this box">
+      <option value="">Copy from…</option>
+      <option value="0">From Box 1</option>
+      <option value="1">From Box 2</option>
+      <option value="2">From Box 3</option>
+      <option value="3">From Box 4</option>
+    </select>
+    <button class="btn" id="pause">Pause</button>
+    <button class="btn" id="export">Export JSON</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   Different Thinking — Glitch Lab
+   Per-box, reorderable, multi-pass (ping-pong) WebGL effect pipeline.
+   Effects: Chromatic metal · Gradient map · Pattern refraction ·
+            Slice shift · Dither  — each an independent shader pass.
+   ===================================================================== */
+
+const LOGO_SVG = `<svg width="1585" height="228" viewBox="0 0 1585 228" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.22442 156.847C1.44362 156.847 0 155.404 0 153.625V4.74259C0 2.9632 1.44362 1.52072 3.22441 1.52072H60.4401C103.27 1.52072 129.577 29.3273 129.577 79.2923C129.577 129.257 104.14 156.847 61.0923 156.847H3.22442ZM29.0962 23.4619C27.3154 23.4619 25.8718 24.9043 25.8718 26.6837V131.684C25.8718 133.463 27.3154 134.906 29.0962 134.906H59.1356C93.9213 134.906 103.705 109.054 103.705 79.2923C103.705 49.5305 93.9213 23.4619 59.1356 23.4619H29.0962Z" fill="#030303"/><path d="M147.275 49.0593C147.275 47.2799 148.719 45.8375 150.5 45.8375H166.879C168.66 45.8375 170.103 47.2799 170.103 49.0593V153.625C170.103 155.404 168.66 156.847 166.879 156.847H150.5C148.719 156.847 147.275 155.404 147.275 153.625V49.0593Z" fill="#030303"/><path d="M245.798 16.325C245.798 18.3411 243.961 19.8544 241.966 19.5508C225.368 17.0249 220.862 20.7158 220.832 31.4092C220.807 40.2837 220.832 45.8374 229.891 45.8375H251.633C253.413 45.8375 254.857 47.2799 254.857 49.0593V61.2982C254.857 63.0775 253.413 64.52 251.633 64.52H226.321C224.541 64.52 223.097 65.9625 223.097 67.7419V153.625C223.097 155.404 221.653 156.847 219.873 156.847H203.276C201.495 156.847 200.051 155.404 200.051 153.625V67.7419C200.051 65.9625 198.608 64.52 196.827 64.52H187.405C185.624 64.52 184.181 63.0775 184.181 61.2982V49.0593C184.181 47.2799 185.624 45.8375 187.405 45.8375H200.73C201.389 45.8375 201.779 45.0843 201.435 44.5221C199.853 41.9357 197.823 37.252 197.787 29.454C197.787 12.7809 207.788 3.45292e-05 226.05 3.45292e-05C235.013 4.24307e-06 239.029 1.16991 243.755 2.98446C244.991 3.45904 245.798 4.65311 245.798 5.97615V16.325Z" fill="#030303"/><path d="M366.073 141.423C382.996 141.423 390.869 132.032 393.741 125.231C394.299 123.911 395.541 122.957 396.975 122.957H413.179C415.3 122.957 416.845 124.97 416.151 126.972C409.547 146.038 393.368 160.105 366.725 160.105C332.157 160.105 311.068 136.209 311.068 101.451C311.068 65.389 332.157 42.7961 365.638 42.7961C400.525 42.7961 418.14 66.4245 419.081 104.09C419.126 105.869 417.678 107.316 415.897 107.316H337.121C335.34 107.316 333.883 108.762 334.017 110.536C335.313 127.738 347.028 141.423 366.073 141.423ZM365.638 60.8269C348.335 60.8269 335.606 71.6833 334.056 87.1542C333.878 88.9247 335.34 90.3715 337.121 90.3715H393.069C394.85 90.3715 396.31 88.9252 396.147 87.1534C394.717 71.683 382.942 60.8269 365.638 60.8269Z" fill="#030303"/><path d="M485.43 43.2306C488.192 43.2306 490.412 43.3388 492.627 43.5553C494.235 43.7125 495.431 45.0883 495.431 46.7031V64.988C495.431 65.2095 495.251 65.389 495.029 65.389C495.007 65.389 494.984 65.3871 494.962 65.3834C473.019 61.7109 455.427 76.4802 455.427 100.147V153.625C455.427 155.404 453.983 156.847 452.203 156.847H435.823C434.043 156.847 432.599 155.404 432.599 153.625V49.0593C432.599 47.2799 434.043 45.8375 435.823 45.8375H452.203C453.983 45.8375 455.427 47.2799 455.427 49.0593V59.9037C455.535 61.5933 458.003 62.0515 458.828 60.5724C464.687 50.061 473.116 43.2306 485.43 43.2306Z" fill="#030303"/><path d="M553.445 141.423C570.368 141.423 578.241 132.032 581.113 125.231C581.671 123.911 582.913 122.957 584.347 122.957H600.551C602.672 122.957 604.217 124.97 603.523 126.972C596.919 146.038 580.74 160.105 554.097 160.105C519.529 160.105 498.44 136.209 498.44 101.451C498.44 65.389 519.529 42.7961 553.01 42.7961C587.897 42.7961 605.512 66.4245 606.453 104.09C606.498 105.869 605.05 107.316 603.269 107.316H524.493C522.712 107.316 521.255 108.762 521.389 110.536C522.685 127.738 534.4 141.423 553.445 141.423ZM553.01 60.8269C535.707 60.8269 522.978 71.6833 521.428 87.1542C521.25 88.9247 522.712 90.3715 524.493 90.3715H580.441C582.222 90.3715 583.682 88.9252 583.519 87.1534C582.089 71.683 570.314 60.8269 553.01 60.8269Z" fill="#030303"/><path d="M679.759 42.7961C700.413 42.7961 716.719 54.7443 716.719 80.1612V153.625C716.719 155.404 715.275 156.847 713.494 156.847H696.897C695.117 156.847 693.673 155.404 693.673 153.625V86.6785C693.673 71.689 687.368 62.1304 671.715 62.1304C654.104 62.1304 642.799 72.7752 642.799 89.2853V153.625C642.799 155.404 641.355 156.847 639.575 156.847H623.195C621.415 156.847 619.971 155.404 619.971 153.625V49.0593C619.971 47.2799 621.415 45.8375 623.195 45.8375H639.575C641.355 45.8375 642.799 47.2799 642.799 49.0593V55.6494C642.945 57.1736 645 57.731 646.011 56.5796C652.45 49.2406 663.283 42.7961 679.759 42.7961Z" fill="#030303"/><path d="M786.344 61.2982C786.344 63.0775 784.901 64.52 783.12 64.52H768.697C766.916 64.52 765.473 65.9625 765.473 67.7419V124.695C765.473 136.275 770.614 138.497 782.922 138.106C784.777 138.047 786.344 139.51 786.344 141.364V154.085C786.344 155.576 785.321 156.882 783.856 157.168C779.96 157.927 775.692 158.367 770.691 158.367C752.428 158.367 742.427 150.112 742.427 126.65V67.7419C742.427 65.9625 740.984 64.52 739.203 64.52H729.563C727.783 64.52 726.339 63.0775 726.339 61.2982V49.0593C726.339 47.2799 727.783 45.8375 729.563 45.8375H739.203C740.984 45.8375 742.427 44.395 742.427 42.6156V14.0839C742.427 12.3045 743.871 10.862 745.652 10.862H762.248C764.029 10.862 765.473 12.3045 765.473 14.0839V42.6156C765.473 44.395 766.916 45.8375 768.697 45.8375H783.12C784.901 45.8375 786.344 47.2799 786.344 49.0593V61.2982Z" fill="#030303"/><path d="M847.25 156.847C845.47 156.847 844.026 155.404 844.026 153.625V26.6837C844.026 24.9043 842.582 23.4619 840.801 23.4619H797.463C795.683 23.4619 794.239 22.0194 794.239 20.24V4.74259C794.239 2.9632 795.683 1.52072 797.463 1.52072H916.243C918.024 1.52072 919.467 2.9632 919.467 4.74259V20.24C919.467 22.0194 918.024 23.4619 916.243 23.4619H873.122C871.341 23.4619 869.898 24.9043 869.898 26.6837V153.625C869.898 155.404 868.454 156.847 866.673 156.847H847.25Z" fill="#030303"/><path d="M991.911 42.7961C1013 42.7961 1029.31 54.7443 1029.31 80.1612V153.625C1029.31 155.404 1027.86 156.847 1026.08 156.847H1009.48C1007.7 156.847 1006.26 155.404 1006.26 153.625V86.6785C1006.26 71.689 999.955 62.1304 984.084 62.1304C967.343 62.1304 955.386 72.7752 955.386 89.2853V153.625C955.386 155.404 953.942 156.847 952.161 156.847H935.782C934.001 156.847 932.558 155.404 932.558 153.625V4.74259C932.558 2.9632 934.001 1.52072 935.782 1.52072H952.161C953.942 1.52072 955.386 2.9632 955.386 4.74259V55.6494C955.532 57.1736 957.587 57.731 958.597 56.579C965.029 49.2402 975.809 42.7961 991.911 42.7961Z" fill="#030303"/><path d="M1049.53 49.0593C1049.53 47.2799 1050.97 45.8375 1052.75 45.8375H1069.13C1070.91 45.8375 1072.36 47.2799 1072.36 49.0593V153.625C1072.36 155.404 1070.91 156.847 1069.13 156.847H1052.75C1050.97 156.847 1049.53 155.404 1049.53 153.625V49.0593Z" fill="#030303"/><path d="M1153.18 42.7961C1173.83 42.7961 1190.14 54.7443 1190.14 80.1612V153.625C1190.14 155.404 1188.69 156.847 1186.91 156.847H1170.32C1168.54 156.847 1167.09 155.404 1167.09 153.625V86.6785C1167.09 71.689 1160.79 62.1304 1145.13 62.1304C1127.52 62.1304 1116.22 72.7752 1116.22 89.2853V153.625C1116.22 155.404 1114.77 156.847 1112.99 156.847H1096.61C1094.83 156.847 1093.39 155.404 1093.39 153.625V49.0593C1093.39 47.2799 1094.83 45.8375 1096.61 45.8375H1112.99C1114.77 45.8375 1116.22 47.2799 1116.22 49.0593V55.6494C1116.36 57.1736 1118.42 57.731 1119.43 56.5796C1125.87 49.2406 1136.7 42.7961 1153.18 42.7961Z" fill="#030303"/><path d="M1208.84 4.74259C1208.84 2.9632 1210.28 1.52072 1212.06 1.52072H1228.44C1230.22 1.52072 1231.67 2.9632 1231.67 4.74259V86.522C1231.67 87.9515 1233.39 88.6728 1234.41 87.6693L1275.95 46.7646C1276.55 46.1705 1277.36 45.8375 1278.21 45.8375H1297.03C1299.92 45.8375 1301.35 49.3414 1299.29 51.3611L1264.67 85.241C1263.56 86.3262 1263.38 88.047 1264.25 89.3357L1306.14 151.832C1307.57 153.972 1306.04 156.847 1303.46 156.847H1283.87C1282.77 156.847 1281.75 156.286 1281.16 155.359L1249.2 105.382C1248.11 103.68 1245.74 103.387 1244.27 104.774L1232.68 115.704C1232.03 116.312 1231.67 117.16 1231.67 118.047V153.625C1231.67 155.404 1230.22 156.847 1228.44 156.847H1212.06C1210.28 156.847 1208.84 155.404 1208.84 153.625V4.74259Z" fill="#030303"/><path d="M1319.44 49.0593C1319.44 47.2799 1320.88 45.8375 1322.66 45.8375H1339.04C1340.82 45.8375 1342.27 47.2799 1342.27 49.0593V153.625C1342.27 155.404 1340.82 156.847 1339.04 156.847H1322.66C1320.88 156.847 1319.44 155.404 1319.44 153.625V49.0593Z" fill="#030303"/><path d="M1423.09 42.7961C1443.74 42.7961 1460.05 54.7443 1460.05 80.1612V153.625C1460.05 155.404 1458.61 156.847 1456.83 156.847H1440.23C1438.45 156.847 1437 155.404 1437 153.625V86.6785C1437 71.689 1430.7 62.1304 1415.05 62.1304C1397.44 62.1304 1386.13 72.7752 1386.13 89.2853V153.625C1386.13 155.404 1384.69 156.847 1382.91 156.847H1366.53C1364.75 156.847 1363.3 155.404 1363.3 153.625V49.0593C1363.3 47.2799 1364.75 45.8375 1366.53 45.8375H1382.91C1384.69 45.8375 1386.13 47.2799 1386.13 49.0593V55.6494C1386.28 57.1736 1388.33 57.731 1389.34 56.5796C1395.78 49.2406 1406.61 42.7961 1423.09 42.7961Z" fill="#030303"/><path d="M166.429 3.83181C166.044 2.0963 164.325 1.0001 162.588 1.38213L145.239 5.19694C143.509 5.57717 142.411 7.27959 142.777 9.01049L146.598 27.0539C146.97 28.8124 148.711 29.9264 150.465 29.5291L167.962 25.5673C169.692 25.1753 170.781 23.4595 170.397 21.7282L166.429 3.83181Z" fill="#030303"/><path d="M1068.68 3.8237C1068.3 2.08818 1066.58 0.991985 1064.84 1.37402L1047.49 5.18883C1045.76 5.56906 1044.66 7.27147 1045.03 9.00238L1048.85 27.0457C1049.22 28.8043 1050.96 29.9182 1052.72 29.521L1070.21 25.5591C1071.95 25.1672 1073.03 23.4514 1072.65 21.72L1068.68 3.8237Z" fill="#030303"/><path d="M1338.59 3.8237C1338.21 2.08818 1336.49 0.991985 1334.75 1.37402L1317.4 5.18883C1315.67 5.56906 1314.57 7.27147 1314.94 9.00238L1318.76 27.0457C1319.13 28.8043 1320.88 29.9182 1322.63 29.521L1340.13 25.5591C1341.86 25.1672 1342.95 23.4514 1342.56 21.72L1338.59 3.8237Z" fill="#030303"/><path d="M306.945 14.7553C306.945 17.5873 304.368 19.7054 301.559 19.3278C286.232 17.2677 282.008 21.0573 281.979 31.4091C281.954 40.2837 281.979 45.8374 291.038 45.8374H304.68C307.182 45.8374 309.21 47.8637 309.21 50.3632V59.9942C309.21 62.4937 307.182 64.52 304.68 64.52H288.773C286.272 64.52 284.244 66.5463 284.244 69.0458V152.321C284.244 154.82 282.216 156.847 279.714 156.847H265.728C263.226 156.847 261.198 154.82 261.198 152.321V69.0458C261.198 66.5463 259.17 64.52 256.669 64.52H240.798C238.296 64.52 236.268 62.4937 236.268 59.9942V50.3632C236.268 47.8637 238.296 45.8374 240.798 45.8374H261.234C262.161 45.8374 262.712 44.7737 262.255 43.9685C260.734 41.2883 258.967 36.7249 258.933 29.454C258.933 12.7809 268.934 5.87978e-10 287.197 5.87978e-10C295.63 -2.84975e-05 299.684 1.03582 304.071 2.66989C305.813 3.31913 306.945 5.00497 306.945 6.86346V14.7553Z" fill="#030303"/><path d="M1527.4 138.462C1519.04 138.462 1511.83 137.497 1505.66 135.568C1504.99 135.358 1504.26 135.336 1503.63 135.634C1500.26 137.214 1498.13 140.768 1498.13 146.113C1498.13 153.645 1502.43 157.949 1510.56 158.428L1554.34 161.297C1573.85 162.492 1584.19 172.655 1584.19 191.783C1584.19 212.825 1566.24 228 1529.78 228C1495.05 228 1476.41 217.949 1476.29 193.081V192.579C1476.29 190.799 1477.74 189.357 1479.52 189.357H1495.72C1497.5 189.357 1498.94 190.799 1498.94 192.579V192.962C1499.29 207.428 1508.99 210.554 1529.78 210.554C1551.15 210.554 1561.54 203.38 1561.54 193.218V192.979C1561.54 184.371 1556.78 179.469 1547.49 178.871L1504.75 176.241C1486.75 175.165 1478.15 166.796 1478.15 153.287C1478.15 142.353 1485.27 135.962 1494.62 132.422C1495.28 132.174 1495.38 131.24 1494.8 130.839C1485.45 124.329 1479.08 107.691 1479.08 95.5415V90.1615C1479.08 64.9267 1496.21 47.3608 1527.4 47.3608C1541.23 47.3608 1548.34 48.8611 1556.18 53.33C1557.34 53.9897 1558.84 53.0952 1558.94 51.7677C1559.76 41.3884 1569.29 37.9159 1579.66 37.9159C1580.69 37.9159 1581.68 37.9741 1582.53 38.0514C1583.99 38.1851 1585 39.4214 1585 40.8913V51.8788C1585 53.8033 1583.33 55.2427 1581.41 55.1043C1580.65 55.0496 1579.82 55.0123 1578.96 55.0123C1572.74 55.0123 1569.03 56.7974 1567.54 59.8278C1567.09 60.7409 1567.39 61.7998 1568 62.6193C1573.35 69.8753 1575.83 81.0208 1575.83 90.1615V95.7806C1575.83 120.896 1558.69 138.462 1527.4 138.462ZM1527.51 121.626C1544.47 121.626 1552.97 111.443 1552.97 93.3394C1552.97 75.2362 1545.89 63.9216 1527.51 63.9216C1509.13 63.9216 1502.01 75.2362 1502.01 93.3394C1502.01 111.443 1510.56 121.626 1527.51 121.626Z" fill="#030303"/></svg>`;
+
+/* ---------- shared GLSL ---------- */
+const VERT = `attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0.0,1.0);}`;
+
+const COMMON = `
+precision highp float;
+uniform vec2 u_res;
+uniform float u_time;
+uniform vec2 u_px;
+const float PI=3.14159265;
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+float hash11(float p){p=fract(p*0.1031);p*=p+33.33;p*=p+p;return fract(p);}
+float hash21(vec2 p){vec3 q=fract(vec3(p.xyx)*0.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.0-2.0*f);
+  float a=hash21(i),b=hash21(i+vec2(1,0)),c=hash21(i+vec2(0,1)),d=hash21(i+vec2(1,1));
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}
+// multi-stop gradient (piecewise linear, up to 5 stops)
+uniform vec3 u_gcol[5];
+uniform float u_gpos[5];
+uniform int u_gcount;
+vec3 sampleGrad(float t){
+  t=clamp(t,0.0,1.0);
+  vec3 c=u_gcol[0];
+  for(int i=0;i<4;i++){
+    if(i+1<u_gcount){
+      float seg=clamp((t-u_gpos[i])/max(u_gpos[i+1]-u_gpos[i],1e-4),0.0,1.0);
+      c=mix(c,u_gcol[i+1],seg);
+    }
+  }
+  return c;
+}
+`;
+
+/* base fill: a soft vertical luminance ramp so colour effects always have signal */
+const FRAG_FILL = COMMON + `
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  float g=0.16+uv.y*0.66;
+  gl_FragColor=vec4(vec3(g),1.0);
+}`;
+
+/* Chromatic metal — generative liquid-chrome field (ignores input) */
+const FRAG_METAL = COMMON + `
+uniform float u_scale,u_stretch,u_angle,u_rough,u_rgbsplit,u_depth,u_repeats,u_offset,u_phase,u_evo,u_speed;
+float fbm(vec2 p){
+  float s=0.0,amp=0.5,tot=0.0;
+  for(int i=0;i<6;i++){s+=amp*vnoise(p);tot+=amp;p=p*2.03+vec2(11.3,7.7);amp*=mix(0.34,0.62,u_rough);}
+  return s/tot;
+}
+float field(vec2 uv,float chan){
+  float ang=u_angle*PI/180.0;
+  vec2 p=rot(ang)*(uv-0.5);
+  p.x*=(0.2+u_stretch/100.0);
+  p*=mix(1.0,15.0,u_scale/100.0);
+  p+=u_phase/100.0*6.2831;
+  p+=u_evo/100.0*7.0;                       // evolution = static seed offset
+  p+=chan*u_rgbsplit/100.0*0.5;
+  float t=u_time*u_speed/100.0*0.6;         // speed drives subtle movement (0 = static)
+  vec2 w=vec2(fbm(p+t),fbm(p.yx-t*0.8));
+  float f=fbm(p+w*2.4);
+  f=fract(f*max(u_repeats,1.0)+u_offset/100.0);
+  // depth -> contrast around 0.5
+  f=clamp((f-0.5)*(0.4+u_depth/100.0*1.6)+0.5,0.0,1.0);
+  return f;
+}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  float r=field(uv,-1.0), g=field(uv,0.0), b=field(uv,1.0);
+  vec3 col=vec3(sampleGrad(r).r,sampleGrad(g).g,sampleGrad(b).b);
+  gl_FragColor=vec4(col,1.0);
+}`;
+
+/* Pixel stretch — hold pixels at an axis line, smearing them into streaks */
+const FRAG_PIXSTRETCH = COMMON + `
+uniform sampler2D u_src;
+uniform float u_offset,u_smooth,u_falloff,u_tx,u_ty,u_prot,u_pangle;
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec2 pivot=vec2(u_tx,u_ty)/100.0;
+  float ang=(u_pangle+u_prot)*PI/180.0;
+  vec2 dir=vec2(cos(ang),sin(ang));
+  float off=u_offset/100.0;
+  float sm=u_smooth/100.0;
+  float fall=u_falloff/100.0;
+  float t=dot(uv-pivot,dir);
+  float d=t-off;                                   // signed distance past the line
+  float pull = sm>0.001 ? smoothstep(0.0,sm,abs(d)) : 1.0;
+  if(fall>0.001) pull *= (1.0-smoothstep(0.0,fall,abs(d)));
+  float side = (off>=0.0) ? step(off,t) : step(t,off);
+  pull *= side;
+  vec2 sampleUV = uv - dir*(d*pull);               // pull sample back to the line
+  gl_FragColor=texture2D(u_src,clamp(sampleUV,0.0,1.0));
+}`;
+
+/* Gradient map — remap luminance through gradient */
+const FRAG_GRADMAP = COMMON + `
+uniform sampler2D u_src;
+uniform float u_scatter,u_offset,u_repeatType,u_repeatFreq,u_mixSpace;
+float toLin(float c){return c<=0.04045?c/12.92:pow((c+0.055)/1.055,2.4);}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec3 s=texture2D(u_src,uv).rgb;
+  vec3 lc=(u_mixSpace>0.5)?vec3(toLin(s.r),toLin(s.g),toLin(s.b)):s;
+  float L=dot(lc,vec3(0.299,0.587,0.114));
+  float j=(hash21(floor(uv*u_px))-0.5)*u_scatter/100.0*0.5;
+  float t=L*max(u_repeatFreq,1.0)+u_offset/100.0+j;
+  if(u_repeatType<0.5){ t=clamp(t,0.0,1.0); }              // none
+  else if(u_repeatType<1.5){ t=fract(t); }                  // repeat
+  else { t=abs(fract(t*0.5)*2.0-1.0); }                     // mirror
+  gl_FragColor=vec4(sampleGrad(t),1.0);
+}`;
+
+/* Pattern refraction — displace sampling by a pattern, with dispersion + frost */
+const FRAG_REFRACT = COMMON + `
+uniform sampler2D u_src;
+uniform float u_pattern,u_strength,u_smooth,u_frost,u_disp,u_edge;
+uniform float u_tx,u_ty,u_pscale,u_pangle;
+vec2 wrapUV(vec2 uv){
+  if(u_edge<0.5) return clamp(uv,0.0,1.0);                   // clamp
+  else if(u_edge<1.5) return fract(uv);                      // repeat
+  else return abs(fract(uv*0.5)*2.0-1.0);                    // mirror
+}
+float pat(vec2 p){
+  if(u_pattern<0.5){                                         // waves
+    return sin(p.x*6.2831+p.y*2.0)*0.5+cos(p.y*6.2831)*0.5;
+  } else if(u_pattern<1.5){                                  // rings
+    return sin(length(p-0.5)*30.0);
+  } else if(u_pattern<2.5){                                  // grid
+    return sign(sin(p.x*18.0)*sin(p.y*18.0));
+  }
+  return vnoise(p*8.0)*2.0-1.0;                              // noise
+}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec2 c=vec2(u_tx,u_ty)/100.0;
+  vec2 q=rot(u_pangle*PI/180.0)*(uv-c);
+  q*=mix(0.5,4.0,u_pscale);
+  float sm=mix(1.0,6.0,u_smooth/100.0);
+  vec2 grad=vec2(pat(q+vec2(0.01,0.0))-pat(q-vec2(0.01,0.0)),
+                 pat(q+vec2(0.0,0.01))-pat(q-vec2(0.0,0.01)))/(0.02*sm);
+  vec2 disp=grad*(u_strength/100.0)*0.18;
+  vec2 fr=(vec2(hash21(floor(uv*u_px)),hash21(floor(uv*u_px)+7.3))-0.5)*u_frost/100.0*0.03;
+  float d=u_disp/100.0*0.5;
+  vec3 col;
+  col.r=texture2D(u_src,wrapUV(uv+disp*(1.0+d)+fr)).r;
+  col.g=texture2D(u_src,wrapUV(uv+disp+fr)).g;
+  col.b=texture2D(u_src,wrapUV(uv+disp*(1.0-d)+fr)).b;
+  gl_FragColor=vec4(col,1.0);
+}`;
+
+/* Slice shift — horizontal rows displaced by seeded random */
+const FRAG_SLICE = COMMON + `
+uniform sampler2D u_src;
+uniform float u_shift,u_soft,u_random,u_tx,u_ty,u_srot,u_sangle,u_speed,u_glitch;
+float rowShift(float row){
+  // smooth drift: interpolate between successive random states over time (Speed)
+  float t=u_time*u_speed*0.2;
+  float a=hash11(row*1.7+u_random+floor(t));
+  float b=hash11(row*1.7+u_random+floor(t)+1.0);
+  float sh=(mix(a,b,smoothstep(0.0,1.0,fract(t)))-0.5)*u_shift/100.0;
+  // glitchy movement: stepped random bursts that jump rows (Glitch)
+  float g=u_glitch/100.0;
+  float gt=floor(u_time*(3.0+g*22.0));
+  float gate=step(1.0-g*0.75,hash11(gt*1.7+row*0.37));
+  sh+=(hash11(gt+row*2.3)-0.5)*g*(u_shift/100.0)*2.5*gate;
+  return sh;
+}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec2 c=vec2(u_tx,u_ty)/100.0;
+  vec2 p=rot(u_srot*PI/180.0)*(uv-c)+c;
+  float N=8.0+floor(mod(u_random,40.0))+8.0;
+  float rowf=p.y*N;
+  float row=floor(rowf);
+  float frac=fract(rowf);
+  float sh=rowShift(row);
+  float shN=rowShift(row+1.0);
+  float soft=u_soft/100.0;
+  float blend=soft<=0.001?0.0:smoothstep(1.0-soft,1.0,frac);
+  float s=mix(sh,shN,blend);
+  vec2 dir=rot(u_sangle*PI/180.0)*vec2(1.0,0.0);
+  gl_FragColor=texture2D(u_src,clamp(uv+dir*s,0.0,1.0));
+}`;
+
+/* Dither — ordered Bayer quantization */
+const FRAG_DITHER = COMMON + `
+uniform sampler2D u_src;
+uniform float u_style,u_size,u_levels,u_bright,u_contrast,u_mono;
+uniform vec3 u_monoCol;
+float bayer2(vec2 a){a=floor(a);return fract(a.x/2.0+a.y*a.y*0.75);}
+float bayer4(vec2 a){return bayer2(0.5*a)*0.25+bayer2(a);}
+float bayer8(vec2 a){return bayer4(0.5*a)*0.25+bayer2(a);}
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec3 c=texture2D(u_src,uv).rgb;
+  c=(c-0.5)*u_contrast+0.5;              // contrast
+  c*=u_bright/100.0;                     // brightness
+  c=clamp(c,0.0,1.0);
+  vec2 pc=uv*u_px/max(u_size,1.0);
+  float th;
+  if(u_style<0.5) th=bayer2(pc);
+  else if(u_style<1.5) th=bayer4(pc);
+  else th=bayer8(pc);
+  th-=0.5;
+  float lv=max(u_levels,2.0)-1.0;
+  if(u_mono>0.5){
+    float L=dot(c,vec3(0.299,0.587,0.114));
+    L=floor(L*lv+0.5+th)/lv;
+    gl_FragColor=vec4(u_monoCol*L,1.0);
+  } else {
+    c=floor(c*lv+0.5+th)/lv;
+    gl_FragColor=vec4(c,1.0);
+  }
+}`;
+
+/* Composite blit — draw a box texture to screen with rounded-corner mask */
+const FRAG_BLIT = COMMON + `
+uniform sampler2D u_src;
+uniform vec2 u_origin;   // rect origin in device px (from bottom-left)
+uniform vec2 u_size;     // rect size in device px
+uniform float u_round;   // corner radius 0..1 of half-min-dim
+uniform float u_opacity;
+void main(){
+  vec2 local=(gl_FragCoord.xy-u_origin)/u_size;   // 0..1
+  vec3 col=texture2D(u_src,local).rgb;
+  // rounded rect coverage
+  vec2 halfpx=u_size*0.5;
+  float r=u_round*min(halfpx.x,halfpx.y);
+  vec2 pxy=(local-0.5)*u_size;                    // px from center
+  vec2 d=abs(pxy)-(halfpx-r);
+  float dist=length(max(d,0.0))+min(max(d.x,d.y),0.0)-r;
+  float a=(1.0-smoothstep(-1.0,1.0,dist))*u_opacity;
+  gl_FragColor=vec4(col,a);
+}`;
+
+/* =====================================================================
+   Effect schema — matches the Figma parameters
+   ===================================================================== */
+const SEL = (opts,val)=>({type:'select',options:opts,val});
+const NUM = (label,min,max,step,val,unit)=>({label,min,max,step,val,unit:unit||''});
+
+const SCHEMA = {
+  metal:{ name:'Chromatic metal', hasGrad:'metalGrad', params:{
+    rounding: NUM('Rounding',0,100,1,0,'%'),
+    depth:    NUM('Depth',0,100,1,100,'%'),
+    rough:    NUM('Roughness',0,100,1,0,'%'),
+    rgbsplit: NUM('RGB split',0,100,1,100,'%'),
+    scale:    NUM('Scale',0,100,1,20,'%'),
+    stretch:  NUM('Stretch',0,300,1,200,'%'),
+    angle:    NUM('Angle',-180,180,1,30,'°'),
+    repeats:  NUM('Repeats',1,8,1,2,'×'),
+    offset:   NUM('Offset',0,100,1,0,'%'),
+    phase:    NUM('Phase',0,100,1,0,'%'),
+    evo:      NUM('Evolution',0,100,1,0,'%'),
+    speed:    NUM('Speed',0,100,1,25,'%'),
+  }},
+  pixstretch:{ name:'Pixel stretch', params:{
+    offset:  NUM('Offset',-100,100,1,-17,'%'),
+    smooth:  NUM('Smoothness',0,100,1,26,'%'),
+    falloff: NUM('Falloff',0,100,1,0,'%'),
+    __t:'Transform',
+    tx: NUM('X',0,100,0.1,50,'%'),
+    ty: NUM('Y',0,100,0.1,50,'%'),
+    prot: NUM('R',0,360,0.01,127.92,'°'),
+    pangle: NUM('A',-180,180,0.01,-18.44,'°'),
+  }},
+  gradmap:{ name:'Gradient map', hasGrad:'mapGrad', params:{
+    scatter:    NUM('Scatter',0,100,0.1,26.4,'%'),
+    offset:     NUM('Offset',0,100,0.1,10.7,'%'),
+    repeatType: SEL(['None','Repeat','Mirror'],2),
+    repeatFreq: NUM('Repeat freq',1,8,1,1,'×'),
+    mixSpace:   SEL(['sRGB','Linear'],0),
+  }},
+  refract:{ name:'Pattern refraction', params:{
+    pattern:  SEL(['Waves','Rings','Grid','Noise'],0),
+    strength: NUM('Strength',-100,100,1,-36,''),
+    smooth:   NUM('Smoothness',0,100,1,33,'%'),
+    frost:    NUM('Frost',0,100,1,100,'%'),
+    disp:     NUM('Dispersion',0,100,1,100,'%'),
+    edge:     SEL(['Clamp','Repeat','Mirror'],0),
+    __t:'Transform',
+    tx: NUM('X',0,100,0.1,50,'%'),
+    ty: NUM('Y',0,100,0.1,50,'%'),
+    pscale: NUM('Scale',0,100,0.01,8.16,'%'),
+    pangle: NUM('Angle',0,360,0.1,45,'°'),
+  }},
+  slice:{ name:'Slice shift', params:{
+    shift:  NUM('Shift',0,100,1,60,'%'),
+    soft:   NUM('Softness',0,100,1,0,'%'),
+    random: NUM('Random',0,500,1,165,''),
+    speed:  NUM('Speed',0,100,1,0,'%'),
+    glitch: NUM('Glitch',0,100,1,0,'%'),
+    __t:'Transform',
+    tx: NUM('X',0,100,0.1,50,'%'),
+    ty: NUM('Y',0,100,0.1,50,'%'),
+    srot: NUM('R',0,720,0.01,385.96,'°'),
+    sangle: NUM('A',0,360,1,0,'°'),
+  }},
+  dither:{ name:'Dither', params:{
+    style:    SEL(['Bayer 2×2','Bayer 4×4','Bayer 8×8'],2),
+    size:     NUM('Size',1,16,1,7,''),
+    levels:   NUM('Levels',2,16,1,2,''),
+    bright:   NUM('Brightness',0,200,1,73,'%'),
+    contrast: NUM('Contrast',0,4,0.01,1,''),
+    mono:     {type:'toggle',val:false,label:'Mono'},
+    monoCol:  {type:'color',val:'#FFFFFF',label:'Mono color'},
+  }},
+};
+
+/* gradients (up to 5 stops: {p, c}) — palette matches the landing */
+const GRAD_METAL = [{p:0,c:'#FFFFFF'},{p:0.55,c:'#7A7A7A'},{p:1,c:'#2B2B2B'}];
+const GR_RED    = [{p:0,c:'#FFFFFF'},{p:0.5,c:'#FF2D5E'},{p:1,c:'#5B0E3E'}];
+const GR_TEAL   = [{p:0,c:'#FFFFFF'},{p:0.45,c:'#19C6A6'},{p:1,c:'#0B4D6B'}];
+const GR_BLUE   = [{p:0,c:'#FFFFFF'},{p:0.5,c:'#2E7BFF'},{p:1,c:'#0A1E7A'}];
+const GR_PURPLE = [{p:0,c:'#FFFFFF'},{p:0.45,c:'#C026D3'},{p:1,c:'#4C1D95'}];
+
+const FX_ORDER_DEFAULT = ['gradmap','refract','slice','dither','metal']; // Figma list top→bottom
+
+let uid=0;
+function clone(o){return JSON.parse(JSON.stringify(o));}
+const SAVED=[{"box":1,"layout":{"x":0.34700000000000003,"y":0.183,"w":0.23600000000000002,"h":0.31},"effects":[{"type":"gradmap","on":true,"params":{"scatter":41.6,"offset":40.3,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#56f0ca"},{"p":0.45,"c":"#f9432f"},{"p":1,"c":"#ff0000"}]},{"type":"pixstretch","on":true,"params":{"offset":21,"smooth":16,"falloff":89,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"slice","on":true,"params":{"shift":38,"soft":6,"random":17,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"refract","on":false,"params":{"pattern":1,"strength":31,"smooth":0,"frost":75,"disp":28,"edge":0,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":true,"params":{"style":0,"size":11,"levels":6,"bright":52,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":55,"rough":0,"rgbsplit":35,"scale":0,"stretch":240,"angle":34,"repeats":2,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]},{"box":2,"layout":{"x":0.113,"y":0.31,"w":0.44,"h":0.37},"effects":[{"type":"gradmap","on":true,"params":{"scatter":26.4,"offset":10.7,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.45,"c":"#19C6A6"},{"p":1,"c":"#0B4D6B"}]},{"type":"pixstretch","on":true,"params":{"offset":8,"smooth":38,"falloff":97,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"slice","on":true,"params":{"shift":11,"soft":0,"random":0,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"refract","on":true,"params":{"pattern":0,"strength":-43,"smooth":0,"frost":100,"disp":52,"edge":0,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":true,"params":{"style":2,"size":16,"levels":2,"bright":66,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":100,"rough":0,"rgbsplit":35,"scale":12,"stretch":240,"angle":34,"repeats":2,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]},{"box":3,"layout":{"x":0.308,"y":0.47,"w":0.382,"h":0.322},"effects":[{"type":"gradmap","on":true,"params":{"scatter":57.9,"offset":0,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#00fbff"},{"p":0.45,"c":"#ff3860"},{"p":1,"c":"#3b05ff"}]},{"type":"slice","on":true,"params":{"shift":11,"soft":0,"random":0,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"pixstretch","on":true,"params":{"offset":0,"smooth":0,"falloff":60,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"refract","on":true,"params":{"pattern":1,"strength":9,"smooth":71,"frost":100,"disp":53,"edge":1,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":true,"params":{"style":2,"size":16,"levels":2,"bright":66,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":90,"rough":0,"rgbsplit":94,"scale":21,"stretch":128,"angle":34,"repeats":3,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]},{"box":4,"layout":{"x":0.628,"y":0.248,"w":0.23399999999999999,"h":0.502},"effects":[{"type":"gradmap","on":true,"params":{"scatter":26.4,"offset":10.7,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#2aeaca"},{"p":0.45,"c":"#6338ff"},{"p":1,"c":"#750066"}]},{"type":"pixstretch","on":true,"params":{"offset":-3,"smooth":0,"falloff":72,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"slice","on":true,"params":{"shift":11,"soft":0,"random":0,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"refract","on":true,"params":{"pattern":3,"strength":32,"smooth":26,"frost":91,"disp":57,"edge":1,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":false,"params":{"style":2,"size":16,"levels":2,"bright":66,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":76,"rough":0,"rgbsplit":67,"scale":26,"stretch":0,"angle":-83,"repeats":2,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]}];
+function makeEffect(type,over){
+  over=over||{};
+  const def=SCHEMA[type];
+  const params={};
+  for(const k in def.params){ if(k==='__t') continue; params[k]=def.params[k].val; }
+  Object.assign(params, over.params||{});
+  const e={id:++uid,type,on:over.on!==undefined?over.on:true,params};
+  if(def.hasGrad) e.grad = over.grad ? clone(over.grad) : (def.hasGrad==='metalGrad'?clone(GRAD_METAL):clone(GR_TEAL));
+  return e;
+}
+
+/* build boxes from the baked config (SAVED). Survives reloads and file edits.
+   If localStorage has a saved config (http contexts), that overrides — so live tweaks persist too. */
+const BOX_META=[{name:'Red',dot:'#f9432f'},{name:'Teal',dot:'#19C6A6'},{name:'Blue',dot:'#2E7BFF'},{name:'Purple',dot:'#6338ff'}];
+function instantiate(e){
+  const def=SCHEMA[e.type]; const params={};
+  for(const k in def.params){ if(k==='__t') continue; params[k]=def.params[k].val; }
+  Object.assign(params, e.params||{});
+  return {id:++uid,type:e.type,on:e.on!==false,params,
+    grad:e.grad?clone(e.grad):(def.hasGrad?(def.hasGrad==='metalGrad'?clone(GRAD_METAL):clone(GR_TEAL)):null)};
+}
+function boxFromCfg(c){ return {layout:Object.assign({},c.layout), effects:(c.effects||[]).map(instantiate)}; }
+/* CFG_VERSION = the baked baseline. localStorage only wins if it was saved against THIS baseline
+   (i.e. your own later tweaks). Bumping this when re-baking makes stale saves get ignored. */
+const CFG_VERSION=6;
+let INITIAL=SAVED;
+try{ const s=localStorage.getItem('dt-glitch-config'); if(s){ const o=JSON.parse(s); if(o&&o.v===CFG_VERSION&&Array.isArray(o.cfg)&&o.cfg.length===SAVED.length) INITIAL=o.cfg; } }catch(_){}
+const boxes=INITIAL.map(boxFromCfg);
+let active=0;
+
+/* =====================================================================
+   WebGL setup
+   ===================================================================== */
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl',{antialias:false,premultipliedAlpha:false});
+if(!gl){document.body.innerHTML='<p style="padding:40px;font-family:monospace">WebGL not available.</p>';throw new Error('no webgl');}
+
+function compile(type,src){
+  const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)+'\n'+src);
+  return s;
+}
+function makeProg(frag){
+  const p=gl.createProgram();
+  gl.attachShader(p,compile(gl.VERTEX_SHADER,VERT));
+  gl.attachShader(p,compile(gl.FRAGMENT_SHADER,frag));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+const PROG={
+  fill:makeProg(FRAG_FILL),
+  metal:makeProg(FRAG_METAL),
+  pixstretch:makeProg(FRAG_PIXSTRETCH),
+  gradmap:makeProg(FRAG_GRADMAP),
+  refract:makeProg(FRAG_REFRACT),
+  slice:makeProg(FRAG_SLICE),
+  dither:makeProg(FRAG_DITHER),
+  blit:makeProg(FRAG_BLIT),
+};
+// fullscreen triangle
+const vbo=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+for(const k in PROG){
+  const loc=gl.getAttribLocation(PROG[k],'a_pos');
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+  // attribute enabled per-draw below
+}
+function bindAttr(prog){
+  const loc=gl.getAttribLocation(prog,'a_pos');
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+}
+
+/* ping-pong FBOs */
+function makeFBO(w,h){
+  const tex=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  const fb=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);
+  return {fb,tex,w,h};
+}
+let ping=null,pong=null,fboW=0,fboH=0;
+function ensureFBO(w,h){
+  if(w===fboW&&h===fboH&&ping) return;
+  if(ping){gl.deleteTexture(ping.tex);gl.deleteFramebuffer(ping.fb);gl.deleteTexture(pong.tex);gl.deleteFramebuffer(pong.fb);}
+  fboW=w;fboH=h;
+  ping=makeFBO(w,h);pong=makeFBO(w,h);
+}
+
+/* gradient -> uniforms */
+function setGrad(prog,grad){
+  const cols=[],pos=[];
+  const g=grad||[{p:0,c:'#000'},{p:1,c:'#fff'}];
+  for(let i=0;i<5;i++){
+    const s=g[Math.min(i,g.length-1)];
+    const rgb=hex2rgb(s.c);
+    cols.push(rgb[0],rgb[1],rgb[2]);
+    pos.push(g[i]?g[i].p:1);
+  }
+  gl.uniform3fv(gl.getUniformLocation(prog,'u_gcol'),cols);
+  gl.uniform1fv(gl.getUniformLocation(prog,'u_gpos'),pos);
+  gl.uniform1i(gl.getUniformLocation(prog,'u_gcount'),Math.min(g.length,5));
+}
+function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  return [parseInt(h.substr(0,2),16)/255,parseInt(h.substr(2,2),16)/255,parseInt(h.substr(4,2),16)/255];}
+
+function U(prog,name){return gl.getUniformLocation(prog,name);}
+function setF(prog,name,v){const l=U(prog,name);if(l)gl.uniform1f(l,v);}
+
+/* draw one effect pass reading srcTex, writing to dest FBO */
+function drawPass(type, e, srcTex, res){
+  const prog=PROG[type];
+  gl.useProgram(prog);
+  bindAttr(prog);
+  gl.uniform2f(U(prog,'u_res'),res.w,res.h);
+  gl.uniform1f(U(prog,'u_time'),elapsed);
+  {const REF=900.0,ar=res.w/res.h;const lpx=U(prog,'u_px');if(lpx)gl.uniform2f(lpx,ar>=1.0?REF:REF*ar,ar>=1.0?REF/ar:REF);}
+  if(srcTex){ gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,srcTex);gl.uniform1i(U(prog,'u_src'),0);}
+  const p=e?e.params:{};
+  if(type==='metal'){
+    setGrad(prog,e.grad);
+    setF(prog,'u_scale',p.scale);setF(prog,'u_stretch',p.stretch);setF(prog,'u_angle',p.angle);
+    setF(prog,'u_rough',p.rough);setF(prog,'u_rgbsplit',p.rgbsplit);setF(prog,'u_depth',p.depth);
+    setF(prog,'u_repeats',p.repeats);setF(prog,'u_offset',p.offset);setF(prog,'u_phase',p.phase);setF(prog,'u_evo',p.evo);
+    setF(prog,'u_speed',p.speed);
+  } else if(type==='pixstretch'){
+    setF(prog,'u_offset',p.offset);setF(prog,'u_smooth',p.smooth);setF(prog,'u_falloff',p.falloff);
+    setF(prog,'u_tx',p.tx);setF(prog,'u_ty',p.ty);setF(prog,'u_prot',p.prot);setF(prog,'u_pangle',p.pangle);
+  } else if(type==='gradmap'){
+    setGrad(prog,e.grad);
+    setF(prog,'u_scatter',p.scatter);setF(prog,'u_offset',p.offset);
+    setF(prog,'u_repeatType',p.repeatType);setF(prog,'u_repeatFreq',p.repeatFreq);setF(prog,'u_mixSpace',p.mixSpace);
+  } else if(type==='refract'){
+    setF(prog,'u_pattern',p.pattern);setF(prog,'u_strength',p.strength);setF(prog,'u_smooth',p.smooth);
+    setF(prog,'u_frost',p.frost);setF(prog,'u_disp',p.disp);setF(prog,'u_edge',p.edge);
+    setF(prog,'u_tx',p.tx);setF(prog,'u_ty',p.ty);setF(prog,'u_pscale',p.pscale/100);setF(prog,'u_pangle',p.pangle);
+  } else if(type==='slice'){
+    setF(prog,'u_shift',p.shift);setF(prog,'u_soft',p.soft);setF(prog,'u_random',p.random);
+    setF(prog,'u_tx',p.tx);setF(prog,'u_ty',p.ty);setF(prog,'u_srot',p.srot);setF(prog,'u_sangle',p.sangle);
+    setF(prog,'u_speed',p.speed||0);setF(prog,'u_glitch',p.glitch||0);
+  } else if(type==='dither'){
+    setF(prog,'u_style',p.style);setF(prog,'u_size',p.size);setF(prog,'u_levels',p.levels);
+    setF(prog,'u_bright',p.bright);setF(prog,'u_contrast',p.contrast);setF(prog,'u_mono',p.mono?1:0);
+    const rgb=hex2rgb(p.monoCol||'#ffffff');gl.uniform3f(U(prog,'u_monoCol'),rgb[0],rgb[1],rgb[2]);
+  }
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+/* render one box's full chain, return the texture holding the result */
+function renderBoxChain(box,res){
+  ensureFBO(res.w,res.h);
+  gl.disable(gl.BLEND);
+  // base fill -> ping
+  gl.bindFramebuffer(gl.FRAMEBUFFER,ping.fb);
+  gl.viewport(0,0,res.w,res.h);
+  drawPass('fill',null,null,res);
+  let src=ping,dst=pong;
+  // process bottom→top (Figma convention): reverse of displayed list
+  const chain=box.effects.slice().reverse().filter(e=>e.on);
+  for(const e of chain){
+    gl.bindFramebuffer(gl.FRAMEBUFFER,dst.fb);
+    gl.viewport(0,0,res.w,res.h);
+    drawPass(e.type,e,src.tex,res);
+    const tmp=src;src=dst;dst=tmp;
+  }
+  return src.tex;
+}
+
+/* freeform box rects in CSS px, from each box's normalized layout */
+let rects=[];
+function computeRects(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  rects=boxes.map(b=>({x:b.layout.x*w,y:b.layout.y*h,w:b.layout.w*w,h:b.layout.h*h}));
+}
+
+const DPR=()=>Math.min(window.devicePixelRatio||1,2);
+function resize(){
+  const w=canvas.clientWidth,h=canvas.clientHeight,dpr=DPR();
+  const cw=Math.floor(w*dpr),ch=Math.floor(h*dpr);
+  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
+  computeRects();
+  positionLabels();
+}
+
+let showGrid=true, landingMode=false;
+let running=true,elapsed=0,tPrev=0;
+
+/* composite a box texture to the screen at a CSS-px rect */
+function blitToScreen(tex,rCss,round,opacity,dpr){
+  const res={w:Math.max(2,Math.floor(rCss.w*dpr)),h:Math.max(2,Math.floor(rCss.h*dpr))};
+  const ox=Math.floor(rCss.x*dpr), oy=canvas.height-Math.floor(rCss.y*dpr)-res.h;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(ox,oy,res.w,res.h);
+  const prog=PROG.blit;gl.useProgram(prog);bindAttr(prog);
+  gl.uniform2f(U(prog,'u_res'),canvas.width,canvas.height);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(U(prog,'u_src'),0);
+  gl.uniform2f(U(prog,'u_origin'),ox,oy);gl.uniform2f(U(prog,'u_size'),res.w,res.h);
+  gl.uniform1f(U(prog,'u_round'),round||0);gl.uniform1f(U(prog,'u_opacity'),opacity==null?1:opacity);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+function boxRound(box){const m=box.effects.find(e=>e.type==='metal');return m?(m.params.rounding/100):0;}
+
+/* echo (duplicate) helpers — slice + pixel-stretch applied last, placed below the box */
+const echoExtras=[ makeEffect('pixstretch',{params:{offset:40,pangle:0,prot:0,smooth:28}}),
+                   makeEffect('slice',{params:{shift:24,random:180}}) ];
+function echoRectCss(L){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  return {x:L.x*w, y:Math.min(L.y+L.h*0.5,0.9)*h, w:L.w*w, h:Math.max(L.h*0.85,0.14)*h};
+}
+
+function renderLab(dpr){
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);
+  gl.clearColor(0.945,0.945,0.941,1.0);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  for(let i=0;i<4;i++){
+    const tex=renderBoxChain(boxes[i],{w:Math.max(2,Math.floor(rects[i].w*dpr)),h:Math.max(2,Math.floor(rects[i].h*dpr))});
+    blitToScreen(tex,rects[i],boxRound(boxes[i]),1,dpr);
+  }
+}
+function renderLanding(dpr){
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);
+  gl.clearColor(0.988,0.988,0.988,1.0);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  // echoes (behind)
+  for(let i=0;i<4;i++){
+    const er=echoRectCss(boxes[i].layout);
+    const res={w:Math.max(2,Math.floor(er.w*dpr)),h:Math.max(2,Math.floor(er.h*dpr))};
+    const tex=renderBoxChain({effects:echoExtras.concat(boxes[i].effects)},res);
+    blitToScreen(tex,er,0,0.92,dpr);
+  }
+  // mains (front)
+  for(let i=0;i<4;i++){
+    const tex=renderBoxChain(boxes[i],{w:Math.max(2,Math.floor(rects[i].w*dpr)),h:Math.max(2,Math.floor(rects[i].h*dpr))});
+    blitToScreen(tex,rects[i],boxRound(boxes[i]),1,dpr);
+  }
+}
+function frame(now){
+  now/=1000;if(!tPrev)tPrev=now;const dt=Math.min(now-tPrev,0.05);tPrev=now;
+  if(running)elapsed+=dt;
+  resize();
+  const dpr=DPR();
+  if(landingMode) renderLanding(dpr); else renderLab(dpr);
+  requestAnimationFrame(frame);
+}
+
+/* =====================================================================
+   Box labels / selection overlay
+   ===================================================================== */
+const boxlayer=document.getElementById('boxlayer');
+const labelEls=[];
+for(let i=0;i<4;i++){
+  const d=document.createElement('div');
+  d.className='boxlabel'+(i===active?' sel':'');
+  d.innerHTML=`<span class="tab">[0${i+1}] ${BOX_META[i].name}</span>`;
+  d.addEventListener('click',()=>selectBox(i));
+  boxlayer.appendChild(d);labelEls.push(d);
+}
+function positionLabels(){
+  for(let i=0;i<4;i++){
+    const r=rects[i];const d=labelEls[i];
+    d.style.left=r.x+'px';d.style.top=r.y+'px';d.style.width=r.w+'px';d.style.height=r.h+'px';
+    d.style.display=showGrid?'block':'none';
+  }
+}
+
+/* =====================================================================
+   Control panel UI
+   ===================================================================== */
+const boxsel=document.getElementById('boxsel');
+for(let i=0;i<4;i++){
+  const b=document.createElement('button');
+  b.innerHTML=`${i+1}<span class="dot" style="background:${BOX_META[i].dot}"></span>`;
+  b.addEventListener('click',()=>selectBox(i));
+  boxsel.appendChild(b);
+}
+function selectBox(i){
+  active=i;
+  [...boxsel.children].forEach((b,j)=>b.classList.toggle('act',j===i));
+  labelEls.forEach((d,j)=>d.classList.toggle('sel',j===i));
+  buildStack();
+}
+
+const EYE=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYEOFF=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s4-7 11-7c2 0 3.8.5 5.3 1.3M22 12s-4 7-11 7c-2 0-3.8-.5-5.3-1.3"/><path d="M3 3l18 18"/></svg>`;
+
+const stack=document.getElementById('stack');
+const fmt=(v,step)=> step<1 ? (+v).toFixed(step<0.05?2:1) : String(Math.round(v));
+
+function layoutCard(box){
+  const fx=document.createElement('div'); fx.className='fx open';
+  const row=document.createElement('div'); row.className='row';
+  row.innerHTML=`<span class="wave">⧉</span><span class="name">Layout &amp; size</span><span class="caret"><i>›</i></span>`;
+  const tog=()=>fx.classList.toggle('open');
+  row.querySelector('.name').addEventListener('click',tog);
+  row.querySelector('.caret').addEventListener('click',tog);
+  fx.appendChild(row);
+  const items=document.createElement('div'); items.className='items';
+  [['x','X',0,100],['y','Y',0,100],['w','Width',2,100],['h','Height',2,100]].forEach(([k,label,min,max])=>{
+    const ctl=document.createElement('div'); ctl.className='ctl';
+    const lab=document.createElement('label'); lab.textContent=label;
+    const val=document.createElement('span'); val.className='val';
+    const inp=document.createElement('input'); inp.type='range'; inp.min=min; inp.max=max; inp.step=0.1;
+    inp.value=(box.layout[k]*100).toFixed(1); val.textContent=(+inp.value).toFixed(1)+'%';
+    const fill=()=>inp.style.setProperty('--fill',((inp.value-min)/(max-min)*100)+'%'); fill();
+    inp.addEventListener('input',()=>{box.layout[k]=parseFloat(inp.value)/100;val.textContent=(+inp.value).toFixed(1)+'%';fill();computeRects();positionLabels();});
+    ctl.appendChild(lab); ctl.appendChild(inp); ctl.appendChild(val); items.appendChild(ctl);
+  });
+  fx.appendChild(items); return fx;
+}
+
+function buildStack(){
+  const box=boxes[active];
+  stack.innerHTML='';
+  stack.appendChild(layoutCard(box));
+  document.getElementById('fxcnt').textContent=box.effects.filter(e=>e.on).length+'/'+box.effects.length;
+  box.effects.forEach((e,idx)=>{
+    const def=SCHEMA[e.type];
+    const fx=document.createElement('div');
+    fx.className='fx'+(e.on?'':' off');
+    fx.draggable=false;
+    // ROW
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML=`<span class="grip" title="Drag to reorder">⋮⋮</span>
+      <span class="idxnum">${idx+1}</span>
+      <span class="wave">≈</span>
+      <span class="name">${def.name}</span>
+      <span class="eye">${e.on?EYE:EYEOFF}</span>
+      <span class="del" title="Remove">–</span>
+      <span class="caret"><i>›</i></span>`;
+    row.querySelector('.eye').addEventListener('click',ev=>{ev.stopPropagation();e.on=!e.on;fx.classList.toggle('off',!e.on);
+      row.querySelector('.eye').innerHTML=e.on?EYE:EYEOFF;
+      document.getElementById('fxcnt').textContent=box.effects.filter(x=>x.on).length+'/'+box.effects.length;scheduleSave();});
+    row.querySelector('.del').addEventListener('click',ev=>{ev.stopPropagation();
+      box.effects.splice(idx,1);buildStack();});
+    const toggleOpen=()=>fx.classList.toggle('open');
+    row.querySelector('.name').addEventListener('click',toggleOpen);
+    row.querySelector('.caret').addEventListener('click',toggleOpen);
+    // drag reorder via grip
+    const grip=row.querySelector('.grip');
+    grip.addEventListener('mousedown',()=>{fx.draggable=true;});
+    fx.addEventListener('dragstart',ev=>{fx.classList.add('drag');ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',idx);dragIdx=idx;});
+    fx.addEventListener('dragend',()=>{fx.classList.remove('drag');fx.draggable=false;clearDragOver();});
+    fx.addEventListener('dragover',ev=>{ev.preventDefault();fx.classList.add('dragover');});
+    fx.addEventListener('dragleave',()=>fx.classList.remove('dragover'));
+    fx.addEventListener('drop',ev=>{ev.preventDefault();fx.classList.remove('dragover');
+      if(dragIdx===null||dragIdx===idx)return;
+      const moved=box.effects.splice(dragIdx,1)[0];
+      box.effects.splice(idx,0,moved);dragIdx=null;buildStack();});
+    fx.appendChild(row);
+    // ITEMS
+    const items=document.createElement('div');items.className='items';
+    if(def.hasGrad) items.appendChild(gradientCtl(e));
+    for(const key in def.params){
+      const p=def.params[key];
+      if(key==='__t'){const h=document.createElement('div');h.className='subhead';h.textContent=p;items.appendChild(h);continue;}
+      items.appendChild(paramCtl(e,key,p));
+    }
+    fx.appendChild(items);
+    stack.appendChild(fx);
+  });
+}
+let dragIdx=null;
+function clearDragOver(){[...stack.querySelectorAll('.fx')].forEach(f=>f.classList.remove('dragover'));}
+
+function paramCtl(e,key,p){
+  const ctl=document.createElement('div');ctl.className='ctl';
+  if(p.type==='select'){
+    ctl.classList.add('wide');
+    ctl.innerHTML=`<label>${p.options?'':''}</label>`;
+    const lab=document.createElement('label');lab.textContent=SCHEMA_LABEL(key);ctl.innerHTML='';ctl.appendChild(lab);
+    const sel=document.createElement('select');
+    p.options.forEach((o,i)=>{const op=document.createElement('option');op.value=i;op.textContent=o;sel.appendChild(op);});
+    sel.value=e.params[key];
+    sel.addEventListener('change',()=>e.params[key]=parseInt(sel.value));
+    ctl.appendChild(sel);
+    return ctl;
+  }
+  if(p.type==='toggle'){
+    ctl.classList.add('wide');
+    const lab=document.createElement('label');lab.textContent=p.label;ctl.appendChild(lab);
+    const t=document.createElement('label');t.className='toggle-mini'+(e.params[key]?' on':'');
+    t.innerHTML=`<span class="sw"></span>`;
+    t.addEventListener('click',()=>{e.params[key]=!e.params[key];t.classList.toggle('on',e.params[key]);scheduleSave();});
+    ctl.appendChild(t);return ctl;
+  }
+  if(p.type==='color'){
+    ctl.classList.add('wide');
+    const lab=document.createElement('label');lab.textContent=p.label;ctl.appendChild(lab);
+    const wrap=document.createElement('div');wrap.className='colorbox';
+    const c=document.createElement('input');c.type='color';c.value=e.params[key];
+    const hex=document.createElement('span');hex.className='hex';hex.textContent=e.params[key].toUpperCase();
+    c.addEventListener('input',()=>{e.params[key]=c.value;hex.textContent=c.value.toUpperCase();});
+    wrap.appendChild(c);wrap.appendChild(hex);ctl.appendChild(wrap);return ctl;
+  }
+  // numeric slider
+  const lab=document.createElement('label');lab.textContent=p.label;
+  const val=document.createElement('span');val.className='val';val.textContent=fmt(e.params[key],p.step)+p.unit;
+  const inp=document.createElement('input');inp.type='range';inp.min=p.min;inp.max=p.max;inp.step=p.step;inp.value=e.params[key];
+  const fill=()=>inp.style.setProperty('--fill',((inp.value-p.min)/(p.max-p.min)*100)+'%');fill();
+  inp.addEventListener('input',()=>{e.params[key]=parseFloat(inp.value);val.textContent=fmt(inp.value,p.step)+p.unit;fill();});
+  ctl.appendChild(lab);ctl.appendChild(inp);ctl.appendChild(val);
+  return ctl;
+}
+function SCHEMA_LABEL(key){
+  const map={pattern:'Pattern',repeatType:'Repeat type',mixSpace:'Mix space',edge:'Edge wrap',style:'Style'};
+  return map[key]||key;
+}
+
+function gradientCtl(e){
+  const g=document.createElement('div');g.className='ctl';
+  const gr=document.createElement('div');gr.className='grad';
+  const lbl=document.createElement('div');lbl.className='glabel';lbl.textContent='Gradient';
+  const bar=document.createElement('div');bar.className='bar';
+  const stopsWrap=document.createElement('div');stopsWrap.className='stops';
+  function paint(){
+    const css=e.grad.map(s=>`${s.c} ${Math.round(s.p*100)}%`).join(',');
+    bar.style.background=`linear-gradient(90deg,${css})`;
+  }
+  function rebuildStops(){
+    stopsWrap.innerHTML='';
+    e.grad.forEach((s,i)=>{
+      const st=document.createElement('div');st.className='stop';
+      const c=document.createElement('input');c.type='color';c.value=s.c;
+      c.addEventListener('input',()=>{s.c=c.value;paint();});
+      const sd=document.createElement('span');sd.className='sd';sd.textContent=Math.round(s.p*100);
+      st.appendChild(c);st.appendChild(sd);stopsWrap.appendChild(st);
+    });
+  }
+  paint();rebuildStops();
+  gr.appendChild(lbl);gr.appendChild(bar);gr.appendChild(stopsWrap);
+  g.appendChild(gr);return g;
+}
+
+/* add-effect menu */
+const addMenu=document.getElementById('addMenu');
+Object.keys(SCHEMA).forEach(type=>{
+  const b=document.createElement('button');
+  b.innerHTML=`<span class="wave">≈</span> ${SCHEMA[type].name}`;
+  b.addEventListener('click',()=>{
+    const curGrad=(boxes[active].effects.find(x=>x.type==='gradmap')||{}).grad;
+    const e=makeEffect(type, type==='gradmap'?{grad:curGrad||GR_TEAL}:undefined);
+    boxes[active].effects.unshift(e);
+    addMenu.classList.remove('open');buildStack();
+  });
+  addMenu.appendChild(b);
+});
+document.getElementById('addBtn').addEventListener('click',ev=>{ev.stopPropagation();addMenu.classList.toggle('open');});
+document.addEventListener('click',()=>addMenu.classList.remove('open'));
+
+/* footer actions */
+const toast=document.getElementById('toast');
+function showToast(msg){toast.textContent=msg;toast.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>toast.classList.remove('show'),1600);}
+
+document.getElementById('pause').addEventListener('click',ev=>{running=!running;ev.target.textContent=running?'Pause':'Play';});
+document.getElementById('reset').addEventListener('click',()=>{
+  boxes[active]=boxFromCfg(SAVED[active]);
+  buildStack();scheduleSave();showToast('Box '+(active+1)+' reset to saved default');
+});
+document.getElementById('copyall').addEventListener('click',()=>{
+  const src=clone(boxes[active].effects);
+  for(let i=0;i<4;i++){if(i===active)continue;
+    boxes[i].effects=clone(src).map(e=>{e.id=++uid;return e;});}
+  scheduleSave();showToast('Copied box '+(active+1)+' → all');
+});
+document.getElementById('rand').addEventListener('click',()=>{
+  boxes[active].effects.forEach(e=>{
+    const def=SCHEMA[e.type];
+    for(const k in def.params){const p=def.params[k];if(k==='__t')continue;
+      if(p.type==='select')e.params[k]=Math.floor(Math.random()*p.options.length);
+      else if(p.type==='toggle')e.params[k]=Math.random()>0.5;
+      else if(p.type==='color'){}
+      else e.params[k]=Math.round((p.min+Math.random()*(p.max-p.min))/p.step)*p.step;
+    }
+  });
+  buildStack();showToast('Randomized box '+(active+1));
+});
+function serialize(){
+  return boxes.map((b,i)=>({box:i+1,layout:b.layout,effects:b.effects.map(e=>({type:e.type,on:e.on,params:e.params,grad:e.grad||undefined}))}));
+}
+/* auto-save: persist every change to localStorage (works when served over http; harmless otherwise) */
+let _saveT=null;
+function save(){ try{ localStorage.setItem('dt-glitch-config',JSON.stringify({v:CFG_VERSION,cfg:serialize()})); }catch(_){ } }
+function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(save,350); }
+stack.addEventListener('input',scheduleSave);   // sliders + colour inputs
+stack.addEventListener('change',scheduleSave);  // selects
+
+/* copy another box's effects into the active box */
+const copyFrom=document.getElementById('copyFrom');
+copyFrom.addEventListener('change',()=>{
+  const i=parseInt(copyFrom.value,10); copyFrom.value='';
+  if(isNaN(i)||i===active) return;
+  boxes[active].effects=clone(boxes[i].effects).map(e=>{e.id=++uid;return e;});
+  buildStack(); showToast('Copied Box '+(i+1)+' → Box '+(active+1));
+});
+
+/* Lab / Landing view toggle (in-document, no storage needed) */
+document.getElementById('lcWord').innerHTML=LOGO_SVG;
+const viewSeg=document.getElementById('viewSeg');
+function setView(v){
+  landingMode=(v==='landing');
+  document.body.classList.toggle('landing',landingMode);
+  [...viewSeg.children].forEach(b=>b.classList.toggle('act',b.dataset.v===v));
+  // best-effort mirror to the standalone index.html when storage is available (served over http)
+  if(landingMode) save();
+}
+[...viewSeg.children].forEach(b=>b.addEventListener('click',()=>setView(b.dataset.v)));
+
+document.getElementById('export').addEventListener('click',()=>{
+  const cfg=serialize();
+  const json=JSON.stringify(cfg,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='glitch-config.json';a.click();
+  URL.revokeObjectURL(url);
+  console.log('[glitch-lab] config:\n'+json);
+  showToast('Exported glitch-config.json');
+});
+
+document.getElementById('gridToggle').addEventListener('click',function(){
+  showGrid=!showGrid;this.classList.toggle('on',showGrid);positionLabels();
+});
+
+/* init */
+selectBox(0);
+resize();
+requestAnimationFrame(frame);
+window.addEventListener('resize',resize);
+</script>
+</body>
+</html>

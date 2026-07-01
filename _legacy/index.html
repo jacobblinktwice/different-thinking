@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Different Thinking — An AI research lab</title>
+<link rel="stylesheet" href="assets/fonts.css" />
+<style>
+  :root{
+    --paper:#FCFCFC;
+    --ink:#0A0A0A;
+    --blue:#0022FF;
+    --hair:rgba(10,10,10,.14);
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Neue Montreal","PP Neue Montreal","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+  body{overflow-x:hidden;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ---------------- HERO ---------------- */
+  .hero{position:relative;width:100%;height:min(100vh,1040px);min-height:660px;overflow:hidden;}
+  #gl{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .guides{position:absolute;inset:0;pointer-events:none;z-index:2;
+    background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(12.5% - 1px),var(--hair) calc(12.5% - 1px),var(--hair) 12.5%);
+    opacity:.5;}
+  .overlay{position:absolute;inset:0;z-index:3;pointer-events:none;}
+  .overlay .clickable{pointer-events:auto;}
+
+  .brand{position:absolute;left:clamp(20px,3vw,54px);top:clamp(18px,4vh,50px);
+    font-size:clamp(20px,2.1vw,31px);font-weight:500;letter-spacing:-.02em;}
+
+  .lede{position:absolute;left:52%;top:clamp(8px,2vh,26px);transform:translateX(-50%);
+    width:min(340px,42vw);font-size:13px;line-height:1.3;letter-spacing:-.005em;}
+  .lede .g{position:relative;display:block;}
+  .lede .g span{display:block;}
+  .lede .g::before,.lede .g::after{content:attr(data-t);position:absolute;left:0;top:0;width:100%;pointer-events:none;}
+  .lede .g::before{color:#12E0C8;transform:translate(-3px,-1px);mix-blend-mode:multiply;animation:sh1 3.1s steps(2) infinite;}
+  .lede .g::after{color:#FF2D8B;transform:translate(3px,1px);mix-blend-mode:multiply;animation:sh2 2.4s steps(2) infinite;}
+  @keyframes sh1{0%,88%,100%{clip-path:inset(0 0 0 0);transform:translate(-3px,-1px)}
+    90%{clip-path:inset(18% 0 55% 0);transform:translate(-11px,-1px)}95%{clip-path:inset(62% 0 8% 0);transform:translate(7px,1px)}}
+  @keyframes sh2{0%,84%,100%{clip-path:inset(0 0 0 0);transform:translate(3px,1px)}
+    88%{clip-path:inset(38% 0 30% 0);transform:translate(13px,0)}93%{clip-path:inset(8% 0 72% 0);transform:translate(-9px,0)}}
+
+  nav.top{position:absolute;right:clamp(18px,3vw,54px);top:clamp(18px,4vh,50px);
+    display:grid;grid-template-columns:auto auto;gap:9px 18px;font-size:15px;letter-spacing:-.01em;}
+  nav.top .idx{font-family:var(--mono);font-size:12px;opacity:.85;}
+  nav.top a{transition:opacity .2s;}
+  nav.top a:hover{opacity:.45;}
+
+  .bug{position:absolute;right:clamp(60px,13vw,220px);top:clamp(150px,24vh,240px);display:flex;align-items:flex-end;gap:8px;}
+  .bug svg{width:52px;height:66px;display:block;animation:jitter 4s steps(3) infinite;}
+  .bug .cc{font-size:14px;letter-spacing:-.01em;transform:translateY(-4px);}
+  @keyframes jitter{0%,90%,100%{transform:translate(0,0) rotate(0)}92%{transform:translate(-3px,2px) rotate(-4deg)}95%{transform:translate(2px,-1px) rotate(3deg)}}
+
+  .codestrip{position:absolute;left:0;right:0;bottom:clamp(14px,3vh,34px);z-index:3;
+    display:flex;justify-content:space-between;padding:0 clamp(20px,3vw,54px);
+    font-family:var(--mono);font-size:15px;pointer-events:none;}
+  .codestrip .mid{margin-left:-16vw;}
+
+  /* ---------------- WIKI ARTICLE ---------------- */
+  section.article{padding:clamp(48px,7vw,110px) clamp(20px,4vw,72px) 60px;border-top:1px solid var(--hair);}
+  .art-head{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:8px;}
+  .art-head h1{font-size:clamp(30px,5vw,60px);font-weight:600;letter-spacing:-.03em;line-height:1;}
+  .art-head .from{font-family:var(--mono);font-size:12px;color:#666;margin-left:auto;letter-spacing:-.01em;}
+  .art-sub{font-family:var(--mono);font-size:12px;color:#666;margin-bottom:26px;}
+  .art-body{column-count:4;column-gap:34px;column-rule:1px solid var(--hair);}
+  .art-body h2{column-span:none;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);
+    margin:18px 0 7px;padding-bottom:5px;border-bottom:1px solid var(--hair);break-after:avoid;}
+  .art-body h2:first-child{margin-top:0;}
+  .art-body p{font-size:13.5px;line-height:1.6;margin-bottom:12px;letter-spacing:-.005em;
+    break-inside:avoid-column;-webkit-column-break-inside:avoid;}
+  .art-body p:first-of-type{font-size:15px;line-height:1.55;}
+  a.wl{color:var(--blue);border-bottom:1px solid rgba(0,34,255,.32);transition:background .15s;cursor:pointer;}
+  a.wl:hover{background:rgba(0,34,255,.1);}
+  @media(max-width:1080px){.art-body{column-count:2;}}
+  @media(max-width:640px){.art-body{column-count:1;column-rule:none;}.lede{display:none;}.bug{right:20px;top:120px;}.codestrip{font-size:12px;}.codestrip .mid{margin-left:0;}}
+
+  .wcard{position:fixed;z-index:60;width:300px;background:var(--paper);border:1px solid var(--hair);
+    box-shadow:0 12px 40px rgba(0,0,0,.16);opacity:0;transform:translateY(6px);pointer-events:none;
+    transition:opacity .16s,transform .16s;overflow:hidden;}
+  .wcard.show{opacity:1;transform:translateY(0);}
+  .wcard .img{width:100%;height:150px;background:#eee center/cover no-repeat;border-bottom:1px solid var(--hair);
+    display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:#999;}
+  .wcard .txt{padding:12px 14px;}
+  .wcard .wt{font-size:15px;font-weight:600;letter-spacing:-.01em;margin-bottom:5px;}
+  .wcard .we{font-size:12px;line-height:1.5;color:#444;max-height:88px;overflow:hidden;}
+  .wcard .src{font-family:var(--mono);font-size:10px;color:#999;margin-top:8px;letter-spacing:.02em;}
+
+  footer.pg{border-top:1px solid var(--hair);padding:38px clamp(20px,4vw,72px);display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;font-family:var(--mono);font-size:12px;color:#555;}
+  footer.pg .big{font-family:var(--sans);font-size:clamp(28px,5vw,64px);font-weight:700;letter-spacing:-.03em;color:var(--ink);width:100%;margin-bottom:24px;}
+</style>
+</head>
+<body>
+
+<!-- ============ HERO ============ -->
+<div class="hero" id="hero">
+  <canvas id="gl"></canvas>
+  <div class="guides"></div>
+  <div class="overlay">
+    <div class="brand">Your Bugs are Cool.</div>
+    <p class="lede"><span class="g" data-t="An AI research lab building products for people who think differently.">An AI research lab building products for people who think differently.</span></p>
+    <nav class="top clickable">
+      <span class="idx">[01]</span><a href="#about">About</a>
+      <span class="idx">[02]</span><a href="#about">Different Thinkers</a>
+      <span class="idx">[03]</span><a href="#about">Alex</a>
+      <span class="idx">[04]</span><a href="#about">Specimen</a>
+    </nav>
+    <div class="bug clickable">
+      <svg viewBox="0 0 52 66" aria-label="bug">
+        <path fill="#0A0A0A" d="M26 5c1.4 3 1 5.7-1 7.7 2.9-1 4.8 1 5.7 3.8-1.9 0-3.8 1-4.8 2.9 3.8 0 6.7 1.9 7.7 5.7-2.9-1-5.7-1-7.7 1 4.8 1 8.6 3.8 9.6 8.6-3.8-1.9-7.7-2.9-10.5-1 3.8 1.9 6.7 4.8 6.7 9.6-2.9-2.9-6.7-4.8-10.5-3.8 1 3.8 0 7.7-2.9 10.5-1-3.8-1-7.7-2.9-10.5-3.8-1-7.7 1-10.5 3.8 0-4.8 2.9-7.7 6.7-9.6-2.9-1.9-6.7-1-10.5 1 1-4.8 4.8-7.7 9.6-8.6-1.9-1.9-4.8-1.9-7.7-1 1-3.8 3.8-5.7 7.7-5.7-1-1.9-2.9-2.9-4.8-2.9 1-2.9 2.9-4.8 5.7-3.8-1.9-1.9-2.4-4.8-1-7.7 1.4 2.4 2.9 3.8 5.7 3.8 2.9 0 4.3-1.4 5.7-3.8z"/>
+        <circle cx="22" cy="28" r="1.9" fill="#FCFCFC"/><circle cx="31" cy="28" r="1.9" fill="#FCFCFC"/>
+      </svg>
+      <span class="cc">Click Click</span>
+    </div>
+    <div class="codestrip"><span>{reSrch}</span><span class="mid">; @}</span><span>&lt;"aiLab"&gt;</span></div>
+  </div>
+</div>
+
+<!-- ============ WIKI ARTICLE ============ -->
+<section class="article" id="about">
+  <div class="art-head">
+    <h1>Different Thinking</h1>
+    <span class="from">reSrch/wiki · last edited 2026</span>
+  </div>
+  <div class="art-sub">An AI research lab building products for people who think differently.</div>
+  <div class="art-body" id="wikibody">
+    <p><b>Different Thinking</b> is an artificial-intelligence research lab that designs tools around cognitive difference rather than against it. Its work draws on ideas from <a class="wl" data-wiki="Neurodiversity">neurodiversity</a>, <a class="wl" data-wiki="Cognitive_science">cognitive science</a>, and <a class="wl" data-wiki="Human–computer_interaction">human–computer interaction</a>, and is organised around the belief that the outliers in a system — the bugs — are usually the most interesting signal.</p>
+    <h2>History</h2>
+    <p>The lab grew out of research into <a class="wl" data-wiki="Machine_learning">machine learning</a> systems that adapt to individual users rather than a statistical average. Early prototypes explored how <a class="wl" data-wiki="Large_language_model">large language models</a> could be tuned to a single person's patterns of attention and memory.</p>
+    <p>Its founding thesis — that difference is a feature — is often traced to earlier arguments in the <a class="wl" data-wiki="Neurodiversity">neurodiversity</a> movement and to accounts of unconventional problem-solving by figures such as <a class="wl" data-wiki="Alan_Turing">Alan Turing</a> and <a class="wl" data-wiki="Temple_Grandin">Temple Grandin</a>.</p>
+    <h2>Research</h2>
+    <p>Published work spans <a class="wl" data-wiki="Reinforcement_learning_from_human_feedback">reinforcement learning from human feedback</a>, personalised <a class="wl" data-wiki="Recommender_system">recommendation</a>, and interface design for <a class="wl" data-wiki="Dyslexia">dyslexia</a> and <a class="wl" data-wiki="Attention_deficit_hyperactivity_disorder">ADHD</a>. A recurring theme is treating error states not as failures to be hidden but as data to be studied.</p>
+    <p>The lab's shader and rendering experiments — the glitching specimens shown above — are part of a research programme on <a class="wl" data-wiki="Generative_art">generative</a> visual systems and <a class="wl" data-wiki="WebGL">WebGL</a>.</p>
+    <h2>Alex</h2>
+    <p><b>Alex</b> is the lab's <a class="wl" data-wiki="Intelligent_tutoring_system">AI coaching</a> product: a conversational coach that adapts to how an individual actually thinks. Rather than enforce one workflow, Alex learns a person's rhythms and reflects them back, drawing on techniques from <a class="wl" data-wiki="Cognitive_behavioral_therapy">cognitive behavioural therapy</a> and <a class="wl" data-wiki="Metacognition">metacognition</a>.</p>
+    <h2>Philosophy</h2>
+    <p>The company slogan, <i>"Your Bugs are Cool,"</i> restates a position long held in <a class="wl" data-wiki="Hacker_culture">hacker culture</a>: that anomalies are where understanding begins. The lab frames <a class="wl" data-wiki="Software_bug">software bugs</a> and cognitive quirks as the same phenomenon viewed at different scales.</p>
+    <h2>Reception</h2>
+    <p>Commentators have compared the lab's output to <a class="wl" data-wiki="Glitch_art">glitch art</a> and to the <a class="wl" data-wiki="Design_studio">studio</a> tradition of treating research as a public artefact.</p>
+    <h2>See also</h2>
+    <p><a class="wl" data-wiki="Neurodiversity">Neurodiversity</a> · <a class="wl" data-wiki="Artificial_intelligence">Artificial intelligence</a> · <a class="wl" data-wiki="Generative_art">Generative art</a> · <a class="wl" data-wiki="Human–computer_interaction">Human–computer interaction</a></p>
+  </div>
+</section>
+
+<div class="wcard" id="wcard"><div class="img" id="wcardImg">loading…</div><div class="txt"><div class="wt" id="wcardT"></div><div class="we" id="wcardE"></div><div class="src">en.wikipedia.org</div></div></div>
+
+<footer class="pg">
+  <div class="big">DifferentThinking</div>
+  <span>{reSrch} © 2026</span><span>; @} different-thinking.lab</span><span>&lt;"aiLab"&gt; — built with WebGL</span>
+</footer>
+
+<script>
+/* =====================================================================
+   Different Thinking — landing hero
+   Multi-pass ping-pong glitch engine. Four freeform boxes, each with a
+   Slice-shift + Pixel-stretch DUPLICATE behind it. Logotype wordmark is
+   composited with a complementary knock-out over the boxes.
+   ===================================================================== */
+const LOGO_SVG = `<svg width="1585" height="228" viewBox="0 0 1585 228" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.22442 156.847C1.44362 156.847 0 155.404 0 153.625V4.74259C0 2.9632 1.44362 1.52072 3.22441 1.52072H60.4401C103.27 1.52072 129.577 29.3273 129.577 79.2923C129.577 129.257 104.14 156.847 61.0923 156.847H3.22442ZM29.0962 23.4619C27.3154 23.4619 25.8718 24.9043 25.8718 26.6837V131.684C25.8718 133.463 27.3154 134.906 29.0962 134.906H59.1356C93.9213 134.906 103.705 109.054 103.705 79.2923C103.705 49.5305 93.9213 23.4619 59.1356 23.4619H29.0962Z" fill="#030303"/><path d="M147.275 49.0593C147.275 47.2799 148.719 45.8375 150.5 45.8375H166.879C168.66 45.8375 170.103 47.2799 170.103 49.0593V153.625C170.103 155.404 168.66 156.847 166.879 156.847H150.5C148.719 156.847 147.275 155.404 147.275 153.625V49.0593Z" fill="#030303"/><path d="M245.798 16.325C245.798 18.3411 243.961 19.8544 241.966 19.5508C225.368 17.0249 220.862 20.7158 220.832 31.4092C220.807 40.2837 220.832 45.8374 229.891 45.8375H251.633C253.413 45.8375 254.857 47.2799 254.857 49.0593V61.2982C254.857 63.0775 253.413 64.52 251.633 64.52H226.321C224.541 64.52 223.097 65.9625 223.097 67.7419V153.625C223.097 155.404 221.653 156.847 219.873 156.847H203.276C201.495 156.847 200.051 155.404 200.051 153.625V67.7419C200.051 65.9625 198.608 64.52 196.827 64.52H187.405C185.624 64.52 184.181 63.0775 184.181 61.2982V49.0593C184.181 47.2799 185.624 45.8375 187.405 45.8375H200.73C201.389 45.8375 201.779 45.0843 201.435 44.5221C199.853 41.9357 197.823 37.252 197.787 29.454C197.787 12.7809 207.788 3.45292e-05 226.05 3.45292e-05C235.013 4.24307e-06 239.029 1.16991 243.755 2.98446C244.991 3.45904 245.798 4.65311 245.798 5.97615V16.325Z" fill="#030303"/><path d="M366.073 141.423C382.996 141.423 390.869 132.032 393.741 125.231C394.299 123.911 395.541 122.957 396.975 122.957H413.179C415.3 122.957 416.845 124.97 416.151 126.972C409.547 146.038 393.368 160.105 366.725 160.105C332.157 160.105 311.068 136.209 311.068 101.451C311.068 65.389 332.157 42.7961 365.638 42.7961C400.525 42.7961 418.14 66.4245 419.081 104.09C419.126 105.869 417.678 107.316 415.897 107.316H337.121C335.34 107.316 333.883 108.762 334.017 110.536C335.313 127.738 347.028 141.423 366.073 141.423ZM365.638 60.8269C348.335 60.8269 335.606 71.6833 334.056 87.1542C333.878 88.9247 335.34 90.3715 337.121 90.3715H393.069C394.85 90.3715 396.31 88.9252 396.147 87.1534C394.717 71.683 382.942 60.8269 365.638 60.8269Z" fill="#030303"/><path d="M485.43 43.2306C488.192 43.2306 490.412 43.3388 492.627 43.5553C494.235 43.7125 495.431 45.0883 495.431 46.7031V64.988C495.431 65.2095 495.251 65.389 495.029 65.389C495.007 65.389 494.984 65.3871 494.962 65.3834C473.019 61.7109 455.427 76.4802 455.427 100.147V153.625C455.427 155.404 453.983 156.847 452.203 156.847H435.823C434.043 156.847 432.599 155.404 432.599 153.625V49.0593C432.599 47.2799 434.043 45.8375 435.823 45.8375H452.203C453.983 45.8375 455.427 47.2799 455.427 49.0593V59.9037C455.535 61.5933 458.003 62.0515 458.828 60.5724C464.687 50.061 473.116 43.2306 485.43 43.2306Z" fill="#030303"/><path d="M553.445 141.423C570.368 141.423 578.241 132.032 581.113 125.231C581.671 123.911 582.913 122.957 584.347 122.957H600.551C602.672 122.957 604.217 124.97 603.523 126.972C596.919 146.038 580.74 160.105 554.097 160.105C519.529 160.105 498.44 136.209 498.44 101.451C498.44 65.389 519.529 42.7961 553.01 42.7961C587.897 42.7961 605.512 66.4245 606.453 104.09C606.498 105.869 605.05 107.316 603.269 107.316H524.493C522.712 107.316 521.255 108.762 521.389 110.536C522.685 127.738 534.4 141.423 553.445 141.423ZM553.01 60.8269C535.707 60.8269 522.978 71.6833 521.428 87.1542C521.25 88.9247 522.712 90.3715 524.493 90.3715H580.441C582.222 90.3715 583.682 88.9252 583.519 87.1534C582.089 71.683 570.314 60.8269 553.01 60.8269Z" fill="#030303"/><path d="M679.759 42.7961C700.413 42.7961 716.719 54.7443 716.719 80.1612V153.625C716.719 155.404 715.275 156.847 713.494 156.847H696.897C695.117 156.847 693.673 155.404 693.673 153.625V86.6785C693.673 71.689 687.368 62.1304 671.715 62.1304C654.104 62.1304 642.799 72.7752 642.799 89.2853V153.625C642.799 155.404 641.355 156.847 639.575 156.847H623.195C621.415 156.847 619.971 155.404 619.971 153.625V49.0593C619.971 47.2799 621.415 45.8375 623.195 45.8375H639.575C641.355 45.8375 642.799 47.2799 642.799 49.0593V55.6494C642.945 57.1736 645 57.731 646.011 56.5796C652.45 49.2406 663.283 42.7961 679.759 42.7961Z" fill="#030303"/><path d="M786.344 61.2982C786.344 63.0775 784.901 64.52 783.12 64.52H768.697C766.916 64.52 765.473 65.9625 765.473 67.7419V124.695C765.473 136.275 770.614 138.497 782.922 138.106C784.777 138.047 786.344 139.51 786.344 141.364V154.085C786.344 155.576 785.321 156.882 783.856 157.168C779.96 157.927 775.692 158.367 770.691 158.367C752.428 158.367 742.427 150.112 742.427 126.65V67.7419C742.427 65.9625 740.984 64.52 739.203 64.52H729.563C727.783 64.52 726.339 63.0775 726.339 61.2982V49.0593C726.339 47.2799 727.783 45.8375 729.563 45.8375H739.203C740.984 45.8375 742.427 44.395 742.427 42.6156V14.0839C742.427 12.3045 743.871 10.862 745.652 10.862H762.248C764.029 10.862 765.473 12.3045 765.473 14.0839V42.6156C765.473 44.395 766.916 45.8375 768.697 45.8375H783.12C784.901 45.8375 786.344 47.2799 786.344 49.0593V61.2982Z" fill="#030303"/><path d="M847.25 156.847C845.47 156.847 844.026 155.404 844.026 153.625V26.6837C844.026 24.9043 842.582 23.4619 840.801 23.4619H797.463C795.683 23.4619 794.239 22.0194 794.239 20.24V4.74259C794.239 2.9632 795.683 1.52072 797.463 1.52072H916.243C918.024 1.52072 919.467 2.9632 919.467 4.74259V20.24C919.467 22.0194 918.024 23.4619 916.243 23.4619H873.122C871.341 23.4619 869.898 24.9043 869.898 26.6837V153.625C869.898 155.404 868.454 156.847 866.673 156.847H847.25Z" fill="#030303"/><path d="M991.911 42.7961C1013 42.7961 1029.31 54.7443 1029.31 80.1612V153.625C1029.31 155.404 1027.86 156.847 1026.08 156.847H1009.48C1007.7 156.847 1006.26 155.404 1006.26 153.625V86.6785C1006.26 71.689 999.955 62.1304 984.084 62.1304C967.343 62.1304 955.386 72.7752 955.386 89.2853V153.625C955.386 155.404 953.942 156.847 952.161 156.847H935.782C934.001 156.847 932.558 155.404 932.558 153.625V4.74259C932.558 2.9632 934.001 1.52072 935.782 1.52072H952.161C953.942 1.52072 955.386 2.9632 955.386 4.74259V55.6494C955.532 57.1736 957.587 57.731 958.597 56.579C965.029 49.2402 975.809 42.7961 991.911 42.7961Z" fill="#030303"/><path d="M1049.53 49.0593C1049.53 47.2799 1050.97 45.8375 1052.75 45.8375H1069.13C1070.91 45.8375 1072.36 47.2799 1072.36 49.0593V153.625C1072.36 155.404 1070.91 156.847 1069.13 156.847H1052.75C1050.97 156.847 1049.53 155.404 1049.53 153.625V49.0593Z" fill="#030303"/><path d="M1153.18 42.7961C1173.83 42.7961 1190.14 54.7443 1190.14 80.1612V153.625C1190.14 155.404 1188.69 156.847 1186.91 156.847H1170.32C1168.54 156.847 1167.09 155.404 1167.09 153.625V86.6785C1167.09 71.689 1160.79 62.1304 1145.13 62.1304C1127.52 62.1304 1116.22 72.7752 1116.22 89.2853V153.625C1116.22 155.404 1114.77 156.847 1112.99 156.847H1096.61C1094.83 156.847 1093.39 155.404 1093.39 153.625V49.0593C1093.39 47.2799 1094.83 45.8375 1096.61 45.8375H1112.99C1114.77 45.8375 1116.22 47.2799 1116.22 49.0593V55.6494C1116.36 57.1736 1118.42 57.731 1119.43 56.5796C1125.87 49.2406 1136.7 42.7961 1153.18 42.7961Z" fill="#030303"/><path d="M1208.84 4.74259C1208.84 2.9632 1210.28 1.52072 1212.06 1.52072H1228.44C1230.22 1.52072 1231.67 2.9632 1231.67 4.74259V86.522C1231.67 87.9515 1233.39 88.6728 1234.41 87.6693L1275.95 46.7646C1276.55 46.1705 1277.36 45.8375 1278.21 45.8375H1297.03C1299.92 45.8375 1301.35 49.3414 1299.29 51.3611L1264.67 85.241C1263.56 86.3262 1263.38 88.047 1264.25 89.3357L1306.14 151.832C1307.57 153.972 1306.04 156.847 1303.46 156.847H1283.87C1282.77 156.847 1281.75 156.286 1281.16 155.359L1249.2 105.382C1248.11 103.68 1245.74 103.387 1244.27 104.774L1232.68 115.704C1232.03 116.312 1231.67 117.16 1231.67 118.047V153.625C1231.67 155.404 1230.22 156.847 1228.44 156.847H1212.06C1210.28 156.847 1208.84 155.404 1208.84 153.625V4.74259Z" fill="#030303"/><path d="M1319.44 49.0593C1319.44 47.2799 1320.88 45.8375 1322.66 45.8375H1339.04C1340.82 45.8375 1342.27 47.2799 1342.27 49.0593V153.625C1342.27 155.404 1340.82 156.847 1339.04 156.847H1322.66C1320.88 156.847 1319.44 155.404 1319.44 153.625V49.0593Z" fill="#030303"/><path d="M1423.09 42.7961C1443.74 42.7961 1460.05 54.7443 1460.05 80.1612V153.625C1460.05 155.404 1458.61 156.847 1456.83 156.847H1440.23C1438.45 156.847 1437 155.404 1437 153.625V86.6785C1437 71.689 1430.7 62.1304 1415.05 62.1304C1397.44 62.1304 1386.13 72.7752 1386.13 89.2853V153.625C1386.13 155.404 1384.69 156.847 1382.91 156.847H1366.53C1364.75 156.847 1363.3 155.404 1363.3 153.625V49.0593C1363.3 47.2799 1364.75 45.8375 1366.53 45.8375H1382.91C1384.69 45.8375 1386.13 47.2799 1386.13 49.0593V55.6494C1386.28 57.1736 1388.33 57.731 1389.34 56.5796C1395.78 49.2406 1406.61 42.7961 1423.09 42.7961Z" fill="#030303"/><path d="M166.429 3.83181C166.044 2.0963 164.325 1.0001 162.588 1.38213L145.239 5.19694C143.509 5.57717 142.411 7.27959 142.777 9.01049L146.598 27.0539C146.97 28.8124 148.711 29.9264 150.465 29.5291L167.962 25.5673C169.692 25.1753 170.781 23.4595 170.397 21.7282L166.429 3.83181Z" fill="#030303"/><path d="M1068.68 3.8237C1068.3 2.08818 1066.58 0.991985 1064.84 1.37402L1047.49 5.18883C1045.76 5.56906 1044.66 7.27147 1045.03 9.00238L1048.85 27.0457C1049.22 28.8043 1050.96 29.9182 1052.72 29.521L1070.21 25.5591C1071.95 25.1672 1073.03 23.4514 1072.65 21.72L1068.68 3.8237Z" fill="#030303"/><path d="M1338.59 3.8237C1338.21 2.08818 1336.49 0.991985 1334.75 1.37402L1317.4 5.18883C1315.67 5.56906 1314.57 7.27147 1314.94 9.00238L1318.76 27.0457C1319.13 28.8043 1320.88 29.9182 1322.63 29.521L1340.13 25.5591C1341.86 25.1672 1342.95 23.4514 1342.56 21.72L1338.59 3.8237Z" fill="#030303"/><path d="M306.945 14.7553C306.945 17.5873 304.368 19.7054 301.559 19.3278C286.232 17.2677 282.008 21.0573 281.979 31.4091C281.954 40.2837 281.979 45.8374 291.038 45.8374H304.68C307.182 45.8374 309.21 47.8637 309.21 50.3632V59.9942C309.21 62.4937 307.182 64.52 304.68 64.52H288.773C286.272 64.52 284.244 66.5463 284.244 69.0458V152.321C284.244 154.82 282.216 156.847 279.714 156.847H265.728C263.226 156.847 261.198 154.82 261.198 152.321V69.0458C261.198 66.5463 259.17 64.52 256.669 64.52H240.798C238.296 64.52 236.268 62.4937 236.268 59.9942V50.3632C236.268 47.8637 238.296 45.8374 240.798 45.8374H261.234C262.161 45.8374 262.712 44.7737 262.255 43.9685C260.734 41.2883 258.967 36.7249 258.933 29.454C258.933 12.7809 268.934 5.87978e-10 287.197 5.87978e-10C295.63 -2.84975e-05 299.684 1.03582 304.071 2.66989C305.813 3.31913 306.945 5.00497 306.945 6.86346V14.7553Z" fill="#030303"/><path d="M1527.4 138.462C1519.04 138.462 1511.83 137.497 1505.66 135.568C1504.99 135.358 1504.26 135.336 1503.63 135.634C1500.26 137.214 1498.13 140.768 1498.13 146.113C1498.13 153.645 1502.43 157.949 1510.56 158.428L1554.34 161.297C1573.85 162.492 1584.19 172.655 1584.19 191.783C1584.19 212.825 1566.24 228 1529.78 228C1495.05 228 1476.41 217.949 1476.29 193.081V192.579C1476.29 190.799 1477.74 189.357 1479.52 189.357H1495.72C1497.5 189.357 1498.94 190.799 1498.94 192.579V192.962C1499.29 207.428 1508.99 210.554 1529.78 210.554C1551.15 210.554 1561.54 203.38 1561.54 193.218V192.979C1561.54 184.371 1556.78 179.469 1547.49 178.871L1504.75 176.241C1486.75 175.165 1478.15 166.796 1478.15 153.287C1478.15 142.353 1485.27 135.962 1494.62 132.422C1495.28 132.174 1495.38 131.24 1494.8 130.839C1485.45 124.329 1479.08 107.691 1479.08 95.5415V90.1615C1479.08 64.9267 1496.21 47.3608 1527.4 47.3608C1541.23 47.3608 1548.34 48.8611 1556.18 53.33C1557.34 53.9897 1558.84 53.0952 1558.94 51.7677C1559.76 41.3884 1569.29 37.9159 1579.66 37.9159C1580.69 37.9159 1581.68 37.9741 1582.53 38.0514C1583.99 38.1851 1585 39.4214 1585 40.8913V51.8788C1585 53.8033 1583.33 55.2427 1581.41 55.1043C1580.65 55.0496 1579.82 55.0123 1578.96 55.0123C1572.74 55.0123 1569.03 56.7974 1567.54 59.8278C1567.09 60.7409 1567.39 61.7998 1568 62.6193C1573.35 69.8753 1575.83 81.0208 1575.83 90.1615V95.7806C1575.83 120.896 1558.69 138.462 1527.4 138.462ZM1527.51 121.626C1544.47 121.626 1552.97 111.443 1552.97 93.3394C1552.97 75.2362 1545.89 63.9216 1527.51 63.9216C1509.13 63.9216 1502.01 75.2362 1502.01 93.3394C1502.01 111.443 1510.56 121.626 1527.51 121.626Z" fill="#030303"/></svg>`;
+
+/* ---------- shared GLSL ---------- */
+const VERT = `attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0.0,1.0);}`;
+const COMMON = `
+precision highp float;
+uniform vec2 u_res; uniform float u_time; uniform vec2 u_px;
+const float PI=3.14159265;
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+float hash11(float p){p=fract(p*0.1031);p*=p+33.33;p*=p+p;return fract(p);}
+float hash21(vec2 p){vec3 q=fract(vec3(p.xyx)*0.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+float vnoise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.0-2.0*f);
+  float a=hash21(i),b=hash21(i+vec2(1,0)),c=hash21(i+vec2(0,1)),d=hash21(i+vec2(1,1));
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}
+uniform vec3 u_gcol[5]; uniform float u_gpos[5]; uniform int u_gcount;
+vec3 sampleGrad(float t){ t=clamp(t,0.0,1.0); vec3 c=u_gcol[0];
+  for(int i=0;i<4;i++){ if(i+1<u_gcount){ float seg=clamp((t-u_gpos[i])/max(u_gpos[i+1]-u_gpos[i],1e-4),0.0,1.0); c=mix(c,u_gcol[i+1],seg);} } return c; }
+`;
+const FRAG_FILL = COMMON + `void main(){vec2 uv=gl_FragCoord.xy/u_res;gl_FragColor=vec4(vec3(0.16+uv.y*0.66),1.0);}`;
+const FRAG_METAL = COMMON + `
+uniform float u_scale,u_stretch,u_angle,u_rough,u_rgbsplit,u_depth,u_repeats,u_offset,u_phase,u_evo,u_speed;
+float fbm(vec2 p){float s=0.0,amp=0.5,tot=0.0;for(int i=0;i<6;i++){s+=amp*vnoise(p);tot+=amp;p=p*2.03+vec2(11.3,7.7);amp*=mix(0.34,0.62,u_rough);}return s/tot;}
+float field(vec2 uv,float chan){float ang=u_angle*PI/180.0;vec2 p=rot(ang)*(uv-0.5);
+  p.x*=(0.2+u_stretch/100.0);p*=mix(1.0,15.0,u_scale/100.0);p+=u_phase/100.0*6.2831;p+=u_evo/100.0*7.0;p+=chan*u_rgbsplit/100.0*0.5;
+  float t=u_time*u_speed/100.0*0.6;vec2 w=vec2(fbm(p+t),fbm(p.yx-t*0.8));float f=fbm(p+w*2.4);
+  f=fract(f*max(u_repeats,1.0)+u_offset/100.0);f=clamp((f-0.5)*(0.4+u_depth/100.0*1.6)+0.5,0.0,1.0);return f;}
+void main(){vec2 uv=gl_FragCoord.xy/u_res;float r=field(uv,-1.0),g=field(uv,0.0),b=field(uv,1.0);
+  gl_FragColor=vec4(sampleGrad(r).r,sampleGrad(g).g,sampleGrad(b).b,1.0);}`;
+const FRAG_PIXSTRETCH = COMMON + `
+uniform sampler2D u_src; uniform float u_offset,u_smooth,u_falloff,u_tx,u_ty,u_prot,u_pangle;
+void main(){vec2 uv=gl_FragCoord.xy/u_res;vec2 pivot=vec2(u_tx,u_ty)/100.0;float ang=(u_pangle+u_prot)*PI/180.0;
+  vec2 dir=vec2(cos(ang),sin(ang));float off=u_offset/100.0,sm=u_smooth/100.0,fall=u_falloff/100.0;
+  float t=dot(uv-pivot,dir);float d=t-off;float pull=sm>0.001?smoothstep(0.0,sm,abs(d)):1.0;
+  if(fall>0.001)pull*=(1.0-smoothstep(0.0,fall,abs(d)));float side=(off>=0.0)?step(off,t):step(t,off);pull*=side;
+  gl_FragColor=texture2D(u_src,clamp(uv-dir*(d*pull),0.0,1.0));}`;
+const FRAG_GRADMAP = COMMON + `
+uniform sampler2D u_src; uniform float u_scatter,u_offset,u_repeatType,u_repeatFreq,u_mixSpace;
+float toLin(float c){return c<=0.04045?c/12.92:pow((c+0.055)/1.055,2.4);}
+void main(){vec2 uv=gl_FragCoord.xy/u_res;vec3 s=texture2D(u_src,uv).rgb;
+  vec3 lc=(u_mixSpace>0.5)?vec3(toLin(s.r),toLin(s.g),toLin(s.b)):s;float L=dot(lc,vec3(0.299,0.587,0.114));
+  float j=(hash21(floor(uv*u_px))-0.5)*u_scatter/100.0*0.5;float t=L*max(u_repeatFreq,1.0)+u_offset/100.0+j;
+  if(u_repeatType<0.5){t=clamp(t,0.0,1.0);}else if(u_repeatType<1.5){t=fract(t);}else{t=abs(fract(t*0.5)*2.0-1.0);}
+  gl_FragColor=vec4(sampleGrad(t),1.0);}`;
+const FRAG_REFRACT = COMMON + `
+uniform sampler2D u_src; uniform float u_pattern,u_strength,u_smooth,u_frost,u_disp,u_edge,u_tx,u_ty,u_pscale,u_pangle;
+vec2 wrapUV(vec2 uv){if(u_edge<0.5)return clamp(uv,0.0,1.0);else if(u_edge<1.5)return fract(uv);else return abs(fract(uv*0.5)*2.0-1.0);}
+float pat(vec2 p){if(u_pattern<0.5)return sin(p.x*6.2831+p.y*2.0)*0.5+cos(p.y*6.2831)*0.5;
+  else if(u_pattern<1.5)return sin(length(p-0.5)*30.0);else if(u_pattern<2.5)return sign(sin(p.x*18.0)*sin(p.y*18.0));return vnoise(p*8.0)*2.0-1.0;}
+void main(){vec2 uv=gl_FragCoord.xy/u_res;vec2 c=vec2(u_tx,u_ty)/100.0;vec2 q=rot(u_pangle*PI/180.0)*(uv-c);q*=mix(0.5,4.0,u_pscale);
+  float sm=mix(1.0,6.0,u_smooth/100.0);vec2 grad=vec2(pat(q+vec2(0.01,0.0))-pat(q-vec2(0.01,0.0)),pat(q+vec2(0.0,0.01))-pat(q-vec2(0.0,0.01)))/(0.02*sm);
+  vec2 disp=grad*(u_strength/100.0)*0.18;vec2 fr=(vec2(hash21(floor(uv*u_px)),hash21(floor(uv*u_px)+7.3))-0.5)*u_frost/100.0*0.03;float dd=u_disp/100.0*0.5;
+  vec3 col;col.r=texture2D(u_src,wrapUV(uv+disp*(1.0+dd)+fr)).r;col.g=texture2D(u_src,wrapUV(uv+disp+fr)).g;col.b=texture2D(u_src,wrapUV(uv+disp*(1.0-dd)+fr)).b;
+  gl_FragColor=vec4(col,1.0);}`;
+const FRAG_SLICE = COMMON + `
+uniform sampler2D u_src; uniform float u_shift,u_soft,u_random,u_tx,u_ty,u_srot,u_sangle,u_speed,u_glitch;
+float rowShift(float row){
+  float t=u_time*u_speed*0.2;
+  float a=hash11(row*1.7+u_random+floor(t)),b=hash11(row*1.7+u_random+floor(t)+1.0);
+  float sh=(mix(a,b,smoothstep(0.0,1.0,fract(t)))-0.5)*u_shift/100.0;
+  float g=u_glitch/100.0;float gt=floor(u_time*(3.0+g*22.0));
+  float gate=step(1.0-g*0.75,hash11(gt*1.7+row*0.37));
+  sh+=(hash11(gt+row*2.3)-0.5)*g*(u_shift/100.0)*2.5*gate;
+  return sh;
+}
+void main(){vec2 uv=gl_FragCoord.xy/u_res;vec2 c=vec2(u_tx,u_ty)/100.0;vec2 p=rot(u_srot*PI/180.0)*(uv-c)+c;
+  float N=8.0+floor(mod(u_random,40.0))+8.0;float rowf=p.y*N;float row=floor(rowf),frac=fract(rowf);
+  float sh=rowShift(row);float shN=rowShift(row+1.0);
+  float soft=u_soft/100.0;float blend=soft<=0.001?0.0:smoothstep(1.0-soft,1.0,frac);float s=mix(sh,shN,blend);
+  vec2 dir=rot(u_sangle*PI/180.0)*vec2(1.0,0.0);gl_FragColor=texture2D(u_src,clamp(uv+dir*s,0.0,1.0));}`;
+const FRAG_DITHER = COMMON + `
+uniform sampler2D u_src; uniform float u_style,u_size,u_levels,u_bright,u_contrast,u_mono; uniform vec3 u_monoCol;
+float bayer2(vec2 a){a=floor(a);return fract(a.x/2.0+a.y*a.y*0.75);}float bayer4(vec2 a){return bayer2(0.5*a)*0.25+bayer2(a);}float bayer8(vec2 a){return bayer4(0.5*a)*0.25+bayer2(a);}
+void main(){vec2 uv=gl_FragCoord.xy/u_res;vec3 c=texture2D(u_src,uv).rgb;c=(c-0.5)*u_contrast+0.5;c*=u_bright/100.0;c=clamp(c,0.0,1.0);
+  vec2 pc=uv*u_px/max(u_size,1.0);float th;if(u_style<0.5)th=bayer2(pc);else if(u_style<1.5)th=bayer4(pc);else th=bayer8(pc);th-=0.5;
+  float lv=max(u_levels,2.0)-1.0;if(u_mono>0.5){float L=dot(c,vec3(0.299,0.587,0.114));L=floor(L*lv+0.5+th)/lv;gl_FragColor=vec4(u_monoCol*L,1.0);}
+  else{c=floor(c*lv+0.5+th)/lv;gl_FragColor=vec4(c,1.0);}}`;
+const FRAG_BLIT = COMMON + `
+uniform sampler2D u_src; uniform vec2 u_origin,u_size; uniform float u_round,u_opacity;
+void main(){vec2 local=(gl_FragCoord.xy-u_origin)/u_size;vec3 col=texture2D(u_src,local).rgb;
+  vec2 hs=u_size*0.5;float r=u_round*min(hs.x,hs.y);vec2 pxy=(local-0.5)*u_size;vec2 d=abs(pxy)-(hs-r);
+  float dist=length(max(d,0.0))+min(max(d.x,d.y),0.0)-r;float a=(1.0-smoothstep(-1.0,1.0,dist))*u_opacity;
+  gl_FragColor=vec4(col,a);}`;
+/* final: scene + wordmark knock-out */
+const FRAG_FINAL = COMMON + `
+uniform sampler2D u_scene,u_word;
+void main(){vec2 uv=gl_FragCoord.xy/u_res;vec4 s=texture2D(u_scene,uv);float wm=texture2D(u_word,uv).a;
+  vec3 wcol=mix(vec3(0.02),clamp(1.0-s.rgb,0.0,1.0),s.a);vec3 col=mix(s.rgb,wcol,wm);gl_FragColor=vec4(col,1.0);}`;
+
+/* ---------- gradients ---------- */
+const G=(arr)=>arr.map(x=>({p:x[0],c:x[1]}));
+const GRAD_METAL=G([[0,'#FFFFFF'],[0.55,'#7A7A7A'],[1,'#2B2B2B']]);
+const GR_RED   =G([[0,'#FFFFFF'],[0.5,'#FF2D5E'],[1,'#5B0E3E']]);
+const GR_TEAL  =G([[0,'#FFFFFF'],[0.45,'#19C6A6'],[1,'#0B4D6B']]);
+const GR_BLUE  =G([[0,'#FFFFFF'],[0.5,'#2E7BFF'],[1,'#0A1E7A']]);
+const GR_PURPLE=G([[0,'#FFFFFF'],[0.45,'#C026D3'],[1,'#4C1D95']]);
+
+/* ---------- effect factory (params match Figma defaults) ---------- */
+const DEF={
+  metal:{scale:16,stretch:180,angle:24,rough:10,rgbsplit:45,depth:100,rounding:0,repeats:2,offset:0,phase:0,evo:0,speed:22},
+  gradmap:{scatter:5,offset:8,repeatType:2,repeatFreq:1,mixSpace:0},
+  refract:{pattern:0,strength:-28,smooth:33,frost:60,disp:80,edge:0,tx:50,ty:50,pscale:0.09,pangle:45},
+  slice:{shift:60,soft:0,random:165,speed:0,glitch:0,tx:50,ty:50,srot:386,sangle:0},
+  dither:{style:2,size:6,levels:3,bright:96,contrast:1.1,mono:0,monoCol:[1,1,1]},
+  pixstretch:{offset:-40,smooth:26,falloff:0,tx:50,ty:50,prot:0,pangle:0},
+};
+function fx(type,over,grad){return {type,on:true,params:Object.assign({},DEF[type],over||{}),grad:grad||null};}
+const DEFAULT_CFG=[{"box":1,"layout":{"x":0.34700000000000003,"y":0.183,"w":0.23600000000000002,"h":0.31},"effects":[{"type":"gradmap","on":true,"params":{"scatter":41.6,"offset":40.3,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#56f0ca"},{"p":0.45,"c":"#f9432f"},{"p":1,"c":"#ff0000"}]},{"type":"pixstretch","on":true,"params":{"offset":21,"smooth":16,"falloff":89,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"slice","on":true,"params":{"shift":38,"soft":6,"random":17,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"refract","on":false,"params":{"pattern":1,"strength":31,"smooth":0,"frost":75,"disp":28,"edge":0,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":true,"params":{"style":0,"size":11,"levels":6,"bright":52,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":55,"rough":0,"rgbsplit":35,"scale":0,"stretch":240,"angle":34,"repeats":2,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]},{"box":2,"layout":{"x":0.113,"y":0.31,"w":0.44,"h":0.37},"effects":[{"type":"gradmap","on":true,"params":{"scatter":26.4,"offset":10.7,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.45,"c":"#19C6A6"},{"p":1,"c":"#0B4D6B"}]},{"type":"pixstretch","on":true,"params":{"offset":8,"smooth":38,"falloff":97,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"slice","on":true,"params":{"shift":11,"soft":0,"random":0,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"refract","on":true,"params":{"pattern":0,"strength":-43,"smooth":0,"frost":100,"disp":52,"edge":0,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":true,"params":{"style":2,"size":16,"levels":2,"bright":66,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":100,"rough":0,"rgbsplit":35,"scale":12,"stretch":240,"angle":34,"repeats":2,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]},{"box":3,"layout":{"x":0.308,"y":0.47,"w":0.382,"h":0.322},"effects":[{"type":"gradmap","on":true,"params":{"scatter":57.9,"offset":0,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#00fbff"},{"p":0.45,"c":"#ff3860"},{"p":1,"c":"#3b05ff"}]},{"type":"slice","on":true,"params":{"shift":11,"soft":0,"random":0,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"pixstretch","on":true,"params":{"offset":0,"smooth":0,"falloff":60,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"refract","on":true,"params":{"pattern":1,"strength":9,"smooth":71,"frost":100,"disp":53,"edge":1,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":true,"params":{"style":2,"size":16,"levels":2,"bright":66,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":90,"rough":0,"rgbsplit":94,"scale":21,"stretch":128,"angle":34,"repeats":3,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]},{"box":4,"layout":{"x":0.628,"y":0.248,"w":0.23399999999999999,"h":0.502},"effects":[{"type":"gradmap","on":true,"params":{"scatter":26.4,"offset":10.7,"repeatType":2,"repeatFreq":1,"mixSpace":0},"grad":[{"p":0,"c":"#2aeaca"},{"p":0.45,"c":"#6338ff"},{"p":1,"c":"#750066"}]},{"type":"pixstretch","on":true,"params":{"offset":-3,"smooth":0,"falloff":72,"tx":50,"ty":50,"prot":165.91,"pangle":-18.44}},{"type":"slice","on":true,"params":{"shift":11,"soft":0,"random":0,"tx":50,"ty":50,"srot":0,"sangle":0}},{"type":"refract","on":true,"params":{"pattern":3,"strength":32,"smooth":26,"frost":91,"disp":57,"edge":1,"tx":50,"ty":50,"pscale":0,"pangle":45}},{"type":"dither","on":false,"params":{"style":2,"size":16,"levels":2,"bright":66,"contrast":1.77,"mono":false,"monoCol":"#FFFFFF"}},{"type":"metal","on":true,"params":{"rounding":0,"depth":76,"rough":0,"rgbsplit":67,"scale":26,"stretch":0,"angle":-83,"repeats":2,"offset":0,"phase":0,"evo":0,"speed":24},"grad":[{"p":0,"c":"#FFFFFF"},{"p":0.55,"c":"#7A7A7A"},{"p":1,"c":"#2B2B2B"}]}]}];
+
+/* ---------- composition: 4 boxes, each with a slice+pixel-stretch echo ---------- */
+/* rect = [x,y,w,h] as fraction of hero. Echoes drawn behind mains. */
+const BOXES=[
+  { name:'red', rect:[0.295,0.17,0.185,0.27], round:0,
+    main:[ fx('metal',{stretch:120,angle:18,scale:26,rough:22,speed:20}),
+           fx('gradmap',{},GR_RED), fx('dither',{levels:3,size:5,bright:104}) ],
+    echo:{ rect:[0.44,0.28,0.085,0.42], opacity:0.9,
+      extra:[ fx('slice',{shift:34,random:120}), fx('pixstretch',{offset:-46,pangle:88,prot:0,smooth:18}) ] } },
+
+  { name:'teal', rect:[-0.02,0.31,0.50,0.37], round:0,
+    main:[ fx('metal',{stretch:240,angle:34,scale:12,rough:8,rgbsplit:35,speed:24}),
+           fx('refract',{strength:-30,disp:90,frost:40}), fx('gradmap',{},GR_TEAL) ],
+    echo:{ rect:[-0.02,0.6,0.52,0.28], opacity:0.95,
+      extra:[ fx('slice',{shift:22,random:210,srot:0}), fx('pixstretch',{offset:38,pangle:2,prot:0,smooth:30}) ] } },
+
+  { name:'blue', rect:[0.455,0.47,0.135,0.18], round:0,
+    main:[ fx('metal',{stretch:80,angle:60,scale:34,rough:26,speed:26}),
+           fx('refract',{pattern:1,strength:40,disp:60}), fx('gradmap',{},GR_BLUE), fx('dither',{levels:3,size:5}) ],
+    echo:{ rect:[0.44,0.55,0.17,0.20], opacity:0.9,
+      extra:[ fx('slice',{shift:30,random:88}), fx('pixstretch',{offset:-30,pangle:70,prot:0}) ] } },
+
+  { name:'purple', rect:[0.55,0.375,0.335,0.36], round:0,
+    main:[ fx('metal',{stretch:220,angle:-18,scale:13,rough:9,rgbsplit:35,speed:24}),
+           fx('refract',{strength:-26,disp:90,frost:40}), fx('gradmap',{},GR_PURPLE) ],
+    echo:{ rect:[0.54,0.62,0.345,0.28], opacity:0.95,
+      extra:[ fx('slice',{shift:20,random:300,srot:0}), fx('pixstretch',{offset:44,pangle:-4,prot:0,smooth:30}) ] } },
+];
+
+/* ---------- consume lab config (localStorage) → makes the lab the source of truth ----------
+   The lab stores effects top→bottom (Figma order); we reverse to processing order.
+   Each box's echo (slice + pixel-stretch duplicate) is derived from its rect so it follows moves. */
+function applyConfig(cfg){
+  if(!Array.isArray(cfg)||!cfg.length) return;
+  const built=cfg.map(c=>{
+    const L=c.layout||{x:0.1,y:0.1,w:0.3,h:0.3};
+    const rect=[L.x,L.y,L.w,L.h];
+    const main=(c.effects||[]).slice().reverse().map(e=>({type:e.type,on:e.on!==false,params:e.params,grad:e.grad||null}));
+    const metal=main.find(e=>e.type==='metal');
+    const round=metal?(metal.params.rounding||0)/100:0;
+    const echo={ rect:[rect[0], Math.min(rect[1]+rect[3]*0.5,0.9), rect[2], Math.max(rect[3]*0.85,0.14)], opacity:0.95,
+      extra:[ fx('slice',{shift:24,random:180,srot:0}), fx('pixstretch',{offset:40,pangle:0,prot:0,smooth:28}) ] };
+    return {name:c.box,rect,round,main,echo};
+  });
+  BOXES.length=0; built.forEach(b=>BOXES.push(b));
+}
+const CFG_VERSION=6;
+applyConfig(DEFAULT_CFG);  // baked default — the dialed-in config, survives edits/reloads
+function loadSaved(str){ try{ const o=JSON.parse(str); if(o&&o.v===CFG_VERSION&&Array.isArray(o.cfg)) applyConfig(o.cfg); }catch(_){ } }
+try{ const saved=localStorage.getItem('dt-glitch-config'); if(saved) loadSaved(saved); }catch(e){}
+window.addEventListener('storage',e=>{ if(e.key==='dt-glitch-config'&&e.newValue) loadSaved(e.newValue); });
+
+/* =====================================================================
+   WebGL engine
+   ===================================================================== */
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl',{antialias:false,premultipliedAlpha:false});
+let running=true, elapsed=0, tPrev=0;
+if(!gl){ document.getElementById('hero').style.background='linear-gradient(120deg,#12e0c8,#2b3aff,#c81e8c)'; }
+
+function compile(t,s){const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);
+  if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));return sh;}
+function makeProg(f){const p=gl.createProgram();gl.attachShader(p,compile(gl.VERTEX_SHADER,VERT));gl.attachShader(p,compile(gl.FRAGMENT_SHADER,f));
+  gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
+let PROG,vbo,ping,pong,fboW=0,fboH=0,sceneFBO,sceneW=0,sceneH=0,wordTex,wordCanvas,wordImg,wordReady=false;
+
+function bindAttr(prog){const loc=gl.getAttribLocation(prog,'a_pos');gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);}
+function makeFBO(w,h){const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tex,0);return {fb,tex,w,h};}
+function ensurePP(w,h){if(w===fboW&&h===fboH&&ping)return;fboW=w;fboH=h;ping=makeFBO(w,h);pong=makeFBO(w,h);}
+function ensureScene(w,h){if(w===sceneW&&h===sceneH&&sceneFBO)return;sceneW=w;sceneH=h;sceneFBO=makeFBO(w,h);}
+function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.substr(0,2),16)/255,parseInt(h.substr(2,2),16)/255,parseInt(h.substr(4,2),16)/255];}
+function U(p,n){return gl.getUniformLocation(p,n);}
+function setF(p,n,v){const l=U(p,n);if(l)gl.uniform1f(l,v);}
+function setGrad(prog,grad){const cols=[],pos=[];const g=grad||GRAD_METAL;
+  for(let i=0;i<5;i++){const s=g[Math.min(i,g.length-1)];const rgb=hex2rgb(s.c);cols.push(rgb[0],rgb[1],rgb[2]);pos.push(g[i]?g[i].p:1);}
+  gl.uniform3fv(U(prog,'u_gcol'),cols);gl.uniform1fv(U(prog,'u_gpos'),pos);gl.uniform1i(U(prog,'u_gcount'),Math.min(g.length,5));}
+
+function initGL(){
+  PROG={fill:makeProg(FRAG_FILL),metal:makeProg(FRAG_METAL),pixstretch:makeProg(FRAG_PIXSTRETCH),
+    gradmap:makeProg(FRAG_GRADMAP),refract:makeProg(FRAG_REFRACT),slice:makeProg(FRAG_SLICE),
+    dither:makeProg(FRAG_DITHER),blit:makeProg(FRAG_BLIT),final:makeProg(FRAG_FINAL)};
+  vbo=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+  wordCanvas=document.createElement('canvas');
+  wordTex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,wordTex);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  wordImg=new Image();wordImg.onload=()=>{wordReady=true;renderWord();};
+  wordImg.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(LOGO_SVG)));
+}
+
+function drawPass(type,e,srcTex,res){
+  const prog=PROG[type];gl.useProgram(prog);bindAttr(prog);
+  gl.uniform2f(U(prog,'u_res'),res.w,res.h);gl.uniform1f(U(prog,'u_time'),elapsed);
+  {const REF=900.0,ar=res.w/res.h;const lpx=U(prog,'u_px');if(lpx)gl.uniform2f(lpx,ar>=1.0?REF:REF*ar,ar>=1.0?REF/ar:REF);}
+  if(srcTex){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,srcTex);gl.uniform1i(U(prog,'u_src'),0);}
+  const p=e?e.params:{};
+  if(type==='metal'){setGrad(prog,e.grad);setF(prog,'u_scale',p.scale);setF(prog,'u_stretch',p.stretch);setF(prog,'u_angle',p.angle);
+    setF(prog,'u_rough',p.rough);setF(prog,'u_rgbsplit',p.rgbsplit);setF(prog,'u_depth',p.depth);setF(prog,'u_repeats',p.repeats);
+    setF(prog,'u_offset',p.offset);setF(prog,'u_phase',p.phase);setF(prog,'u_evo',p.evo);setF(prog,'u_speed',p.speed);}
+  else if(type==='pixstretch'){setF(prog,'u_offset',p.offset);setF(prog,'u_smooth',p.smooth);setF(prog,'u_falloff',p.falloff);
+    setF(prog,'u_tx',p.tx);setF(prog,'u_ty',p.ty);setF(prog,'u_prot',p.prot);setF(prog,'u_pangle',p.pangle);}
+  else if(type==='gradmap'){setGrad(prog,e.grad);setF(prog,'u_scatter',p.scatter);setF(prog,'u_offset',p.offset);
+    setF(prog,'u_repeatType',p.repeatType);setF(prog,'u_repeatFreq',p.repeatFreq);setF(prog,'u_mixSpace',p.mixSpace);}
+  else if(type==='refract'){setF(prog,'u_pattern',p.pattern);setF(prog,'u_strength',p.strength);setF(prog,'u_smooth',p.smooth);
+    setF(prog,'u_frost',p.frost);setF(prog,'u_disp',p.disp);setF(prog,'u_edge',p.edge);setF(prog,'u_tx',p.tx);setF(prog,'u_ty',p.ty);
+    setF(prog,'u_pscale',p.pscale);setF(prog,'u_pangle',p.pangle);}
+  else if(type==='slice'){setF(prog,'u_shift',p.shift);setF(prog,'u_soft',p.soft);setF(prog,'u_random',p.random);
+    setF(prog,'u_tx',p.tx);setF(prog,'u_ty',p.ty);setF(prog,'u_srot',p.srot);setF(prog,'u_sangle',p.sangle);
+    setF(prog,'u_speed',p.speed||0);setF(prog,'u_glitch',p.glitch||0);}
+  else if(type==='dither'){setF(prog,'u_style',p.style);setF(prog,'u_size',p.size);setF(prog,'u_levels',p.levels);
+    setF(prog,'u_bright',p.bright);setF(prog,'u_contrast',p.contrast);setF(prog,'u_mono',p.mono);
+    const mc=p.monoCol||[1,1,1];gl.uniform3f(U(prog,'u_monoCol'),mc[0],mc[1],mc[2]);}
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+/* renderChain: effects applied in array order (first→last). Returns texture. */
+function renderChain(effects,res){
+  ensurePP(res.w,res.h);gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,ping.fb);gl.viewport(0,0,res.w,res.h);drawPass('fill',null,null,res);
+  let src=ping,dst=pong;
+  for(const e of effects){ if(!e.on)continue;
+    gl.bindFramebuffer(gl.FRAMEBUFFER,dst.fb);gl.viewport(0,0,res.w,res.h);drawPass(e.type,e,src.tex,res);
+    const t=src;src=dst;dst=t; }
+  return src.tex;
+}
+/* composite a rendered box texture into the scene FBO at a hero-fraction rect */
+function compositeInto(tex,rect,round,opacity,dpr){
+  const ox=Math.floor(rect[0]*canvas.width), oy=Math.floor((1-(rect[1]+rect[3]))*canvas.height);
+  const w=Math.floor(rect[2]*canvas.width), h=Math.floor(rect[3]*canvas.height);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,sceneFBO.fb);gl.viewport(ox,oy,w,h);
+  const prog=PROG.blit;gl.useProgram(prog);bindAttr(prog);
+  gl.uniform2f(U(prog,'u_res'),canvas.width,canvas.height);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(U(prog,'u_src'),0);
+  gl.uniform2f(U(prog,'u_origin'),ox,oy);gl.uniform2f(U(prog,'u_size'),w,h);
+  gl.uniform1f(U(prog,'u_round'),round||0);gl.uniform1f(U(prog,'u_opacity'),opacity==null?1:opacity);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+
+/* wordmark -> alpha texture, positioned to span the hero near the bottom */
+function renderWord(){
+  if(!wordReady||!gl)return;
+  const w=canvas.width,h=canvas.height;wordCanvas.width=w;wordCanvas.height=h;
+  const c=wordCanvas.getContext('2d');c.clearRect(0,0,w,h);
+  const ar=1585/228, ww=w*0.955, wh=ww/ar, wx=w*0.022, wy=h*0.735-wh/2;
+  c.drawImage(wordImg,wx,wy,ww,wh);
+  gl.bindTexture(gl.TEXTURE_2D,wordTex);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.ALPHA,gl.ALPHA,gl.UNSIGNED_BYTE,wordCanvas);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+}
+
+const DPR=()=>Math.min(window.devicePixelRatio||1,2);
+function resize(){
+  const hero=document.getElementById('hero'),dpr=DPR();
+  const w=Math.floor(hero.clientWidth*dpr),h=Math.floor(hero.clientHeight*dpr);
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;ensureScene(w,h);renderWord();}
+}
+function frame(now){
+  now/=1000;if(!tPrev)tPrev=now;const dt=Math.min(now-tPrev,0.05);tPrev=now;if(running)elapsed+=dt;
+  if(gl){
+    resize();const dpr=DPR();ensureScene(canvas.width,canvas.height);
+    /* paint scene: paper, then echoes (behind), then mains (front) */
+    gl.bindFramebuffer(gl.FRAMEBUFFER,sceneFBO.fb);gl.viewport(0,0,canvas.width,canvas.height);
+    gl.clearColor(0.988,0.988,0.988,0.0);gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    for(const b of BOXES){ if(!b.echo)continue;
+      const r=b.echo.rect;const res={w:Math.max(2,Math.floor(r[2]*canvas.width)),h:Math.max(2,Math.floor(r[3]*canvas.height))};
+      const tex=renderChain(b.main.concat(b.echo.extra),res);
+      gl.enable(gl.BLEND);compositeInto(tex,r,0,b.echo.opacity,dpr); }
+    for(const b of BOXES){
+      const r=b.rect;const res={w:Math.max(2,Math.floor(r[2]*canvas.width)),h:Math.max(2,Math.floor(r[3]*canvas.height))};
+      const tex=renderChain(b.main,res);
+      gl.enable(gl.BLEND);compositeInto(tex,r,b.round,1,dpr); }
+    /* final pass to screen with wordmark knock-out */
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.disable(gl.BLEND);
+    const prog=PROG.final;gl.useProgram(prog);bindAttr(prog);gl.uniform2f(U(prog,'u_res'),canvas.width,canvas.height);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,sceneFBO.tex);gl.uniform1i(U(prog,'u_scene'),0);
+    gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,wordTex);gl.uniform1i(U(prog,'u_word'),1);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+  }
+  requestAnimationFrame(frame);
+}
+if(gl){initGL();resize();requestAnimationFrame(frame);}
+window.addEventListener('resize',()=>{if(gl)resize();});
+
+/* ---------- Wikipedia hover previews ---------- */
+const wcard=document.getElementById('wcard'),wImg=document.getElementById('wcardImg'),wT=document.getElementById('wcardT'),wE=document.getElementById('wcardE');
+const wcache={};let wTimer=null,wActive=null;
+async function fetchWiki(title){if(wcache[title])return wcache[title];
+  const r=await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,{headers:{accept:'application/json'}});
+  if(!r.ok)throw new Error('wiki '+r.status);const d=await r.json();
+  const data={title:d.title,extract:d.extract,img:(d.thumbnail&&d.thumbnail.source)||null};wcache[title]=data;return data;}
+function placeCard(x,y){const pad=14,w=300,vw=innerWidth,vh=innerHeight;let left=x+16,top=y+16;
+  if(left+w+pad>vw)left=x-w-16;if(top+260>vh)top=vh-260-pad;if(left<pad)left=pad;if(top<pad)top=pad;
+  wcard.style.left=left+'px';wcard.style.top=top+'px';}
+document.querySelectorAll('a.wl[data-wiki]').forEach(a=>{
+  a.addEventListener('mouseenter',e=>{const title=a.dataset.wiki;wActive=title;placeCard(e.clientX,e.clientY);
+    wImg.style.backgroundImage='';wImg.textContent='loading…';wT.textContent=title.replace(/_/g,' ');wE.textContent='';
+    clearTimeout(wTimer);wTimer=setTimeout(async()=>{wcard.classList.add('show');
+      try{const d=await fetchWiki(title);if(wActive!==title)return;wT.textContent=d.title;wE.textContent=d.extract||'';
+        if(d.img){wImg.textContent='';wImg.style.backgroundImage=`url("${d.img}")`;}else wImg.textContent='no image';}
+      catch(err){if(wActive===title){wImg.textContent='offline';wE.textContent='Preview unavailable.';}}},90);});
+  a.addEventListener('mousemove',e=>placeCard(e.clientX,e.clientY));
+  a.addEventListener('mouseleave',()=>{wActive=null;clearTimeout(wTimer);wcard.classList.remove('show');});
+});
+</script>
+</body>
+</html>
