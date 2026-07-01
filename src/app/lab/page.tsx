@@ -3,6 +3,7 @@
 /* Effect lab — renders the shared <Glitch> component in isolation with live controls.
    Tuning here maps 1:1 onto the same component the homepage uses. */
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Glitch } from "@/components/glitch";
 import {
   defaultBoxes,
@@ -66,10 +67,12 @@ export default function LabPage() {
     <div className="flex h-screen flex-col bg-[#f1f1f0] text-ink">
       {/* top bar */}
       <header className="flex h-13 flex-none items-center gap-4 border-b border-hair bg-paper px-5 py-3">
-        <span className="text-sm font-medium tracking-tight">
+        <Link href="/" className="text-sm font-medium tracking-tight transition-opacity hover:opacity-60" title="Back to home">
           Different <span className="text-blue">Thinking</span>
-        </span>
-        <span className="font-mono text-[11px] text-neutral-500">glitch lab</span>
+        </Link>
+        <Link href="/" className="font-mono text-[11px] text-neutral-500 transition-opacity hover:opacity-60" title="Back to home">
+          ← glitch lab
+        </Link>
         <div className="flex-1" />
         <button
           onClick={() => setRunning((r) => !r)}
