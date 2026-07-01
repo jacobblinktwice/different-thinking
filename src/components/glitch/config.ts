@@ -22,6 +22,27 @@ export interface BoxConfig {
   effects: Effect[];
 }
 
+/** The duplicated layer behind the boxes: the whole composited scene, run through
+    layer-level slice-shift (H+V) + pixel-stretch, offset and dimmed. */
+export interface LayerConfig {
+  enabled: boolean;
+  opacity: number; // 0..1
+  offsetX: number; // % of canvas
+  offsetY: number; // % of canvas
+  slice: EffectParams;
+  pixstretch: EffectParams;
+}
+export function defaultLayer(): LayerConfig {
+  return {
+    enabled: true,
+    opacity: 0.9,
+    offsetX: 1.5,
+    offsetY: 3,
+    slice: { shift: 14, shiftV: 7, soft: 0, random: 40, speed: 0, glitch: 0, tx: 50, ty: 50, srot: 0, sangle: 0 },
+    pixstretch: { offset: 38, smooth: 22, falloff: 0, tx: 50, ty: 50, prot: 0, pangle: 0 },
+  };
+}
+
 export { SCHEMA, SAVED, GRAD_METAL, CFG_VERSION };
 
 let uid = 0;

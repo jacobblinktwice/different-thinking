@@ -151,35 +151,61 @@ void main(){
 /* Slice shift — horizontal rows displaced by seeded random */
 export const FRAG_SLICE = COMMON + `
 uniform sampler2D u_src;
-uniform float u_shift,u_soft,u_random,u_tx,u_ty,u_srot,u_sangle,u_speed,u_glitch;
-float rowShift(float row){
-  // smooth drift: interpolate between successive random states over time (Speed)
+uniform float u_shift,u_shiftV,u_soft,u_random,u_tx,u_ty,u_srot,u_sangle,u_speed,u_glitch;
+// per-band displacement: smooth drift (Speed) + glitchy stepped bursts (Glitch). amp = shift %.
+float bandShift(float band, float amp){
   float t=u_time*u_speed*0.2;
-  float a=hash11(row*1.7+u_random+floor(t));
-  float b=hash11(row*1.7+u_random+floor(t)+1.0);
-  float sh=(mix(a,b,smoothstep(0.0,1.0,fract(t)))-0.5)*u_shift/100.0;
-  // glitchy movement: stepped random bursts that jump rows (Glitch)
+  float a=hash11(band*1.7+u_random+floor(t));
+  float b=hash11(band*1.7+u_random+floor(t)+1.0);
+  float sh=(mix(a,b,smoothstep(0.0,1.0,fract(t)))-0.5)*amp/100.0;
   float g=u_glitch/100.0;
   float gt=floor(u_time*(3.0+g*22.0));
-  float gate=step(1.0-g*0.75,hash11(gt*1.7+row*0.37));
-  sh+=(hash11(gt+row*2.3)-0.5)*g*(u_shift/100.0)*2.5*gate;
+  float gate=step(1.0-g*0.75,hash11(gt*1.7+band*0.37));
+  sh+=(hash11(gt+band*2.3)-0.5)*g*(amp/100.0)*2.5*gate;
   return sh;
 }
 void main(){
   vec2 uv=gl_FragCoord.xy/u_res;
   vec2 c=vec2(u_tx,u_ty)/100.0;
   vec2 p=rot(u_srot*PI/180.0)*(uv-c)+c;
-  float N=8.0+floor(mod(u_random,40.0))+8.0;
-  float rowf=p.y*N;
-  float row=floor(rowf);
-  float frac=fract(rowf);
-  float sh=rowShift(row);
-  float shN=rowShift(row+1.0);
   float soft=u_soft/100.0;
-  float blend=soft<=0.001?0.0:smoothstep(1.0-soft,1.0,frac);
-  float s=mix(sh,shN,blend);
-  vec2 dir=rot(u_sangle*PI/180.0)*vec2(1.0,0.0);
-  gl_FragColor=texture2D(u_src,clamp(uv+dir*s,0.0,1.0));
+  // horizontal: shift rows along X
+  float N=8.0+floor(mod(u_random,40.0))+8.0;
+  float rowf=p.y*N, row=floor(rowf), frac=fract(rowf);
+  float sh=bandShift(row,u_shift), shN=bandShift(row+1.0,u_shift);
+  float s=mix(sh,shN, soft<=0.001?0.0:smoothstep(1.0-soft,1.0,frac));
+  // vertical: shift columns along Y
+  float M=8.0+floor(mod(u_random*1.7+3.0,40.0))+8.0;
+  float colf=p.x*M, col=floor(colf), fracv=fract(colf);
+  float sv=bandShift(col+100.0,u_shiftV), svN=bandShift(col+101.0,u_shiftV);
+  float sV=mix(sv,svN, soft<=0.001?0.0:smoothstep(1.0-soft,1.0,fracv));
+  vec2 dirH=rot(u_sangle*PI/180.0)*vec2(1.0,0.0);
+  vec2 dirV=rot(u_sangle*PI/180.0)*vec2(0.0,1.0);
+  gl_FragColor=texture2D(u_src,clamp(uv+dirH*s+dirV*sV,0.0,1.0));
+}`;
+
+/* Glitch — animated digital glitch: stepped block/line displacement + RGB tear */
+export const FRAG_GLITCH = COMMON + `
+uniform sampler2D u_src;
+uniform float u_amount,u_speed,u_blocks,u_rgb,u_seed;
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  float amt=u_amount/100.0;
+  float t=floor(u_time*(1.0+u_speed*0.14));          // stepped time -> jumpy, not smooth
+  float band=floor(uv.y*max(u_blocks,1.0));
+  float r=hash21(vec2(band, t+u_seed));
+  float active=step(1.0-amt*0.9, hash21(vec2(band*1.7+7.0, t*1.3+u_seed)));
+  float dx=(r-0.5)*amt*0.5*active;                   // per-band horizontal jump
+  float tear=step(0.98-amt*0.06, hash21(vec2(t,u_seed)))*(hash21(vec2(band,t))-0.5)*amt*0.8;
+  dx+=tear;
+  float rgb=u_rgb/100.0*amt*0.06;
+  vec2 pp=uv+vec2(dx,0.0);
+  vec3 col;
+  col.r=texture2D(u_src,clamp(pp+vec2(rgb,0.0),0.0,1.0)).r;
+  col.g=texture2D(u_src,clamp(pp,0.0,1.0)).g;
+  col.b=texture2D(u_src,clamp(pp-vec2(rgb,0.0),0.0,1.0)).b;
+  col+=(hash21(vec2(band,t+3.0))-0.5)*amt*0.15*active; // block flicker
+  gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);
 }`;
 
 /* Dither — ordered Bayer quantization */
@@ -220,15 +246,16 @@ uniform vec2 u_origin;   // rect origin in device px (from bottom-left)
 uniform vec2 u_size;     // rect size in device px
 uniform float u_round;   // corner radius 0..1 of half-min-dim
 uniform float u_opacity;
+uniform float u_useSrcAlpha;  // 1 = respect source texture alpha (for full-layer composites)
 void main(){
   vec2 local=(gl_FragCoord.xy-u_origin)/u_size;   // 0..1
-  vec3 col=texture2D(u_src,local).rgb;
+  vec4 src=texture2D(u_src,local);
   // rounded rect coverage
   vec2 halfpx=u_size*0.5;
   float r=u_round*min(halfpx.x,halfpx.y);
   vec2 pxy=(local-0.5)*u_size;                    // px from center
   vec2 d=abs(pxy)-(halfpx-r);
   float dist=length(max(d,0.0))+min(max(d.x,d.y),0.0)-r;
-  float a=(1.0-smoothstep(-1.0,1.0,dist))*u_opacity;
-  gl_FragColor=vec4(col,a);
+  float a=(1.0-smoothstep(-1.0,1.0,dist))*u_opacity*mix(1.0,src.a,u_useSrcAlpha);
+  gl_FragColor=vec4(src.rgb,a);
 }`;

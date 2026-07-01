@@ -11,8 +11,9 @@ import {
   FRAG_SLICE,
   FRAG_DITHER,
   FRAG_BLIT,
+  FRAG_GLITCH,
 } from "./shaders";
-import { hex2rgb, instantiate, boxRound, type BoxConfig, type Effect, type GradStop } from "./config";
+import { hex2rgb, instantiate, boxRound, type BoxConfig, type Effect, type GradStop, type LayerConfig } from "./config";
 
 export type GlitchMode = "grid" | "landing";
 type FBO = { fb: WebGLFramebuffer; tex: WebGLTexture; w: number; h: number };
@@ -34,7 +35,12 @@ export class GlitchEngine {
   private pong: FBO | null = null;
   private fboW = 0;
   private fboH = 0;
-  private echoExtras: Effect[];
+  // full-canvas buffers for the whole-layer duplicate
+  private scene: FBO | null = null;
+  private dupA: FBO | null = null;
+  private dupB: FBO | null = null;
+  private sceneW = 0;
+  private sceneH = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl", {
@@ -54,6 +60,7 @@ export class GlitchEngine {
       refract: mk(FRAG_REFRACT),
       slice: mk(FRAG_SLICE),
       dither: mk(FRAG_DITHER),
+      glitch: mk(FRAG_GLITCH),
       blit: mk(FRAG_BLIT),
     };
 
@@ -61,12 +68,6 @@ export class GlitchEngine {
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     this.vbo = vbo;
-
-    // echo (duplicate) effects — slice + pixel-stretch, applied last, drawn behind the box
-    this.echoExtras = [
-      instantiate({ type: "pixstretch", params: { offset: 40, pangle: 0, prot: 0, smooth: 28 } }),
-      instantiate({ type: "slice", params: { shift: 24, random: 180 } }),
-    ];
   }
 
   private compile(type: number, src: string): WebGLShader {
@@ -216,6 +217,7 @@ export class GlitchEngine {
       this.setF(prog, "u_pangle", p.pangle);
     } else if (type === "slice") {
       this.setF(prog, "u_shift", p.shift);
+      this.setF(prog, "u_shiftV", p.shiftV || 0);
       this.setF(prog, "u_soft", p.soft);
       this.setF(prog, "u_random", p.random);
       this.setF(prog, "u_tx", p.tx);
@@ -224,6 +226,12 @@ export class GlitchEngine {
       this.setF(prog, "u_sangle", p.sangle);
       this.setF(prog, "u_speed", p.speed || 0);
       this.setF(prog, "u_glitch", p.glitch || 0);
+    } else if (type === "glitch") {
+      this.setF(prog, "u_amount", p.amount);
+      this.setF(prog, "u_speed", p.speed);
+      this.setF(prog, "u_blocks", p.blocks);
+      this.setF(prog, "u_rgb", p.rgb);
+      this.setF(prog, "u_seed", p.seed);
     } else if (type === "dither") {
       this.setF(prog, "u_style", p.style);
       this.setF(prog, "u_size", p.size);
@@ -259,14 +267,37 @@ export class GlitchEngine {
     return src.tex;
   }
 
-  /** composite a box texture onto the screen at a CSS-px rect (rounded-corner mask + opacity) */
-  private blit(tex: WebGLTexture, rCss: Rect, round: number, opacity: number, dpr: number) {
+  private ensureScene(w: number, h: number) {
+    const gl = this.gl;
+    if (w === this.sceneW && h === this.sceneH && this.scene) return;
+    for (const f of [this.scene, this.dupA, this.dupB]) {
+      if (f) {
+        gl.deleteTexture(f.tex);
+        gl.deleteFramebuffer(f.fb);
+      }
+    }
+    this.sceneW = w;
+    this.sceneH = h;
+    this.scene = this.makeFBO(w, h);
+    this.dupA = this.makeFBO(w, h);
+    this.dupB = this.makeFBO(w, h);
+  }
+
+  /** composite a texture at a CSS-px rect. target=null → screen. useSrcAlpha respects the source's alpha. */
+  private blit(
+    tex: WebGLTexture,
+    rCss: Rect,
+    round: number,
+    opacity: number,
+    dpr: number,
+    opts?: { target?: WebGLFramebuffer | null; useSrcAlpha?: boolean }
+  ) {
     const gl = this.gl;
     const c = this.canvas;
     const res = { w: Math.max(2, Math.floor(rCss.w * dpr)), h: Math.max(2, Math.floor(rCss.h * dpr)) };
     const ox = Math.floor(rCss.x * dpr);
     const oy = c.height - Math.floor(rCss.y * dpr) - res.h;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, opts?.target ?? null);
     gl.viewport(ox, oy, res.w, res.h);
     const prog = this.prog.blit;
     gl.useProgram(prog);
@@ -279,6 +310,7 @@ export class GlitchEngine {
     gl.uniform2f(this.U(prog, "u_size"), res.w, res.h);
     gl.uniform1f(this.U(prog, "u_round"), round || 0);
     gl.uniform1f(this.U(prog, "u_opacity"), opacity == null ? 1 : opacity);
+    gl.uniform1f(this.U(prog, "u_useSrcAlpha"), opts?.useSrcAlpha ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
@@ -301,7 +333,7 @@ export class GlitchEngine {
   }
 
   /** render the whole composition for this frame */
-  render(boxes: BoxConfig[], mode: GlitchMode, time: number) {
+  render(boxes: BoxConfig[], mode: GlitchMode, time: number, layer?: LayerConfig | null) {
     const gl = this.gl;
     const c = this.canvas;
     if (c.width === 0 || c.height === 0) return;
@@ -315,6 +347,17 @@ export class GlitchEngine {
       h: b.layout.h * H,
     }));
 
+    const drawMains = (target: WebGLFramebuffer | null) => {
+      for (let i = 0; i < boxes.length; i++) {
+        const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
+        const tex = this.renderBoxChain(boxes[i].effects, res, time);
+        this.blit(tex, rects[i], boxRound(boxes[i]), 1, dpr, { target });
+      }
+    };
+
+    const doLayer = mode === "landing" && !!layer && layer.enabled;
+
+    // screen background
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, c.width, c.height);
     gl.clearColor(this.bg[0], this.bg[1], this.bg[2], 1);
@@ -322,36 +365,49 @@ export class GlitchEngine {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    if (mode === "landing") {
-      for (let i = 0; i < boxes.length; i++) {
-        const L = boxes[i].layout;
-        const er: Rect = {
-          x: L.x * W,
-          y: Math.min(L.y + L.h * 0.5, 0.9) * H,
-          w: L.w * W,
-          h: Math.max(L.h * 0.85, 0.14) * H,
-        };
-        const res = { w: Math.max(2, Math.floor(er.w * dpr)), h: Math.max(2, Math.floor(er.h * dpr)) };
-        const tex = this.renderBoxChain(this.echoExtras.concat(boxes[i].effects), res, time);
-        this.blit(tex, er, 0, 0.92, dpr);
-      }
+    if (!doLayer) {
+      drawMains(null);
+      return;
     }
-    for (let i = 0; i < boxes.length; i++) {
-      const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
-      const tex = this.renderBoxChain(boxes[i].effects, res, time);
-      this.blit(tex, rects[i], boxRound(boxes[i]), 1, dpr);
-    }
+
+    // 1) composite all mains into a full-canvas scene buffer (transparent where empty)
+    this.ensureScene(c.width, c.height);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene!.fb);
+    gl.viewport(0, 0, c.width, c.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    drawMains(this.scene!.fb);
+
+    // 2) whole-layer duplicate: slice-shift (H+V) then pixel-stretch across the entire scene
+    const full: Res = { w: c.width, h: c.height };
+    const sliceE = instantiate({ type: "slice", params: layer!.slice });
+    const pixE = instantiate({ type: "pixstretch", params: layer!.pixstretch });
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.dupA!.fb);
+    gl.viewport(0, 0, c.width, c.height);
+    this.drawPass("slice", sliceE, this.scene!.tex, full, time);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.dupB!.fb);
+    gl.viewport(0, 0, c.width, c.height);
+    this.drawPass("pixstretch", pixE, this.dupA!.tex, full, time);
+
+    // 3) to screen: duplicate behind (offset + dimmed), clean mains on top
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, c.width, c.height);
+    gl.enable(gl.BLEND);
+    this.blit(this.dupB!.tex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
+    this.blit(this.scene!.tex, { x: 0, y: 0, w: W, h: H }, 0, 1, dpr, { useSrcAlpha: true });
   }
 
   dispose() {
     const gl = this.gl;
     for (const k in this.prog) gl.deleteProgram(this.prog[k]);
     gl.deleteBuffer(this.vbo);
-    if (this.ping) {
-      gl.deleteTexture(this.ping.tex);
-      gl.deleteFramebuffer(this.ping.fb);
-      gl.deleteTexture(this.pong!.tex);
-      gl.deleteFramebuffer(this.pong!.fb);
+    for (const f of [this.ping, this.pong, this.scene, this.dupA, this.dupB]) {
+      if (f) {
+        gl.deleteTexture(f.tex);
+        gl.deleteFramebuffer(f.fb);
+      }
     }
     const ext = gl.getExtension("WEBGL_lose_context");
     ext?.loseContext();

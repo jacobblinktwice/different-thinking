@@ -49,7 +49,8 @@ export const SCHEMA = {
     pangle: NUM('Angle',0,360,0.1,45,'°'),
   }},
   slice:{ name:'Slice shift', params:{
-    shift:  NUM('Shift',0,100,1,60,'%'),
+    shift:  NUM('Shift X',0,100,1,60,'%'),
+    shiftV: NUM('Shift Y',0,100,1,0,'%'),
     soft:   NUM('Softness',0,100,1,0,'%'),
     random: NUM('Random',0,500,1,165,''),
     speed:  NUM('Speed',0,100,1,0,'%'),
@@ -59,6 +60,13 @@ export const SCHEMA = {
     ty: NUM('Y',0,100,0.1,50,'%'),
     srot: NUM('R',0,720,0.01,385.96,'°'),
     sangle: NUM('A',0,360,1,0,'°'),
+  }},
+  glitch:{ name:'Glitch', params:{
+    amount: NUM('Amount',0,100,1,45,'%'),
+    speed:  NUM('Speed',0,100,1,45,'%'),
+    blocks: NUM('Blocks',2,60,1,18,''),
+    rgb:    NUM('RGB shift',0,100,1,50,'%'),
+    seed:   NUM('Seed',0,500,1,20,''),
   }},
   dither:{ name:'Dither', params:{
     style:    SEL(['Bayer 2×2','Bayer 4×4','Bayer 8×8'],2),

@@ -4,14 +4,17 @@
    Pass a `config` (array of boxes) to drive it; omit to use the baked default composition. */
 import { useEffect, useRef, type CSSProperties } from "react";
 import { GlitchEngine, type GlitchMode } from "./engine";
-import { defaultBoxes, type BoxConfig } from "./config";
+import { defaultBoxes, defaultLayer, type BoxConfig, type LayerConfig } from "./config";
 
 export interface GlitchProps {
   /** Box composition to render. Defaults to the baked-in tuned config. */
   config?: BoxConfig[];
-  /** "landing" (default) adds the slice/pixel-stretch echo duplicates; "grid" renders boxes only. */
+  /** In "landing" mode, the whole-layer duplicate behind the boxes. Defaults to the baked layer.
+      Pass `null` to disable the duplicate. Ignored in "grid" mode. */
+  layer?: LayerConfig | null;
+  /** "landing" (default) draws the duplicated layer behind; "grid" renders boxes only. */
   mode?: GlitchMode;
-  /** Animate the effect (metal drift, slice movement). Default true. */
+  /** Animate the effect (metal drift, slice/glitch movement). Default true. */
   running?: boolean;
   /** Canvas clear colour as 0..1 RGB. Defaults to paper. */
   background?: [number, number, number];
@@ -21,6 +24,7 @@ export interface GlitchProps {
 
 export function Glitch({
   config,
+  layer,
   mode = "landing",
   running = true,
   background,
@@ -32,9 +36,11 @@ export function Glitch({
 
   // live refs so the rAF loop always reads current props without re-initialising GL
   const cfgRef = useRef<BoxConfig[]>(config ?? defaultBoxes());
+  const layerRef = useRef<LayerConfig | null>(layer === undefined ? defaultLayer() : layer);
   const modeRef = useRef<GlitchMode>(mode);
   const runRef = useRef<boolean>(running);
   if (config) cfgRef.current = config;
+  if (layer !== undefined) layerRef.current = layer;
   modeRef.current = mode;
   runRef.current = running;
 
@@ -64,7 +70,7 @@ export function Glitch({
       tPrev = now;
       if (runRef.current) elapsed += dt;
       engine.resize();
-      engine.render(cfgRef.current, modeRef.current, elapsed);
+      engine.render(cfgRef.current, modeRef.current, elapsed, layerRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
