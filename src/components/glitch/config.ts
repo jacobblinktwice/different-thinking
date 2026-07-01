@@ -20,6 +20,8 @@ export interface BoxLayout {
 export interface BoxConfig {
   layout: BoxLayout;
   effects: Effect[];
+  /** effects applied to the box's MASK (silhouette/alpha) only, not its contents. */
+  mask?: Effect[];
   /** 0 = far/back, 1 = near/front. Drives z-order and parallax strength. */
   depth?: number;
 }
@@ -77,7 +79,7 @@ export type CfgEffect = {
   params?: Record<string, unknown>;
   grad?: GradStop[] | null;
 };
-export type CfgBox = { layout: BoxLayout; effects?: CfgEffect[]; depth?: number };
+export type CfgBox = { layout: BoxLayout; effects?: CfgEffect[]; mask?: CfgEffect[]; depth?: number };
 
 /* Build a full Effect from a (possibly partial) config entry, filling any missing
    params from the SCHEMA defaults — so older exports without newer params still work. */
@@ -108,7 +110,12 @@ export function instantiate(e: CfgEffect): Effect {
 }
 
 export function boxFromCfg(c: CfgBox): BoxConfig {
-  return { layout: { ...c.layout }, effects: (c.effects || []).map(instantiate), depth: c.depth };
+  return {
+    layout: { ...c.layout },
+    effects: (c.effects || []).map(instantiate),
+    mask: (c.mask || []).map(instantiate),
+    depth: c.depth,
+  };
 }
 
 /** The dialed-in default composition, ready to render/edit. */
@@ -120,21 +127,68 @@ export function defaultBoxes(): BoxConfig[] {
   });
 }
 
+const serializeFx = (e: Effect) => ({ type: e.type, on: e.on, params: e.params, grad: e.grad || undefined });
 export function serialize(boxes: BoxConfig[]) {
   return boxes.map((b, i) => ({
     box: i + 1,
     layout: b.layout,
     depth: b.depth,
-    effects: b.effects.map((e) => ({
-      type: e.type,
-      on: e.on,
-      params: e.params,
-      grad: e.grad || undefined,
-    })),
+    effects: b.effects.map(serializeFx),
+    mask: b.mask && b.mask.length ? b.mask.map(serializeFx) : undefined,
   }));
 }
 
 export function boxRound(box: BoxConfig): number {
   const m = box.effects.find((e) => e.type === "metal");
   return m ? (Number(m.params.rounding) || 0) / 100 : 0;
+}
+
+/* =====================================================================
+   Persistence — one composition (boxes + layer) shared across /lab and /.
+   Version-stamped so a stale save is ignored after the baked baseline changes.
+   ===================================================================== */
+export interface Composition {
+  boxes: BoxConfig[];
+  layer: LayerConfig;
+}
+export const STORAGE_KEY = "dt-glitch-config";
+
+export function defaultComposition(): Composition {
+  return { boxes: defaultBoxes(), layer: defaultLayer() };
+}
+
+export function saveComposition(boxes: BoxConfig[], layer: LayerConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: CFG_VERSION, boxes: serialize(boxes), layer }));
+  } catch {
+    /* storage unavailable (e.g. data: URL) — noop */
+  }
+}
+
+/** Parse a stored/imported blob into a Composition. Accepts the versioned object
+    ({v,boxes,layer}) or a bare boxes array (legacy export). Returns null if unusable/stale. */
+export function parseComposition(raw: unknown): Composition | null {
+  try {
+    const obj = raw as { v?: number; boxes?: CfgBox[]; layer?: LayerConfig } | CfgBox[];
+    if (Array.isArray(obj)) {
+      return { boxes: obj.map(boxFromCfg), layer: defaultLayer() };
+    }
+    if (obj && Array.isArray(obj.boxes)) {
+      if (obj.v != null && obj.v !== CFG_VERSION) return null; // stale baseline
+      return { boxes: obj.boxes.map(boxFromCfg), layer: { ...defaultLayer(), ...(obj.layer || {}) } };
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
+export function loadComposition(): Composition | null {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (!s) return null;
+    return parseComposition(JSON.parse(s));
+  } catch {
+    return null;
+  }
 }

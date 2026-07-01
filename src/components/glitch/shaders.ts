@@ -247,6 +247,8 @@ uniform vec2 u_size;     // rect size in device px
 uniform float u_round;   // corner radius 0..1 of half-min-dim
 uniform float u_opacity;
 uniform float u_useSrcAlpha;  // 1 = respect source texture alpha (for full-layer composites)
+uniform sampler2D u_mask;     // distorted mask (silhouette) — used when u_hasMask=1
+uniform float u_hasMask;
 void main(){
   vec2 local=(gl_FragCoord.xy-u_origin)/u_size;   // 0..1
   vec4 src=texture2D(u_src,local);
@@ -256,6 +258,23 @@ void main(){
   vec2 pxy=(local-0.5)*u_size;                    // px from center
   vec2 d=abs(pxy)-(halfpx-r);
   float dist=length(max(d,0.0))+min(max(d.x,d.y),0.0)-r;
-  float a=(1.0-smoothstep(-1.0,1.0,dist))*u_opacity*mix(1.0,src.a,u_useSrcAlpha);
+  float rrc=1.0-smoothstep(-1.0,1.0,dist);        // default rounded-rect coverage
+  float mk=texture2D(u_mask,local).a;             // distorted mask coverage
+  float cover=mix(rrc,mk,u_hasMask);
+  float a=cover*u_opacity*mix(1.0,src.a,u_useSrcAlpha);
   gl_FragColor=vec4(src.rgb,a);
+}`;
+
+/* Mask base — a solid white rounded-rect coverage; mask-effect passes then distort its silhouette */
+export const FRAG_MASK = COMMON + `
+uniform float u_round;
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec2 halfp=u_res*0.5;
+  float r=u_round*min(halfp.x,halfp.y);
+  vec2 pxy=(uv-0.5)*u_res;
+  vec2 d=abs(pxy)-(halfp-r);
+  float dist=length(max(d,0.0))+min(max(d.x,d.y),0.0)-r;
+  float a=1.0-smoothstep(-1.0,1.0,dist);
+  gl_FragColor=vec4(1.0,1.0,1.0,a);
 }`;

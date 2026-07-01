@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Glitch } from "@/components/glitch";
+import HeroGlitch from "./HeroGlitch";
 
 /* Homepage — built to match Figma node 210:4 (Alex Branding / Home Page):
    editorial layout with top labels + nav, a full-width "DifferentThinking" logotype,
@@ -58,8 +58,8 @@ export default function Home() {
       <section className="relative h-[68svh] min-h-[440px] w-full overflow-hidden sm:h-[80svh] lg:h-[min(92vh,900px)]">
         {SHOW_GLITCH && (
           <>
-            {/* ===== GLITCH MOUNT POINT — shared component, same source as /lab ===== */}
-            <Glitch className="absolute inset-0 z-0" mode="landing" background={[1, 1, 1]} />
+            {/* ===== GLITCH MOUNT POINT — shared component + saved /lab composition ===== */}
+            <HeroGlitch className="absolute inset-0 z-0" mode="landing" background={[1, 1, 1]} />
             {/* wordmark — complementary knock-out over the effect (difference blend) */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

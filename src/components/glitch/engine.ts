@@ -12,6 +12,7 @@ import {
   FRAG_DITHER,
   FRAG_BLIT,
   FRAG_GLITCH,
+  FRAG_MASK,
 } from "./shaders";
 import { hex2rgb, instantiate, boxRound, type BoxConfig, type Effect, type GradStop, type LayerConfig } from "./config";
 
@@ -35,6 +36,10 @@ export class GlitchEngine {
   private pong: FBO | null = null;
   private fboW = 0;
   private fboH = 0;
+  private maskPing: FBO | null = null;
+  private maskPong: FBO | null = null;
+  private maskW = 0;
+  private maskH = 0;
   // full-canvas buffers for the whole-layer duplicate
   private scene: FBO | null = null;
   private dupA: FBO | null = null;
@@ -61,6 +66,7 @@ export class GlitchEngine {
       slice: mk(FRAG_SLICE),
       dither: mk(FRAG_DITHER),
       glitch: mk(FRAG_GLITCH),
+      mask: mk(FRAG_MASK),
       blit: mk(FRAG_BLIT),
     };
 
@@ -155,6 +161,49 @@ export class GlitchEngine {
     this.fboH = h;
     this.ping = this.makeFBO(w, h);
     this.pong = this.makeFBO(w, h);
+  }
+
+  private ensureMaskFBO(w: number, h: number) {
+    const gl = this.gl;
+    if (w === this.maskW && h === this.maskH && this.maskPing) return;
+    if (this.maskPing) {
+      gl.deleteTexture(this.maskPing.tex);
+      gl.deleteFramebuffer(this.maskPing.fb);
+      gl.deleteTexture(this.maskPong!.tex);
+      gl.deleteFramebuffer(this.maskPong!.fb);
+    }
+    this.maskW = w;
+    this.maskH = h;
+    this.maskPing = this.makeFBO(w, h);
+    this.maskPong = this.makeFBO(w, h);
+  }
+
+  /** render the box mask: a rounded-rect silhouette distorted by the mask effect chain */
+  private renderMask(effects: Effect[], res: Res, round: number, time: number): WebGLTexture {
+    const gl = this.gl;
+    this.ensureMaskFBO(res.w, res.h);
+    gl.disable(gl.BLEND);
+    // base rounded-rect coverage
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.maskPing!.fb);
+    gl.viewport(0, 0, res.w, res.h);
+    const mp = this.prog.mask;
+    gl.useProgram(mp);
+    this.bindAttr(mp);
+    gl.uniform2f(this.U(mp, "u_res"), res.w, res.h);
+    gl.uniform1f(this.U(mp, "u_round"), round || 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // distort the silhouette (processed bottom→top, like content)
+    let src = this.maskPing!;
+    let dst = this.maskPong!;
+    for (const e of effects.slice().reverse().filter((x) => x.on)) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+      gl.viewport(0, 0, res.w, res.h);
+      this.drawPass(e.type, e, src.tex, res, time);
+      const tmp = src;
+      src = dst;
+      dst = tmp;
+    }
+    return src.tex;
   }
 
   /** one effect pass: read srcTex, write to the bound framebuffer */
@@ -290,7 +339,7 @@ export class GlitchEngine {
     round: number,
     opacity: number,
     dpr: number,
-    opts?: { target?: WebGLFramebuffer | null; useSrcAlpha?: boolean }
+    opts?: { target?: WebGLFramebuffer | null; useSrcAlpha?: boolean; mask?: WebGLTexture | null }
   ) {
     const gl = this.gl;
     const c = this.canvas;
@@ -306,6 +355,11 @@ export class GlitchEngine {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.uniform1i(this.U(prog, "u_src"), 0);
+    // mask sampler (unit 1) — always bound to something to keep the sampler valid
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, opts?.mask ?? tex);
+    gl.uniform1i(this.U(prog, "u_mask"), 1);
+    gl.uniform1f(this.U(prog, "u_hasMask"), opts?.mask ? 1 : 0);
     gl.uniform2f(this.U(prog, "u_origin"), ox, oy);
     gl.uniform2f(this.U(prog, "u_size"), res.w, res.h);
     gl.uniform1f(this.U(prog, "u_round"), round || 0);
@@ -365,8 +419,13 @@ export class GlitchEngine {
 
     const drawBox = (i: number, target: WebGLFramebuffer | null, offset: { x: number; y: number }) => {
       const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
-      const tex = this.renderBoxChain(boxes[i].effects, res, time);
-      this.blit(tex, { x: rects[i].x + offset.x, y: rects[i].y + offset.y, w: rects[i].w, h: rects[i].h }, boxRound(boxes[i]), 1, dpr, { target });
+      const b = boxes[i];
+      const round = boxRound(b);
+      // mask effects distort the box silhouette; render the mask BEFORE the content
+      // (different FBO pools, so both textures stay valid for the composite)
+      const maskTex = b.mask && b.mask.some((m) => m.on) ? this.renderMask(b.mask, res, round, time) : null;
+      const tex = this.renderBoxChain(b.effects, res, time);
+      this.blit(tex, { x: rects[i].x + offset.x, y: rects[i].y + offset.y, w: rects[i].w, h: rects[i].h }, round, 1, dpr, { target, mask: maskTex });
     };
 
     const doLayer = mode === "landing" && !!layer && layer.enabled;
@@ -435,7 +494,7 @@ export class GlitchEngine {
     const gl = this.gl;
     for (const k in this.prog) gl.deleteProgram(this.prog[k]);
     gl.deleteBuffer(this.vbo);
-    for (const f of [this.ping, this.pong, this.scene, this.dupA, this.dupB]) {
+    for (const f of [this.ping, this.pong, this.maskPing, this.maskPong, this.scene, this.dupA, this.dupB]) {
       if (f) {
         gl.deleteTexture(f.tex);
         gl.deleteFramebuffer(f.fb);

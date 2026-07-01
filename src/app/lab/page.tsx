@@ -2,7 +2,7 @@
 
 /* Effect lab — renders the shared <Glitch> component in isolation with live controls.
    Tuning here maps 1:1 onto the same component the homepage uses. */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Glitch } from "@/components/glitch";
 import {
@@ -10,11 +10,16 @@ import {
   defaultLayer,
   serialize,
   instantiate,
+  saveComposition,
+  loadComposition,
+  parseComposition,
   SCHEMA,
   type BoxConfig,
   type LayerConfig,
   type GlitchMode,
 } from "@/components/glitch";
+
+const MASK_FX = ["slice", "pixstretch", "refract", "glitch"]; // effects that meaningfully distort a silhouette
 
 type Schema = Record<
   string,
@@ -62,6 +67,7 @@ export default function LabPage() {
   const [running, setRunning] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [layer, setLayer] = useState<LayerConfig>(() => defaultLayer());
+  const [stackTab, setStackTab] = useState<"content" | "mask">("content");
   const dragIndex = useRef<number | null>(null);
 
   const isLayer = active === "layer";
@@ -69,30 +75,48 @@ export default function LabPage() {
   const commit = () => setBoxes((b) => b.slice());
   const commitLayer = () => setLayer((l) => ({ ...l }));
   const box = boxes[activeBox];
+  // the stack currently being edited: box content, or the box's mask (silhouette)
+  const curStack = stackTab === "mask" ? (box.mask ||= []) : box.effects;
+
+  // load any saved composition on mount; then autosave every change (shared with the homepage)
+  const loaded = useRef(false);
+  useEffect(() => {
+    const c = loadComposition();
+    if (c) {
+      setBoxes(c.boxes);
+      setLayer(c.layer);
+    }
+    loaded.current = true;
+  }, []);
+  useEffect(() => {
+    if (!loaded.current) return;
+    const t = setTimeout(() => saveComposition(boxes, layer), 300);
+    return () => clearTimeout(t);
+  }, [boxes, layer]);
 
   const addEffect = (type: string) => {
-    box.effects.unshift(instantiate({ type }));
+    curStack.unshift(instantiate({ type }));
     setAddOpen(false);
     commit();
   };
   const removeEffect = (id?: number) => {
-    box.effects = box.effects.filter((e) => e.id !== id);
+    const i = curStack.findIndex((e) => e.id === id);
+    if (i >= 0) curStack.splice(i, 1);
     commit();
   };
   const reorder = (from: number | null, to: number) => {
     if (from == null || from === to) return;
-    const moved = box.effects.splice(from, 1)[0];
-    box.effects.splice(to, 0, moved);
+    const moved = curStack.splice(from, 1)[0];
+    curStack.splice(to, 0, moved);
     commit();
   };
 
-  const fxCount = useMemo(
-    () => `${box.effects.filter((e) => e.on).length}/${box.effects.length}`,
-    [box]
-  );
+  const fxCount = `${curStack.filter((e) => e.on).length}/${curStack.length}`;
+
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const exportJson = () => {
-    const json = JSON.stringify(serialize(boxes), null, 2);
+    const json = JSON.stringify({ boxes: serialize(boxes), layer }, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -100,6 +124,21 @@ export default function LabPage() {
     a.download = "glitch-config.json";
     a.click();
     URL.revokeObjectURL(url);
+  };
+  const importJson = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const comp = parseComposition(JSON.parse(String(reader.result)));
+        if (!comp) return alert("Couldn't read that config (wrong format or version).");
+        setBoxes(comp.boxes);
+        setLayer(comp.layer);
+        setActive(0);
+      } catch {
+        alert("Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -157,7 +196,7 @@ export default function LabPage() {
             <div className="flex items-center gap-2">
               <span className="text-neutral-500">≈</span>
               <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">
-                {isLayer ? "Duplicate layer" : "Effects"}
+                {isLayer ? "Duplicate layer" : stackTab === "mask" ? "Mask effects" : "Effects"}
               </h2>
               {!isLayer && (
                 <>
@@ -174,7 +213,7 @@ export default function LabPage() {
             </div>
             {addOpen && !isLayer && (
               <div className="absolute right-4 top-12 z-30 min-w-[180px] rounded-lg border border-hair bg-paper p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.14)]">
-                {Object.keys(S).map((type) => (
+                {(stackTab === "mask" ? MASK_FX : Object.keys(S)).map((type) => (
                   <button
                     key={type}
                     onClick={() => addEffect(type)}
@@ -212,6 +251,22 @@ export default function LabPage() {
                 ⧉ Layer
               </button>
             </div>
+            {!isLayer && (
+              <div className="mt-2.5 flex overflow-hidden rounded-md border border-hair text-[11px]">
+                {(["content", "mask"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setStackTab(t)}
+                    className={`flex-1 px-2 py-1.5 capitalize ${
+                      stackTab === t ? "bg-ink text-paper" : "bg-paper text-neutral-600 hover:bg-black/5"
+                    }`}
+                    title={t === "mask" ? "Effects on the box silhouette only" : "Effects on the box contents"}
+                  >
+                    {t === "mask" ? "Mask" : "Content"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
@@ -251,7 +306,7 @@ export default function LabPage() {
             )}
 
             {/* ===== BOX TABS: layout + effect stack ===== */}
-            {!isLayer && (
+            {!isLayer && stackTab === "content" && (
               <Card title="Layout & size">
                 {(["x", "y", "w", "h"] as const).map((k) => (
                   <Slider
@@ -283,8 +338,15 @@ export default function LabPage() {
               </Card>
             )}
 
+            {!isLayer && stackTab === "mask" && curStack.length === 0 && (
+              <p className="px-1 py-2 font-mono text-[10px] leading-4 text-neutral-500">
+                Mask is empty — the box uses its plain rounded rectangle. Add slicing / pixel-stretch /
+                refraction / glitch with ＋ to distort the box silhouette (its contents stay put).
+              </p>
+            )}
+
             {/* effect cards — drag to reorder, eye to hide, – to remove, + to add */}
-            {!isLayer && box.effects.map((e, idx) => {
+            {!isLayer && curStack.map((e, idx) => {
               const def = S[e.type];
               if (!def) return null;
               return (
@@ -416,10 +478,11 @@ export default function LabPage() {
             })}
           </div>
 
-          <div className="grid grid-cols-2 gap-2 border-t border-hair p-2.5">
+          <div className="grid grid-cols-3 gap-2 border-t border-hair p-2.5">
             <button
               onClick={() => {
                 setBoxes(defaultBoxes());
+                setLayer(defaultLayer());
                 setActive(0);
               }}
               className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
@@ -427,11 +490,28 @@ export default function LabPage() {
               Reset all
             </button>
             <button
+              onClick={() => fileInput.current?.click()}
+              className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
+            >
+              Import JSON
+            </button>
+            <button
               onClick={exportJson}
               className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
             >
               Export JSON
             </button>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importJson(f);
+                e.target.value = "";
+              }}
+            />
           </div>
         </aside>
       </div>
