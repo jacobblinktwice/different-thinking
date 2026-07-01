@@ -332,8 +332,14 @@ export class GlitchEngine {
     return false;
   }
 
-  /** render the whole composition for this frame */
-  render(boxes: BoxConfig[], mode: GlitchMode, time: number, layer?: LayerConfig | null) {
+  /** render the whole composition for this frame. mouse = normalized pointer offset from centre (-1..1). */
+  render(
+    boxes: BoxConfig[],
+    mode: GlitchMode,
+    time: number,
+    layer?: LayerConfig | null,
+    mouse?: { x: number; y: number } | null
+  ) {
     const gl = this.gl;
     const c = this.canvas;
     if (c.width === 0 || c.height === 0) return;
@@ -347,12 +353,20 @@ export class GlitchEngine {
       h: b.layout.h * H,
     }));
 
-    const drawMains = (target: WebGLFramebuffer | null) => {
-      for (let i = 0; i < boxes.length; i++) {
-        const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
-        const tex = this.renderBoxChain(boxes[i].effects, res, time);
-        this.blit(tex, rects[i], boxRound(boxes[i]), 1, dpr, { target });
-      }
+    // parallax: deeper (near) items shift more; sign gives near/far opposite motion. off in grid.
+    const pAmt = ((layer?.parallax ?? 0) / 100) * 0.09;
+    const mx = mouse ? mouse.x : 0;
+    const my = mouse ? mouse.y : 0;
+    const par = (depth: number) => ({
+      x: mx * (depth - 0.5) * pAmt * W * 2,
+      y: my * (depth - 0.5) * pAmt * H * 2,
+    });
+    const boxDepth = (i: number) => boxes[i].depth ?? 0.5;
+
+    const drawBox = (i: number, target: WebGLFramebuffer | null, offset: { x: number; y: number }) => {
+      const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
+      const tex = this.renderBoxChain(boxes[i].effects, res, time);
+      this.blit(tex, { x: rects[i].x + offset.x, y: rects[i].y + offset.y, w: rects[i].w, h: rects[i].h }, boxRound(boxes[i]), 1, dpr, { target });
     };
 
     const doLayer = mode === "landing" && !!layer && layer.enabled;
@@ -366,18 +380,19 @@ export class GlitchEngine {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     if (!doLayer) {
-      drawMains(null);
+      // z-order boxes by depth (back → front); parallax only when a mouse is supplied
+      [...boxes.keys()].sort((a, b) => boxDepth(a) - boxDepth(b)).forEach((i) => drawBox(i, null, par(boxDepth(i))));
       return;
     }
 
-    // 1) composite all mains into a full-canvas scene buffer (transparent where empty)
+    // 1) composite all mains (base positions) into a full-canvas scene buffer for the duplicate
     this.ensureScene(c.width, c.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene!.fb);
     gl.viewport(0, 0, c.width, c.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
-    drawMains(this.scene!.fb);
+    for (let i = 0; i < boxes.length; i++) drawBox(i, this.scene!.fb, { x: 0, y: 0 });
 
     // 2) whole-layer duplicate: slice-shift (H+V) then pixel-stretch across the entire scene
     const full: Res = { w: c.width, h: c.height };
@@ -391,12 +406,29 @@ export class GlitchEngine {
     gl.viewport(0, 0, c.width, c.height);
     this.drawPass("pixstretch", pixE, this.dupA!.tex, full, time);
 
-    // 3) to screen: duplicate behind (offset + dimmed), clean mains on top
+    // 3) z-ordered draw to screen: boxes + the duplicate layer, sorted by depth (scatter across Z)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, c.width, c.height);
     gl.enable(gl.BLEND);
-    this.blit(this.dupB!.tex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
-    this.blit(this.scene!.tex, { x: 0, y: 0, w: W, h: H }, 0, 1, dpr, { useSrcAlpha: true });
+    type Item = { dup: boolean; depth: number; i: number };
+    const items: Item[] = boxes.map((_, i) => ({ dup: false, depth: boxDepth(i), i }));
+    items.push({ dup: true, depth: layer!.depth, i: -1 });
+    items.sort((a, b) => a.depth - b.depth);
+    for (const it of items) {
+      const off = par(it.depth);
+      if (it.dup) {
+        this.blit(
+          this.dupB!.tex,
+          { x: (layer!.offsetX / 100) * W + off.x, y: (layer!.offsetY / 100) * H + off.y, w: W, h: H },
+          0,
+          layer!.opacity,
+          dpr,
+          { useSrcAlpha: true }
+        );
+      } else {
+        drawBox(it.i, null, off);
+      }
+    }
   }
 
   dispose() {

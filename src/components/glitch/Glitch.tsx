@@ -57,6 +57,22 @@ export function Glitch({
     engineRef.current = engine;
     if (background) engine.bg = background;
 
+    // mouse parallax: track a smoothed pointer offset (-1..1 from canvas centre)
+    const mouse = { x: 0, y: 0 };
+    const target = { x: 0, y: 0 };
+    const onMove = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return;
+      target.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      target.y = ((e.clientY - r.top) / r.height) * 2 - 1;
+    };
+    const onLeave = () => {
+      target.x = 0;
+      target.y = 0;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerleave", onLeave);
+
     let raf = 0;
     let elapsed = 0;
     let tPrev = 0;
@@ -69,8 +85,10 @@ export function Glitch({
       const dt = Math.min(now - tPrev, 0.05);
       tPrev = now;
       if (runRef.current) elapsed += dt;
+      mouse.x += (target.x - mouse.x) * 0.08;
+      mouse.y += (target.y - mouse.y) * 0.08;
       engine.resize();
-      engine.render(cfgRef.current, modeRef.current, elapsed, layerRef.current);
+      engine.render(cfgRef.current, modeRef.current, elapsed, layerRef.current, mouse);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -78,6 +96,8 @@ export function Glitch({
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerleave", onLeave);
       engine.dispose();
       engineRef.current = null;
     };

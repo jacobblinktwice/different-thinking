@@ -20,6 +20,8 @@ export interface BoxLayout {
 export interface BoxConfig {
   layout: BoxLayout;
   effects: Effect[];
+  /** 0 = far/back, 1 = near/front. Drives z-order and parallax strength. */
+  depth?: number;
 }
 
 /** The duplicated layer behind the boxes: the whole composited scene, run through
@@ -29,6 +31,10 @@ export interface LayerConfig {
   opacity: number; // 0..1
   offsetX: number; // % of canvas
   offsetY: number; // % of canvas
+  /** duplicate's z-depth (0 = fully behind boxes, 1 = fully in front). */
+  depth: number;
+  /** mouse parallax strength (0 = off). Depth spreads boxes + layer across the parallax field. */
+  parallax: number;
   slice: EffectParams;
   pixstretch: EffectParams;
 }
@@ -38,10 +44,15 @@ export function defaultLayer(): LayerConfig {
     opacity: 0.9,
     offsetX: 1.5,
     offsetY: 3,
+    depth: 0.12,
+    parallax: 40,
     slice: { shift: 14, shiftV: 7, soft: 0, random: 40, speed: 0, glitch: 0, tx: 50, ty: 50, srot: 0, sangle: 0 },
     pixstretch: { offset: 38, smooth: 22, falloff: 0, tx: 50, ty: 50, prot: 0, pangle: 0 },
   };
 }
+
+/** default per-box depths (back → front) so parallax + z-order have variation out of the box */
+const DEFAULT_DEPTHS = [0.35, 0.55, 0.72, 0.9];
 
 export { SCHEMA, SAVED, GRAD_METAL, CFG_VERSION };
 
@@ -66,7 +77,7 @@ export type CfgEffect = {
   params?: Record<string, unknown>;
   grad?: GradStop[] | null;
 };
-export type CfgBox = { layout: BoxLayout; effects?: CfgEffect[] };
+export type CfgBox = { layout: BoxLayout; effects?: CfgEffect[]; depth?: number };
 
 /* Build a full Effect from a (possibly partial) config entry, filling any missing
    params from the SCHEMA defaults — so older exports without newer params still work. */
@@ -97,18 +108,23 @@ export function instantiate(e: CfgEffect): Effect {
 }
 
 export function boxFromCfg(c: CfgBox): BoxConfig {
-  return { layout: { ...c.layout }, effects: (c.effects || []).map(instantiate) };
+  return { layout: { ...c.layout }, effects: (c.effects || []).map(instantiate), depth: c.depth };
 }
 
 /** The dialed-in default composition, ready to render/edit. */
 export function defaultBoxes(): BoxConfig[] {
-  return (SAVED as unknown as CfgBox[]).map(boxFromCfg);
+  return (SAVED as unknown as CfgBox[]).map((c, i) => {
+    const b = boxFromCfg(c);
+    if (b.depth == null) b.depth = DEFAULT_DEPTHS[i] ?? 0.5;
+    return b;
+  });
 }
 
 export function serialize(boxes: BoxConfig[]) {
   return boxes.map((b, i) => ({
     box: i + 1,
     layout: b.layout,
+    depth: b.depth,
     effects: b.effects.map((e) => ({
       type: e.type,
       on: e.on,

@@ -57,16 +57,18 @@ const EyeOffIcon = (
 
 export default function LabPage() {
   const [boxes, setBoxes] = useState<BoxConfig[]>(() => defaultBoxes());
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState<number | "layer">(0);
   const [mode, setMode] = useState<GlitchMode>("grid");
   const [running, setRunning] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [layer, setLayer] = useState<LayerConfig>(() => defaultLayer());
   const dragIndex = useRef<number | null>(null);
 
+  const isLayer = active === "layer";
+  const activeBox = typeof active === "number" ? active : 0;
   const commit = () => setBoxes((b) => b.slice());
   const commitLayer = () => setLayer((l) => ({ ...l }));
-  const box = boxes[active];
+  const box = boxes[activeBox];
 
   const addEffect = (type: string) => {
     box.effects.unshift(instantiate({ type }));
@@ -154,17 +156,23 @@ export default function LabPage() {
           <div className="relative border-b border-hair p-4">
             <div className="flex items-center gap-2">
               <span className="text-neutral-500">≈</span>
-              <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">Effects</h2>
-              <span className="font-mono text-[11px] text-neutral-400">[{fxCount}]</span>
-              <button
-                onClick={() => setAddOpen((o) => !o)}
-                className="grid h-6 w-6 place-items-center rounded border border-hair text-[15px] leading-none text-neutral-600 hover:border-ink hover:text-ink"
-                title="Add effect"
-              >
-                +
-              </button>
+              <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">
+                {isLayer ? "Duplicate layer" : "Effects"}
+              </h2>
+              {!isLayer && (
+                <>
+                  <span className="font-mono text-[11px] text-neutral-400">[{fxCount}]</span>
+                  <button
+                    onClick={() => setAddOpen((o) => !o)}
+                    className="grid h-6 w-6 place-items-center rounded border border-hair text-[15px] leading-none text-neutral-600 hover:border-ink hover:text-ink"
+                    title="Add effect"
+                  >
+                    +
+                  </button>
+                </>
+              )}
             </div>
-            {addOpen && (
+            {addOpen && !isLayer && (
               <div className="absolute right-4 top-12 z-30 min-w-[180px] rounded-lg border border-hair bg-paper p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.14)]">
                 {Object.keys(S).map((type) => (
                   <button
@@ -177,12 +185,12 @@ export default function LabPage() {
                 ))}
               </div>
             )}
-            <div className="mt-3 flex gap-1.5">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {boxes.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setActive(i)}
-                  className={`h-8 w-8 rounded-md border text-[12px] ${
+                  className={`relative h-8 w-8 rounded-md border text-[12px] ${
                     i === active
                       ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
                       : "border-hair text-neutral-500 hover:border-neutral-400"
@@ -192,66 +200,91 @@ export default function LabPage() {
                   {i + 1}
                 </button>
               ))}
+              <button
+                onClick={() => setActive("layer")}
+                className={`h-8 rounded-md border px-2.5 font-mono text-[11px] ${
+                  isLayer
+                    ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
+                    : "border-hair text-neutral-500 hover:border-neutral-400"
+                }`}
+                title="Duplicate layer"
+              >
+                ⧉ Layer
+              </button>
             </div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
-            {/* duplicate-layer card (global; visible in Landing mode) */}
-            <div className={`rounded-[10px] border border-hair bg-paper transition-opacity ${layer.enabled ? "" : "opacity-50"}`}>
-              <div className="flex items-center gap-2 px-3 py-2.5">
-                <span className="text-neutral-500">≈</span>
-                <span className="flex-1 text-[13px] tracking-tight">
-                  Duplicate layer <span className="font-mono text-[10px] text-neutral-400">· landing</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={layer.enabled}
-                  onChange={(e) => {
-                    layer.enabled = e.target.checked;
-                    commitLayer();
-                  }}
-                  className="accent-blue"
-                  title="Enable duplicate layer"
-                />
+            {/* ===== LAYER TAB: the duplicated layer behind the boxes ===== */}
+            {isLayer && (
+              <div className="flex flex-col gap-2">
+                <p className="px-1 font-mono text-[10px] leading-4 text-neutral-500">
+                  A duplicate of all boxes, one layer with its own slice + pixel-stretch. Z depth places
+                  it behind or in front of boxes; parallax reacts to the mouse (visible in Landing mode).
+                </p>
+                <Card title="Layer">
+                  <Row label="Enabled">
+                    <input
+                      type="checkbox"
+                      checked={layer.enabled}
+                      onChange={(e) => { layer.enabled = e.target.checked; commitLayer(); }}
+                      className="accent-blue"
+                    />
+                  </Row>
+                  <Slider label="Opacity" min={0} max={100} step={1} unit="%" value={layer.opacity * 100} onChange={(v) => { layer.opacity = v / 100; commitLayer(); }} />
+                  <Slider label="Z depth" min={0} max={100} step={1} unit="%" value={layer.depth * 100} onChange={(v) => { layer.depth = v / 100; commitLayer(); }} />
+                  <Slider label="Parallax" min={0} max={100} step={1} unit="%" value={layer.parallax} onChange={(v) => { layer.parallax = v; commitLayer(); }} />
+                  <Slider label="Offset X" min={-25} max={25} step={0.5} unit="%" value={layer.offsetX} onChange={(v) => { layer.offsetX = v; commitLayer(); }} />
+                  <Slider label="Offset Y" min={-25} max={25} step={0.5} unit="%" value={layer.offsetY} onChange={(v) => { layer.offsetY = v; commitLayer(); }} />
+                  <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Slice shift · H + V</div>
+                  {(["shift", "shiftV", "soft", "random", "speed", "glitch"] as const).map((k) => {
+                    const p = S.slice.params[k] as NumDef;
+                    return <Slider key={k} label={p.label} min={p.min} max={p.max} step={p.step} unit={p.unit} value={Number(layer.slice[k] ?? 0)} onChange={(v) => { layer.slice[k] = v; commitLayer(); }} />;
+                  })}
+                  <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Pixel stretch</div>
+                  {(["offset", "smooth", "falloff", "prot", "pangle"] as const).map((k) => {
+                    const p = S.pixstretch.params[k] as NumDef;
+                    return <Slider key={k} label={p.label} min={p.min} max={p.max} step={p.step} unit={p.unit} value={Number(layer.pixstretch[k] ?? 0)} onChange={(v) => { layer.pixstretch[k] = v; commitLayer(); }} />;
+                  })}
+                </Card>
               </div>
-              <div className="flex flex-col gap-2 px-3.5 pb-3.5">
-                <Slider label="Opacity" min={0} max={100} step={1} unit="%" value={layer.opacity * 100} onChange={(v) => { layer.opacity = v / 100; commitLayer(); }} />
-                <Slider label="Offset X" min={-25} max={25} step={0.5} unit="%" value={layer.offsetX} onChange={(v) => { layer.offsetX = v; commitLayer(); }} />
-                <Slider label="Offset Y" min={-25} max={25} step={0.5} unit="%" value={layer.offsetY} onChange={(v) => { layer.offsetY = v; commitLayer(); }} />
-                <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Slice shift · H + V</div>
-                {(["shift", "shiftV", "soft", "random", "speed", "glitch"] as const).map((k) => {
-                  const p = S.slice.params[k] as NumDef;
-                  return <Slider key={k} label={p.label} min={p.min} max={p.max} step={p.step} unit={p.unit} value={Number(layer.slice[k] ?? 0)} onChange={(v) => { layer.slice[k] = v; commitLayer(); }} />;
-                })}
-                <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Pixel stretch</div>
-                {(["offset", "smooth", "falloff", "prot", "pangle"] as const).map((k) => {
-                  const p = S.pixstretch.params[k] as NumDef;
-                  return <Slider key={k} label={p.label} min={p.min} max={p.max} step={p.step} unit={p.unit} value={Number(layer.pixstretch[k] ?? 0)} onChange={(v) => { layer.pixstretch[k] = v; commitLayer(); }} />;
-                })}
-              </div>
-            </div>
+            )}
 
-            {/* layout card */}
-            <Card title="Layout & size">
-              {(["x", "y", "w", "h"] as const).map((k) => (
+            {/* ===== BOX TABS: layout + effect stack ===== */}
+            {!isLayer && (
+              <Card title="Layout & size">
+                {(["x", "y", "w", "h"] as const).map((k) => (
+                  <Slider
+                    key={k}
+                    label={{ x: "X", y: "Y", w: "Width", h: "Height" }[k]}
+                    min={k === "w" || k === "h" ? 2 : 0}
+                    max={100}
+                    step={0.1}
+                    unit="%"
+                    value={box.layout[k] * 100}
+                    onChange={(v) => {
+                      box.layout[k] = v / 100;
+                      commit();
+                    }}
+                  />
+                ))}
                 <Slider
-                  key={k}
-                  label={{ x: "X", y: "Y", w: "Width", h: "Height" }[k]}
-                  min={k === "w" || k === "h" ? 2 : 0}
+                  label="Depth"
+                  min={0}
                   max={100}
-                  step={0.1}
+                  step={1}
                   unit="%"
-                  value={box.layout[k] * 100}
+                  value={(box.depth ?? 0.5) * 100}
                   onChange={(v) => {
-                    box.layout[k] = v / 100;
+                    box.depth = v / 100;
                     commit();
                   }}
                 />
-              ))}
-            </Card>
+              </Card>
+            )}
 
             {/* effect cards — drag to reorder, eye to hide, – to remove, + to add */}
-            {box.effects.map((e, idx) => {
+            {!isLayer && box.effects.map((e, idx) => {
               const def = S[e.type];
               if (!def) return null;
               return (
