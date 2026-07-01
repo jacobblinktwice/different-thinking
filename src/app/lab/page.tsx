@@ -92,9 +92,9 @@ export default function LabPage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* stage */}
-        <div className="grid min-h-0 flex-1 place-items-center overflow-hidden p-6">
+        <div className="grid min-h-0 flex-1 place-items-center overflow-hidden p-4 sm:p-6">
           <div
             className="relative w-full shadow-[0_10px_44px_rgba(0,0,0,0.10)]"
             style={{ maxWidth: "calc((100vh - 140px) * 1.7)", aspectRatio: "17 / 10" }}
@@ -109,7 +109,7 @@ export default function LabPage() {
         </div>
 
         {/* controls */}
-        <aside className="flex w-[380px] flex-none flex-col border-l border-hair bg-paper">
+        <aside className="flex max-h-[52vh] w-full flex-none flex-col border-t border-hair bg-paper lg:max-h-none lg:w-[380px] lg:border-l lg:border-t-0">
           <div className="border-b border-hair p-4">
             <div className="flex items-center gap-2">
               <h2 className="flex-1 text-sm font-semibold">Effects</h2>

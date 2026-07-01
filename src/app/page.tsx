@@ -51,7 +51,7 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col bg-white text-ink">
       {/* ===================== HERO ===================== */}
-      <section className="relative min-h-[640px] w-full overflow-hidden" style={{ height: "min(92vh, 900px)" }}>
+      <section className="relative h-[68svh] min-h-[440px] w-full overflow-hidden sm:h-[80svh] lg:h-[min(92vh,900px)]">
         {SHOW_GLITCH && (
           <>
             {/* ===== GLITCH MOUNT POINT — shared component, same source as /lab ===== */}
@@ -82,16 +82,16 @@ export default function Home() {
           <div className="absolute left-[clamp(20px,4.9vw,86px)] top-[clamp(20px,4vh,44px)] text-[clamp(20px,1.9vw,31px)] font-medium tracking-[-0.02em]">
             Your Bugs are Cool.
           </div>
-          <p className="absolute left-1/2 top-[clamp(16px,3.5vh,52px)] w-[min(240px,22vw)] -translate-x-1/4 text-[13px] leading-[1.35] tracking-tight">
+          <p className="absolute left-1/2 top-[clamp(16px,3.5vh,52px)] hidden w-[min(240px,26vw)] -translate-x-1/4 text-[13px] leading-[1.35] tracking-tight lg:block">
             An AI research lab building products for people who think differently.
           </p>
-          <NavIndex className="pointer-events-auto absolute right-[clamp(20px,3vw,54px)] top-[clamp(20px,4vh,52px)]" />
-          <div className="pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] flex items-end gap-2">
+          <NavIndex className="pointer-events-auto absolute right-[clamp(20px,3vw,54px)] top-[clamp(20px,4vh,52px)] scale-90 sm:scale-100" />
+          <div className="pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] hidden items-end gap-2 md:flex">
             <BugMark />
             <span className="text-[14px] tracking-tight">Click Click</span>
           </div>
           {/* codestrip */}
-          <div className="absolute inset-x-0 bottom-[clamp(14px,3vh,40px)] grid grid-cols-3 px-[clamp(20px,4.9vw,86px)] font-mono text-[15px]">
+          <div className="absolute inset-x-0 bottom-[clamp(14px,3vh,40px)] grid grid-cols-3 px-[clamp(20px,4.9vw,86px)] font-mono text-[11px] sm:text-[15px]">
             <span>{"{reSrch}"}</span>
             <span>; @{"}"}</span>
             <span>&lt;&quot;aiLab&quot;&gt;</span>
