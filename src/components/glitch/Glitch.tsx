@@ -4,7 +4,7 @@
    Pass a `config` (array of boxes) to drive it; omit to use the baked default composition. */
 import { useEffect, useRef, type CSSProperties } from "react";
 import { GlitchEngine, type GlitchMode } from "./engine";
-import { defaultBoxes, defaultLayer, type BoxConfig, type LayerConfig } from "./config";
+import { defaultBoxes, defaultLayer, defaultFrontLayer, type BoxConfig, type LayerConfig, type FrontLayerConfig } from "./config";
 
 export interface GlitchProps {
   /** Box composition to render. Defaults to the baked-in tuned config. */
@@ -12,6 +12,8 @@ export interface GlitchProps {
   /** In "landing" mode, the whole-layer duplicate behind the boxes. Defaults to the baked layer.
       Pass `null` to disable the duplicate. Ignored in "grid" mode. */
   layer?: LayerConfig | null;
+  /** In "landing" mode, a group slice + pixel-stretch over the FRONT boxes. Ignored in "grid" mode. */
+  frontLayer?: FrontLayerConfig | null;
   /** "landing" (default) draws the duplicated layer behind; "grid" renders boxes only. */
   mode?: GlitchMode;
   /** Animate the effect (metal drift, slice/glitch movement). Default true. */
@@ -25,6 +27,7 @@ export interface GlitchProps {
 export function Glitch({
   config,
   layer,
+  frontLayer,
   mode = "landing",
   running = true,
   background,
@@ -37,10 +40,12 @@ export function Glitch({
   // live refs so the rAF loop always reads current props without re-initialising GL
   const cfgRef = useRef<BoxConfig[]>(config ?? defaultBoxes());
   const layerRef = useRef<LayerConfig | null>(layer === undefined ? defaultLayer() : layer);
+  const frontRef = useRef<FrontLayerConfig | null>(frontLayer === undefined ? defaultFrontLayer() : frontLayer);
   const modeRef = useRef<GlitchMode>(mode);
   const runRef = useRef<boolean>(running);
   if (config) cfgRef.current = config;
   if (layer !== undefined) layerRef.current = layer;
+  if (frontLayer !== undefined) frontRef.current = frontLayer;
   modeRef.current = mode;
   runRef.current = running;
 
@@ -57,21 +62,33 @@ export function Glitch({
     engineRef.current = engine;
     if (background) engine.bg = background;
 
-    // mouse parallax: track a smoothed pointer offset (-1..1 from canvas centre)
-    const mouse = { x: 0, y: 0 };
-    const target = { x: 0, y: 0 };
+    // Two ways to drive the global glitch-intensity multiplier (chosen per composition):
+    //  • "position" — cursor distance from the canvas centre (0 centre → 1 corner), smoothed. Steady.
+    //  • "velocity" — pointer speed + scroll spike an energy value that decays each frame.
+    let energy = 0; // velocity driver
+    const pos = { x: 0.5, y: 0.5 }; // normalized cursor within canvas
+    let havePointer = false;
+    let posSmooth = 0; // smoothed position driver (0..1)
     const onMove = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return;
-      target.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-      target.y = ((e.clientY - r.top) / r.height) * 2 - 1;
+      if (r.width > 0 && r.height > 0) {
+        pos.x = (e.clientX - r.left) / r.width;
+        pos.y = (e.clientY - r.top) / r.height;
+        havePointer = true;
+      }
+      const speed = Math.hypot(e.movementX || 0, e.movementY || 0);
+      energy += Math.min(0.6, speed / 45);
+    };
+    const onWheel = (e: WheelEvent) => {
+      energy += Math.min(0.8, Math.abs(e.deltaY) / 140);
     };
     const onLeave = () => {
-      target.x = 0;
-      target.y = 0;
+      havePointer = false; // ease back to calm when the cursor leaves
     };
     window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("pointerleave", onLeave);
+    window.addEventListener("blur", onLeave);
 
     let raf = 0;
     let elapsed = 0;
@@ -85,10 +102,23 @@ export function Glitch({
       const dt = Math.min(now - tPrev, 0.05);
       tPrev = now;
       if (runRef.current) elapsed += dt;
-      mouse.x += (target.x - mouse.x) * 0.08;
-      mouse.y += (target.y - mouse.y) * 0.08;
+      // velocity driver: decay toward rest
+      energy *= 0.92;
+      if (energy > 1) energy = 1;
+      // position driver: radial distance from centre (0..1), smoothed toward the target
+      let posTarget = 0;
+      if (havePointer) {
+        const dx = (pos.x - 0.5) * 2;
+        const dy = (pos.y - 0.5) * 2;
+        posTarget = Math.min(1, Math.hypot(dx, dy) / Math.SQRT2);
+      }
+      posSmooth += (posTarget - posSmooth) * 0.08;
+      const layerNow = layerRef.current;
+      const react = (layerNow?.reactivity ?? 50) / 100;
+      const drive = layerNow?.reactMode === "velocity" ? energy : posSmooth;
+      const mul = 1 + drive * (0.4 + react * 2.4);
       engine.resize();
-      engine.render(cfgRef.current, modeRef.current, elapsed, layerRef.current, mouse);
+      engine.render(cfgRef.current, modeRef.current, elapsed, layerNow, mul, frontRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -97,7 +127,9 @@ export function Glitch({
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("wheel", onWheel);
       window.removeEventListener("pointerleave", onLeave);
+      window.removeEventListener("blur", onLeave);
       engine.dispose();
       engineRef.current = null;
     };

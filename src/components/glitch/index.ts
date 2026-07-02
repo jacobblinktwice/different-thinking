@@ -4,6 +4,7 @@ export { GlitchEngine, type GlitchMode } from "./engine";
 export {
   defaultBoxes,
   defaultLayer,
+  defaultFrontLayer,
   defaultComposition,
   serialize,
   instantiate,
@@ -19,6 +20,7 @@ export {
   CFG_VERSION,
   type BoxConfig,
   type LayerConfig,
+  type FrontLayerConfig,
   type Composition,
   type Effect,
   type EffectParams,

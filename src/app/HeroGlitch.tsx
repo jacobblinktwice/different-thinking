@@ -47,6 +47,7 @@ export default function HeroGlitch({
     <Glitch
       config={comp.boxes}
       layer={comp.layer}
+      frontLayer={comp.frontLayer}
       mode={mode}
       background={background}
       className={className}

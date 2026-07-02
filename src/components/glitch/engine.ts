@@ -14,7 +14,7 @@ import {
   FRAG_GLITCH,
   FRAG_MASK,
 } from "./shaders";
-import { hex2rgb, instantiate, boxRound, type BoxConfig, type Effect, type GradStop, type LayerConfig } from "./config";
+import { hex2rgb, instantiate, boxRound, type BoxConfig, type Effect, type GradStop, type LayerConfig, type FrontLayerConfig } from "./config";
 
 export type GlitchMode = "grid" | "landing";
 type FBO = { fb: WebGLFramebuffer; tex: WebGLTexture; w: number; h: number };
@@ -29,6 +29,8 @@ export class GlitchEngine {
   bg: [number, number, number] = [0.988, 0.988, 0.941];
   /** cap for devicePixelRatio */
   dprCap = 2;
+  /** global glitch-intensity multiplier (1 = baseline); driven by pointer/scroll interaction. */
+  private gmul = 1;
 
   private prog: Record<string, WebGLProgram> = {};
   private vbo: WebGLBuffer;
@@ -226,13 +228,16 @@ export class GlitchEngine {
       gl.uniform1i(this.U(prog, "u_src"), 0);
     }
     const p = (e ? e.params : {}) as Record<string, number | boolean | string>;
+    // global glitch-intensity multiplier applied to displacement/chroma params (baseline = 1)
+    const g = this.gmul;
+    const gx = (v: unknown) => Number(v) * g;
     if (type === "metal") {
       this.setGrad(prog, e!.grad);
       this.setF(prog, "u_scale", p.scale);
       this.setF(prog, "u_stretch", p.stretch);
       this.setF(prog, "u_angle", p.angle);
       this.setF(prog, "u_rough", p.rough);
-      this.setF(prog, "u_rgbsplit", p.rgbsplit);
+      this.setF(prog, "u_rgbsplit", gx(p.rgbsplit));
       this.setF(prog, "u_depth", p.depth);
       this.setF(prog, "u_repeats", p.repeats);
       this.setF(prog, "u_offset", p.offset);
@@ -240,7 +245,7 @@ export class GlitchEngine {
       this.setF(prog, "u_evo", p.evo);
       this.setF(prog, "u_speed", p.speed);
     } else if (type === "pixstretch") {
-      this.setF(prog, "u_offset", p.offset);
+      this.setF(prog, "u_offset", gx(p.offset));
       this.setF(prog, "u_smooth", p.smooth);
       this.setF(prog, "u_falloff", p.falloff);
       this.setF(prog, "u_tx", p.tx);
@@ -256,18 +261,18 @@ export class GlitchEngine {
       this.setF(prog, "u_mixSpace", p.mixSpace);
     } else if (type === "refract") {
       this.setF(prog, "u_pattern", p.pattern);
-      this.setF(prog, "u_strength", p.strength);
+      this.setF(prog, "u_strength", gx(p.strength));
       this.setF(prog, "u_smooth", p.smooth);
       this.setF(prog, "u_frost", p.frost);
-      this.setF(prog, "u_disp", p.disp);
+      this.setF(prog, "u_disp", gx(p.disp));
       this.setF(prog, "u_edge", p.edge);
       this.setF(prog, "u_tx", p.tx);
       this.setF(prog, "u_ty", p.ty);
       this.setF(prog, "u_pscale", Number(p.pscale) / 100);
       this.setF(prog, "u_pangle", p.pangle);
     } else if (type === "slice") {
-      this.setF(prog, "u_shift", p.shift);
-      this.setF(prog, "u_shiftV", p.shiftV || 0);
+      this.setF(prog, "u_shift", gx(p.shift));
+      this.setF(prog, "u_shiftV", gx(p.shiftV || 0));
       this.setF(prog, "u_soft", p.soft);
       this.setF(prog, "u_random", p.random);
       this.setF(prog, "u_tx", p.tx);
@@ -275,12 +280,12 @@ export class GlitchEngine {
       this.setF(prog, "u_srot", p.srot);
       this.setF(prog, "u_sangle", p.sangle);
       this.setF(prog, "u_speed", p.speed || 0);
-      this.setF(prog, "u_glitch", p.glitch || 0);
+      this.setF(prog, "u_glitch", gx(p.glitch || 0));
     } else if (type === "glitch") {
-      this.setF(prog, "u_amount", p.amount);
+      this.setF(prog, "u_amount", gx(p.amount));
       this.setF(prog, "u_speed", p.speed);
       this.setF(prog, "u_blocks", p.blocks);
-      this.setF(prog, "u_rgb", p.rgb);
+      this.setF(prog, "u_rgb", gx(p.rgb));
       this.setF(prog, "u_seed", p.seed);
     } else if (type === "dither") {
       this.setF(prog, "u_style", p.style);
@@ -395,17 +400,20 @@ export class GlitchEngine {
     return false;
   }
 
-  /** render the whole composition for this frame. mouse = normalized pointer offset from centre (-1..1). */
+  /** render the whole composition for this frame. glitchMul = global glitch-intensity multiplier
+      (1 = baseline), driven by pointer/scroll interaction in the <Glitch> component. */
   render(
     boxes: BoxConfig[],
     mode: GlitchMode,
     time: number,
     layer?: LayerConfig | null,
-    mouse?: { x: number; y: number } | null
+    glitchMul?: number,
+    frontLayer?: FrontLayerConfig | null
   ) {
     const gl = this.gl;
     const c = this.canvas;
     if (c.width === 0 || c.height === 0) return;
+    this.gmul = glitchMul == null ? 1 : glitchMul;
     const dpr = this.dpr();
     const W = c.clientWidth;
     const H = c.clientHeight;
@@ -416,17 +424,9 @@ export class GlitchEngine {
       h: b.layout.h * H,
     }));
 
-    // parallax: deeper (near) items shift more; sign gives near/far opposite motion. off in grid.
-    const pAmt = ((layer?.parallax ?? 0) / 100) * 0.09;
-    const mx = mouse ? mouse.x : 0;
-    const my = mouse ? mouse.y : 0;
-    const par = (depth: number) => ({
-      x: mx * (depth - 0.5) * pAmt * W * 2,
-      y: my * (depth - 0.5) * pAmt * H * 2,
-    });
     const boxDepth = (i: number) => boxes[i].depth ?? 0.5;
 
-    const drawBox = (i: number, target: WebGLFramebuffer | null, offset: { x: number; y: number }) => {
+    const drawBox = (i: number, target: WebGLFramebuffer | null) => {
       const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
       const b = boxes[i];
       const round = boxRound(b);
@@ -434,10 +434,11 @@ export class GlitchEngine {
       // (different FBO pools, so both textures stay valid for the composite)
       const maskTex = b.mask && b.mask.some((m) => m.on) ? this.renderMask(b.mask, res, round, time) : null;
       const tex = this.renderBoxChain(b.effects, res, time);
-      this.blit(tex, { x: rects[i].x + offset.x, y: rects[i].y + offset.y, w: rects[i].w, h: rects[i].h }, round, 1, dpr, { target, mask: maskTex });
+      this.blit(tex, { x: rects[i].x, y: rects[i].y, w: rects[i].w, h: rects[i].h }, round, 1, dpr, { target, mask: maskTex });
     };
 
     const doLayer = mode === "landing" && !!layer && layer.enabled;
+    const doFront = mode === "landing" && !!frontLayer && frontLayer.enabled;
 
     // screen background
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -447,34 +448,59 @@ export class GlitchEngine {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    if (!doLayer) {
-      // z-order boxes by depth (back → front); parallax only when a mouse is supplied
-      [...boxes.keys()].sort((a, b) => boxDepth(a) - boxDepth(b)).forEach((i) => drawBox(i, null, par(boxDepth(i))));
+    if (!doLayer && !doFront) {
+      // z-order boxes by depth (back → front)
+      [...boxes.keys()].sort((a, b) => boxDepth(a) - boxDepth(b)).forEach((i) => drawBox(i, null));
       return;
     }
 
-    // 1) composite all mains (base positions) into a full-canvas scene buffer for the duplicate
+    const full: Res = { w: c.width, h: c.height };
+
+    // composite all boxes (base positions) into a full-canvas scene buffer — the source for
+    // both the behind-duplicate and the front-boxes layer.
     this.ensureScene(c.width, c.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene!.fb);
     gl.viewport(0, 0, c.width, c.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND);
-    for (let i = 0; i < boxes.length; i++) drawBox(i, this.scene!.fb, { x: 0, y: 0 });
+    for (let i = 0; i < boxes.length; i++) drawBox(i, this.scene!.fb);
 
-    // 2) whole-layer duplicate: slice-shift (H+V) then pixel-stretch across the entire scene
-    const full: Res = { w: c.width, h: c.height };
-    const sliceE = instantiate({ type: "slice", params: layer!.slice });
-    const pixE = instantiate({ type: "pixstretch", params: layer!.pixstretch });
-    gl.disable(gl.BLEND);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.dupA!.fb);
-    gl.viewport(0, 0, c.width, c.height);
-    this.drawPass("slice", sliceE, this.scene!.tex, full, time);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.dupB!.fb);
-    gl.viewport(0, 0, c.width, c.height);
-    this.drawPass("pixstretch", pixE, this.dupA!.tex, full, time);
+    // run the scene through a slice-shift (H+V) then pixel-stretch; returns the result texture (dupB)
+    const applyPasses = (slice: Record<string, number | boolean | string>, pix: Record<string, number | boolean | string>) => {
+      const sliceE = instantiate({ type: "slice", params: slice });
+      const pixE = instantiate({ type: "pixstretch", params: pix });
+      gl.disable(gl.BLEND);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.dupA!.fb);
+      gl.viewport(0, 0, c.width, c.height);
+      this.drawPass("slice", sliceE, this.scene!.tex, full, time);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.dupB!.fb);
+      gl.viewport(0, 0, c.width, c.height);
+      this.drawPass("pixstretch", pixE, this.dupA!.tex, full, time);
+      return this.dupB!.tex;
+    };
 
-    // 3) z-ordered draw to screen: boxes + the duplicate layer, sorted by depth (scatter across Z)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, c.width, c.height);
+    gl.enable(gl.BLEND);
+
+    if (doFront) {
+      // Front-boxes-as-a-layer: duplicate (if any) sits behind at its offset/opacity, then the
+      // whole front composite is slice+pixel-stretched and drawn on top. (Per-box z-scatter with
+      // the duplicate is intentionally flattened while this is on.)
+      if (doLayer) {
+        const dupTex = applyPasses(layer!.slice, layer!.pixstretch);
+        this.blit(dupTex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, c.width, c.height);
+      }
+      const frontTex = applyPasses(frontLayer!.slice, frontLayer!.pixstretch);
+      this.blit(frontTex, { x: 0, y: 0, w: W, h: H }, 0, 1, dpr, { useSrcAlpha: true });
+      return;
+    }
+
+    // doLayer && !doFront — original behaviour: boxes drawn individually, duplicate interleaved by depth
+    const dupTex = applyPasses(layer!.slice, layer!.pixstretch);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, c.width, c.height);
     gl.enable(gl.BLEND);
@@ -483,18 +509,10 @@ export class GlitchEngine {
     items.push({ dup: true, depth: layer!.depth, i: -1 });
     items.sort((a, b) => a.depth - b.depth);
     for (const it of items) {
-      const off = par(it.depth);
       if (it.dup) {
-        this.blit(
-          this.dupB!.tex,
-          { x: (layer!.offsetX / 100) * W + off.x, y: (layer!.offsetY / 100) * H + off.y, w: W, h: H },
-          0,
-          layer!.opacity,
-          dpr,
-          { useSrcAlpha: true }
-        );
+        this.blit(dupTex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
       } else {
-        drawBox(it.i, null, off);
+        drawBox(it.i, null);
       }
     }
   }

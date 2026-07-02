@@ -22,7 +22,7 @@ export interface BoxConfig {
   effects: Effect[];
   /** effects applied to the box's MASK (silhouette/alpha) only, not its contents. */
   mask?: Effect[];
-  /** 0 = far/back, 1 = near/front. Drives z-order and parallax strength. */
+  /** 0 = far/back, 1 = near/front. Drives z-order. */
   depth?: number;
 }
 
@@ -35,8 +35,11 @@ export interface LayerConfig {
   offsetY: number; // % of canvas
   /** duplicate's z-depth (0 = fully behind boxes, 1 = fully in front). */
   depth: number;
-  /** mouse parallax strength (0 = off). Depth spreads boxes + layer across the parallax field. */
-  parallax: number;
+  /** interaction reactivity (0 = static; higher = glitch intensity reacts more to the pointer). */
+  reactivity: number;
+  /** what drives the glitch multiplier: "position" = cursor distance from centre (smooth),
+      "velocity" = pointer speed + scroll (spikes then decays). */
+  reactMode: "position" | "velocity";
   slice: EffectParams;
   pixstretch: EffectParams;
 }
@@ -47,13 +50,29 @@ export function defaultLayer(): LayerConfig {
     offsetX: 1.5,
     offsetY: 3,
     depth: 0.12,
-    parallax: 40,
+    reactivity: 50,
+    reactMode: "position",
     slice: { shift: 14, shiftV: 7, soft: 0, random: 40, speed: 0, glitch: 0, tx: 50, ty: 50, srot: 0, sangle: 0 },
     pixstretch: { offset: 38, smooth: 22, falloff: 0, tx: 50, ty: 50, prot: 0, pangle: 0 },
   };
 }
 
-/** default per-box depths (back → front) so parallax + z-order have variation out of the box */
+/** The FRONT boxes as a group: composite of all boxes, run through a layer-level slice-shift
+    (H+V) + pixel-stretch. Disabled by default (boxes draw individually, per-box z-scatter). */
+export interface FrontLayerConfig {
+  enabled: boolean;
+  slice: EffectParams;
+  pixstretch: EffectParams;
+}
+export function defaultFrontLayer(): FrontLayerConfig {
+  return {
+    enabled: false,
+    slice: { shift: 20, shiftV: 0, soft: 0, random: 40, speed: 0, glitch: 0, tx: 50, ty: 50, srot: 0, sangle: 0 },
+    pixstretch: { offset: 0, smooth: 20, falloff: 0, tx: 50, ty: 50, prot: 0, pangle: 0 },
+  };
+}
+
+/** default per-box depths (back → front) so z-order has variation out of the box */
 const DEFAULT_DEPTHS = [0.35, 0.55, 0.72, 0.9];
 
 export { SCHEMA, SAVED, GRAD_METAL, CFG_VERSION };
@@ -150,32 +169,39 @@ export function boxRound(box: BoxConfig): number {
 export interface Composition {
   boxes: BoxConfig[];
   layer: LayerConfig;
+  frontLayer: FrontLayerConfig;
 }
 export const STORAGE_KEY = "dt-glitch-config";
 
 export function defaultComposition(): Composition {
-  return { boxes: defaultBoxes(), layer: defaultLayer() };
+  return { boxes: defaultBoxes(), layer: defaultLayer(), frontLayer: defaultFrontLayer() };
 }
 
-export function saveComposition(boxes: BoxConfig[], layer: LayerConfig) {
+export function saveComposition(boxes: BoxConfig[], layer: LayerConfig, frontLayer: FrontLayerConfig) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: CFG_VERSION, boxes: serialize(boxes), layer }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: CFG_VERSION, boxes: serialize(boxes), layer, frontLayer }));
   } catch {
     /* storage unavailable (e.g. data: URL) — noop */
   }
 }
 
 /** Parse a stored/imported blob into a Composition. Accepts the versioned object
-    ({v,boxes,layer}) or a bare boxes array (legacy export). Returns null if unusable/stale. */
+    ({v,boxes,layer,frontLayer}) or a bare boxes array (legacy export). Returns null if unusable/stale. */
 export function parseComposition(raw: unknown): Composition | null {
   try {
-    const obj = raw as { v?: number; boxes?: CfgBox[]; layer?: LayerConfig } | CfgBox[];
+    const obj = raw as
+      | { v?: number; boxes?: CfgBox[]; layer?: LayerConfig; frontLayer?: FrontLayerConfig }
+      | CfgBox[];
     if (Array.isArray(obj)) {
-      return { boxes: obj.map(boxFromCfg), layer: defaultLayer() };
+      return { boxes: obj.map(boxFromCfg), layer: defaultLayer(), frontLayer: defaultFrontLayer() };
     }
     if (obj && Array.isArray(obj.boxes)) {
       if (obj.v != null && obj.v !== CFG_VERSION) return null; // stale baseline
-      return { boxes: obj.boxes.map(boxFromCfg), layer: { ...defaultLayer(), ...(obj.layer || {}) } };
+      return {
+        boxes: obj.boxes.map(boxFromCfg),
+        layer: { ...defaultLayer(), ...(obj.layer || {}) },
+        frontLayer: { ...defaultFrontLayer(), ...(obj.frontLayer || {}) },
+      };
     }
   } catch {
     /* fall through */

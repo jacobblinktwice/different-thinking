@@ -8,6 +8,7 @@ import { Glitch } from "@/components/glitch";
 import {
   defaultBoxes,
   defaultLayer,
+  defaultFrontLayer,
   serialize,
   instantiate,
   saveComposition,
@@ -16,6 +17,7 @@ import {
   SCHEMA,
   type BoxConfig,
   type LayerConfig,
+  type FrontLayerConfig,
   type GlitchMode,
 } from "@/components/glitch";
 
@@ -62,18 +64,22 @@ const EyeOffIcon = (
 
 export default function LabPage() {
   const [boxes, setBoxes] = useState<BoxConfig[]>(() => defaultBoxes());
-  const [active, setActive] = useState<number | "layer">(0);
+  const [active, setActive] = useState<number | "layer" | "front">(0);
   const [mode, setMode] = useState<GlitchMode>("grid");
   const [running, setRunning] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [layer, setLayer] = useState<LayerConfig>(() => defaultLayer());
+  const [frontLayer, setFrontLayer] = useState<FrontLayerConfig>(() => defaultFrontLayer());
   const [stackTab, setStackTab] = useState<"content" | "mask">("content");
   const dragIndex = useRef<number | null>(null);
 
   const isLayer = active === "layer";
+  const isFront = active === "front";
+  const isBoxTab = typeof active === "number";
   const activeBox = typeof active === "number" ? active : 0;
   const commit = () => setBoxes((b) => b.slice());
   const commitLayer = () => setLayer((l) => ({ ...l }));
+  const commitFront = () => setFrontLayer((f) => ({ ...f }));
   const box = boxes[activeBox];
   // the stack currently being edited: box content, or the box's mask (silhouette)
   const curStack = stackTab === "mask" ? (box.mask ||= []) : box.effects;
@@ -85,14 +91,15 @@ export default function LabPage() {
     if (c) {
       setBoxes(c.boxes);
       setLayer(c.layer);
+      setFrontLayer(c.frontLayer);
     }
     loaded.current = true;
   }, []);
   useEffect(() => {
     if (!loaded.current) return;
-    const t = setTimeout(() => saveComposition(boxes, layer), 300);
+    const t = setTimeout(() => saveComposition(boxes, layer, frontLayer), 300);
     return () => clearTimeout(t);
-  }, [boxes, layer]);
+  }, [boxes, layer, frontLayer]);
 
   const addEffect = (type: string) => {
     curStack.unshift(instantiate({ type }));
@@ -116,7 +123,7 @@ export default function LabPage() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const exportJson = () => {
-    const json = JSON.stringify({ boxes: serialize(boxes), layer }, null, 2);
+    const json = JSON.stringify({ boxes: serialize(boxes), layer, frontLayer }, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -133,6 +140,7 @@ export default function LabPage() {
         if (!comp) return alert("Couldn't read that config (wrong format or version).");
         setBoxes(comp.boxes);
         setLayer(comp.layer);
+        setFrontLayer(comp.frontLayer);
         setActive(0);
       } catch {
         alert("Invalid JSON file.");
@@ -183,6 +191,7 @@ export default function LabPage() {
             <Glitch
               config={boxes}
               layer={layer}
+              frontLayer={frontLayer}
               mode={mode}
               running={running}
               background={mode === "landing" ? [0.988, 0.988, 0.988] : [0.945, 0.945, 0.941]}
@@ -196,9 +205,9 @@ export default function LabPage() {
             <div className="flex items-center gap-2">
               <span className="text-neutral-500">≈</span>
               <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">
-                {isLayer ? "Duplicate layer" : stackTab === "mask" ? "Mask effects" : "Effects"}
+                {isLayer ? "Duplicate layer" : isFront ? "Front boxes layer" : stackTab === "mask" ? "Mask effects" : "Effects"}
               </h2>
-              {!isLayer && (
+              {isBoxTab && (
                 <>
                   <span className="font-mono text-[11px] text-neutral-400">[{fxCount}]</span>
                   <button
@@ -211,7 +220,7 @@ export default function LabPage() {
                 </>
               )}
             </div>
-            {addOpen && !isLayer && (
+            {addOpen && isBoxTab && (
               <div className="absolute right-4 top-12 z-30 min-w-[180px] rounded-lg border border-hair bg-paper p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.14)]">
                 {(stackTab === "mask" ? MASK_FX : Object.keys(S)).map((type) => (
                   <button
@@ -246,12 +255,23 @@ export default function LabPage() {
                     ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
                     : "border-hair text-neutral-500 hover:border-neutral-400"
                 }`}
-                title="Duplicate layer"
+                title="Duplicate (behind) layer"
               >
-                ⧉ Layer
+                ⧉ Dup
+              </button>
+              <button
+                onClick={() => setActive("front")}
+                className={`h-8 rounded-md border px-2.5 font-mono text-[11px] ${
+                  isFront
+                    ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
+                    : "border-hair text-neutral-500 hover:border-neutral-400"
+                }`}
+                title="Front boxes layer (group slice + pixel-stretch)"
+              >
+                ▣ Front
               </button>
             </div>
-            {!isLayer && (
+            {isBoxTab && (
               <div className="mt-2.5 flex overflow-hidden rounded-md border border-hair text-[11px]">
                 {(["content", "mask"] as const).map((t) => (
                   <button
@@ -275,7 +295,9 @@ export default function LabPage() {
               <div className="flex flex-col gap-2">
                 <p className="px-1 font-mono text-[10px] leading-4 text-neutral-500">
                   A duplicate of all boxes, one layer with its own slice + pixel-stretch. Z depth places
-                  it behind or in front of boxes; parallax reacts to the mouse (visible in Landing mode).
+                  it behind or in front of boxes. The whole composition&apos;s glitch reacts to the pointer —
+                  &ldquo;Position&rdquo; ties intensity to cursor distance from centre (smooth); &ldquo;Motion&rdquo;
+                  spikes on pointer speed + scroll. Reactivity scales the amount.
                 </p>
                 <Card title="Layer">
                   <Row label="Enabled">
@@ -288,7 +310,17 @@ export default function LabPage() {
                   </Row>
                   <Slider label="Opacity" min={0} max={100} step={1} unit="%" value={layer.opacity * 100} onChange={(v) => { layer.opacity = v / 100; commitLayer(); }} />
                   <Slider label="Z depth" min={0} max={100} step={1} unit="%" value={layer.depth * 100} onChange={(v) => { layer.depth = v / 100; commitLayer(); }} />
-                  <Slider label="Parallax" min={0} max={100} step={1} unit="%" value={layer.parallax} onChange={(v) => { layer.parallax = v; commitLayer(); }} />
+                  <Slider label="Reactivity" min={0} max={100} step={1} unit="%" value={layer.reactivity} onChange={(v) => { layer.reactivity = v; commitLayer(); }} />
+                  <Row label="React to">
+                    <select
+                      value={layer.reactMode}
+                      onChange={(e) => { layer.reactMode = e.target.value as "position" | "velocity"; commitLayer(); }}
+                      className="w-full rounded-md border border-hair bg-paper px-2 py-1 text-xs"
+                    >
+                      <option value="position">Mouse position</option>
+                      <option value="velocity">Mouse / scroll motion</option>
+                    </select>
+                  </Row>
                   <Slider label="Offset X" min={-25} max={25} step={0.5} unit="%" value={layer.offsetX} onChange={(v) => { layer.offsetX = v; commitLayer(); }} />
                   <Slider label="Offset Y" min={-25} max={25} step={0.5} unit="%" value={layer.offsetY} onChange={(v) => { layer.offsetY = v; commitLayer(); }} />
                   <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Slice shift · H + V</div>
@@ -305,8 +337,39 @@ export default function LabPage() {
               </div>
             )}
 
+            {/* ===== FRONT LAYER TAB: group slice + pixel-stretch over the front boxes ===== */}
+            {isFront && (
+              <div className="flex flex-col gap-2">
+                <p className="px-1 font-mono text-[10px] leading-4 text-neutral-500">
+                  Runs a single slice-shift (H + V) + pixel-stretch over ALL the front boxes together
+                  (on top of each box&apos;s own effects). While enabled, the front boxes composite as one
+                  layer, so per-box z-scatter with the duplicate is flattened.
+                </p>
+                <Card title="Front layer">
+                  <Row label="Enabled">
+                    <input
+                      type="checkbox"
+                      checked={frontLayer.enabled}
+                      onChange={(e) => { frontLayer.enabled = e.target.checked; commitFront(); }}
+                      className="accent-blue"
+                    />
+                  </Row>
+                  <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Slice shift · H + V</div>
+                  {(["shift", "shiftV", "soft", "random", "speed", "glitch"] as const).map((k) => {
+                    const p = S.slice.params[k] as NumDef;
+                    return <Slider key={k} label={p.label} min={p.min} max={p.max} step={p.step} unit={p.unit} value={Number(frontLayer.slice[k] ?? 0)} onChange={(v) => { frontLayer.slice[k] = v; commitFront(); }} />;
+                  })}
+                  <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Pixel stretch</div>
+                  {(["offset", "smooth", "falloff", "prot", "pangle"] as const).map((k) => {
+                    const p = S.pixstretch.params[k] as NumDef;
+                    return <Slider key={k} label={p.label} min={p.min} max={p.max} step={p.step} unit={p.unit} value={Number(frontLayer.pixstretch[k] ?? 0)} onChange={(v) => { frontLayer.pixstretch[k] = v; commitFront(); }} />;
+                  })}
+                </Card>
+              </div>
+            )}
+
             {/* ===== BOX TABS: layout + effect stack ===== */}
-            {!isLayer && stackTab === "content" && (
+            {isBoxTab && stackTab === "content" && (
               <Card title="Layout & size">
                 {(["x", "y", "w", "h"] as const).map((k) => (
                   <Slider
@@ -338,7 +401,7 @@ export default function LabPage() {
               </Card>
             )}
 
-            {!isLayer && stackTab === "mask" && curStack.length === 0 && (
+            {isBoxTab && stackTab === "mask" && curStack.length === 0 && (
               <p className="px-1 py-2 font-mono text-[10px] leading-4 text-neutral-500">
                 Mask is empty — the box uses its plain rounded rectangle. Add slicing / pixel-stretch /
                 refraction / glitch with ＋ to distort the box silhouette (its contents stay put).
@@ -346,7 +409,7 @@ export default function LabPage() {
             )}
 
             {/* effect cards — drag to reorder, eye to hide, – to remove, + to add */}
-            {!isLayer && curStack.map((e, idx) => {
+            {isBoxTab && curStack.map((e, idx) => {
               const def = S[e.type];
               if (!def) return null;
               return (
@@ -483,6 +546,7 @@ export default function LabPage() {
               onClick={() => {
                 setBoxes(defaultBoxes());
                 setLayer(defaultLayer());
+                setFrontLayer(defaultFrontLayer());
                 setActive(0);
               }}
               className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
