@@ -5,19 +5,18 @@
    (fixed overlay + body jitter, see globals.css) and an intensity burst on the boxes
    (the `burst` prop spikes the engine's global glitch multiplier).
 
-   Also owns: the boot loader (logotype starts centered on a paper overlay and FLIPs
-   into its hero position), the photosensitivity warning (confirm dialog before the
-   first activation, acknowledged once via localStorage), the crawling bug (random
-   walk within the hero, rotating to face its heading), and haptics (vibrate on
-   toggle + pulses on pointer movement while the glitch is live — Android/Chrome;
-   iOS has no vibrate API). */
+   Also owns: the boot loader (logotype starts centered on a paper overlay with the
+   photosensitivity warning, then FLIPs into its hero position), the crawling bug
+   (random walk within the hero, rotating to face its heading), and haptics (vibrate
+   on toggle + pulses on pointer movement while the glitch is live — Android/Chrome;
+   iOS has no vibrate API). On power-on the `intro` counter plays a decaying sweep on
+   the glitch drive so the effect moves on its own and invites mouse interaction. */
 import { useEffect, useRef, useState } from "react";
 import HeroGlitch from "./HeroGlitch";
 import NavIndex from "./NavIndex";
 
 const FX_MS = 700; // whole-screen flicker duration
 const OFF_UNMOUNT_MS = 560; // keep the canvas alive through the power-off animation
-const ACK_KEY = "dt-flash-ack"; // photosensitivity warning acknowledged
 
 const buzz = (pattern: number | number[]) => {
   try {
@@ -32,7 +31,7 @@ export default function Hero() {
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [fx, setFx] = useState(false);
   const [burst, setBurst] = useState(0);
-  const [warning, setWarning] = useState(false);
+  const [intro, setIntro] = useState(0);
   const [booting, setBooting] = useState(true);
   const fxTimer = useRef<number | undefined>(undefined);
   const unmountTimer = useRef<number | undefined>(undefined);
@@ -41,7 +40,7 @@ export default function Hero() {
   const logoRef = useRef<HTMLImageElement>(null); // real logotype, in the hero
   const cloneRef = useRef<HTMLImageElement>(null); // centered clone, in the overlay
   const overlayRef = useRef<HTMLDivElement>(null);
-  const bootWarnRef = useRef<HTMLParagraphElement>(null);
+  const bootWarnRef = useRef<HTMLDivElement>(null);
 
   // crawling bug
   const heroRef = useRef<HTMLElement>(null);
@@ -59,33 +58,10 @@ export default function Hero() {
     window.clearTimeout(unmountTimer.current);
     if (next) {
       setCanvasMounted(true);
+      setIntro((i) => i + 1); // self-moving sweep that hands off to the mouse
     } else {
       unmountTimer.current = window.setTimeout(() => setCanvasMounted(false), OFF_UNMOUNT_MS);
     }
-  };
-
-  const onBugClick = () => {
-    let acked = false;
-    try {
-      acked = !!localStorage.getItem(ACK_KEY);
-    } catch {
-      /* private mode */
-    }
-    if (!on && !acked) {
-      setWarning(true);
-      return;
-    }
-    doToggle();
-  };
-
-  const confirmWarning = () => {
-    try {
-      localStorage.setItem(ACK_KEY, "1");
-    } catch {
-      /* private mode */
-    }
-    setWarning(false);
-    doToggle();
   };
 
   /* boot loader: FLIP the centered clone onto the real logotype's rect, fade the
@@ -99,6 +75,7 @@ export default function Hero() {
       return;
     }
     let t2: number | undefined;
+    // hold long enough for the photosensitivity warning to be read before the FLIP
     const t1 = window.setTimeout(() => {
       const from = clone.getBoundingClientRect();
       const to = logo.getBoundingClientRect();
@@ -116,7 +93,7 @@ export default function Hero() {
         bootWarnRef.current.style.opacity = "0";
       }
       t2 = window.setTimeout(() => setBooting(false), 1050);
-    }, 700);
+    }, 1400);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
@@ -143,6 +120,7 @@ export default function Hero() {
       const br = btn.getBoundingClientRect();
       if (!anchor) anchor = { x: br.left - hr.left - pos.x, y: br.top - hr.top - pos.y };
       const margin = 24;
+      const topMargin = 190; // stay below the title + nav so the bug never blocks links
       const maxX = hr.width - br.width - margin;
       const maxY = hr.height - br.height - margin;
       let tx = pos.x;
@@ -152,10 +130,10 @@ export default function Hero() {
         const dist = 60 + Math.random() * 130;
         tx = pos.x + Math.cos(ang) * dist;
         ty = pos.y + Math.sin(ang) * dist;
-        if (anchor.x + tx >= margin && anchor.x + tx <= maxX && anchor.y + ty >= margin && anchor.y + ty <= maxY) break;
+        if (anchor.x + tx >= margin && anchor.x + tx <= maxX && anchor.y + ty >= topMargin && anchor.y + ty <= maxY) break;
       }
       tx = Math.min(Math.max(tx, margin - anchor.x), maxX - anchor.x);
-      ty = Math.min(Math.max(ty, margin - anchor.y), maxY - anchor.y);
+      ty = Math.min(Math.max(ty, topMargin - anchor.y), maxY - anchor.y);
       const dx = tx - pos.x;
       const dy = ty - pos.y;
       const dist = Math.hypot(dx, dy);
@@ -218,7 +196,7 @@ export default function Hero() {
         {canvasMounted && (
           /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition ===== */
           <div className={`absolute inset-0 z-0 ${on ? "dt-canvas-in" : "dt-canvas-out"}`}>
-            <HeroGlitch className="absolute inset-0" mode="landing" background={[1, 1, 1]} burst={burst} />
+            <HeroGlitch className="absolute inset-0" mode="landing" background={[1, 1, 1]} burst={burst} intro={intro} />
           </div>
         )}
         {/* wordmark — gutter-aligned with the article content; plain black when off,
@@ -247,7 +225,7 @@ export default function Hero() {
           <button
             ref={bugRef}
             type="button"
-            onClick={onBugClick}
+            onClick={doToggle}
             aria-pressed={on}
             aria-label={on ? "Turn the glitch off" : "Turn the glitch on"}
             className="group pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] flex cursor-pointer items-end gap-2 will-change-transform"
@@ -270,54 +248,18 @@ export default function Hero() {
         </div>
       </section>
 
-      {/* boot loader: centered logotype FLIPs into the hero, overlay fades away */}
+      {/* boot loader: centered logotype + photosensitivity warning, then the
+          logotype FLIPs into the hero and the overlay fades away */}
       {booting && (
         <div
           ref={overlayRef}
-          aria-hidden
-          className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-paper"
+          className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center bg-paper"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img ref={cloneRef} src="/logotype.svg" alt="" className="w-[min(70vw,900px)]" />
-          <p
-            ref={bootWarnRef}
-            className="absolute inset-x-0 bottom-[10%] text-center font-mono text-[11px] text-neutral-500"
-          >
-            [ ! ] this site contains flashing imagery
-          </p>
-        </div>
-      )}
-
-      {/* photosensitivity warning — must be acknowledged before the first activation */}
-      {warning && (
-        <div
-          role="alertdialog"
-          aria-modal="true"
-          aria-label="Photosensitivity warning"
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-white/60 px-6"
-        >
-          <div className="max-w-[430px] border border-hair bg-paper p-6 font-mono text-[12px] leading-relaxed shadow-[0_2px_24px_rgba(10,10,10,0.12)]">
-            <p className="mb-2">[ ! ] PHOTOSENSITIVITY WARNING</p>
-            <p className="text-neutral-600">
-              this switch triggers rapid flashing imagery and screen-wide strobe effects. not recommended if you are
-              sensitive to flashing lights.
-            </p>
-            <div className="mt-5 flex gap-4">
-              <button
-                type="button"
-                onClick={confirmWarning}
-                className="cursor-pointer border border-ink px-3 py-1 transition-colors hover:bg-ink hover:text-white"
-              >
-                [ enable ]
-              </button>
-              <button
-                type="button"
-                onClick={() => setWarning(false)}
-                className="cursor-pointer px-3 py-1 text-neutral-500 transition-colors hover:text-ink"
-              >
-                [ cancel ]
-              </button>
-            </div>
+          <img ref={cloneRef} src="/logotype.svg" alt="Different Thinking" className="w-[min(70vw,900px)]" />
+          <div ref={bootWarnRef} className="mt-10 text-center font-mono text-[12px] leading-relaxed">
+            <p>[ ! ] PHOTOSENSITIVITY WARNING</p>
+            <p className="mt-1 text-neutral-500">this site contains flashing imagery and strobe effects</p>
           </div>
         </div>
       )}

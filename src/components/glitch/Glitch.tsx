@@ -23,6 +23,10 @@ export interface GlitchProps {
   /** Increment this counter to fire a short glitch-intensity spike (decays over ~1s).
       Used by the homepage power-on/off toggle. */
   burst?: number;
+  /** Increment this counter to play the intro sweep: a decaying oscillation on the
+      global drive (the same value mouse position feeds), hinting that the effect
+      reacts to movement. Fired on power-on only. */
+  intro?: number;
   className?: string;
   style?: CSSProperties;
 }
@@ -35,6 +39,7 @@ export function Glitch({
   running = true,
   background,
   burst,
+  intro,
   className,
   style,
 }: GlitchProps) {
@@ -42,6 +47,8 @@ export function Glitch({
   const engineRef = useRef<GlitchEngine | null>(null);
   const burstRef = useRef(0); // 1 → 0 decaying spike, multiplies the global intensity
   const burstSeen = useRef(burst);
+  const introTRef = useRef(Infinity); // seconds since the intro sweep started
+  const introSeen = useRef(intro);
 
   // live refs so the rAF loop always reads current props without re-initialising GL
   const cfgRef = useRef<BoxConfig[]>(config ?? defaultBoxes());
@@ -121,7 +128,15 @@ export function Glitch({
       posSmooth += (posTarget - posSmooth) * 0.08;
       const layerNow = layerRef.current;
       const react = (layerNow?.reactivity ?? 50) / 100;
-      const drive = layerNow?.reactMode === "velocity" ? energy : posSmooth;
+      let drive = layerNow?.reactMode === "velocity" ? energy : posSmooth;
+      // intro sweep: decaying oscillation on the drive (~3 pulses over ~6s) so the
+      // fresh effect moves on its own and invites mouse interaction to take over
+      if (introTRef.current < 12) {
+        introTRef.current += dt;
+        const t = introTRef.current;
+        const sweep = Math.exp(-t * 0.35) * (0.55 + 0.45 * Math.cos(t * 2.4));
+        if (sweep > drive) drive = sweep;
+      }
       burstRef.current *= Math.exp(-dt * 3.5); // toggle spike, ~gone in a second
       const mul = (1 + drive * (0.4 + react * 2.4)) * (1 + burstRef.current * 3);
       engine.resize();
@@ -154,6 +169,13 @@ export function Glitch({
       burstRef.current = 1;
     }
   }, [burst]);
+
+  useEffect(() => {
+    if (intro !== undefined && intro !== introSeen.current) {
+      introSeen.current = intro;
+      introTRef.current = 0;
+    }
+  }, [intro]);
 
   return (
     <canvas
