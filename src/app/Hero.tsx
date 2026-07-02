@@ -3,24 +3,54 @@
 /* Hero with the bug-toggle: starts as the clean Figma hero (black logotype on white);
    clicking the bug powers the glitch composition on/off with a whole-screen flicker
    (fixed overlay + body jitter, see globals.css) and an intensity burst on the boxes
-   (the `burst` prop spikes the engine's global glitch multiplier). */
+   (the `burst` prop spikes the engine's global glitch multiplier).
+
+   Also owns: the boot loader (logotype starts centered on a paper overlay and FLIPs
+   into its hero position), the photosensitivity warning (confirm dialog before the
+   first activation, acknowledged once via localStorage), the crawling bug (random
+   walk within the hero, rotating to face its heading), and haptics (vibrate on
+   toggle + pulses on pointer movement while the glitch is live — Android/Chrome;
+   iOS has no vibrate API). */
 import { useEffect, useRef, useState } from "react";
 import HeroGlitch from "./HeroGlitch";
 import NavIndex from "./NavIndex";
 
 const FX_MS = 700; // whole-screen flicker duration
 const OFF_UNMOUNT_MS = 560; // keep the canvas alive through the power-off animation
+const ACK_KEY = "dt-flash-ack"; // photosensitivity warning acknowledged
+
+const buzz = (pattern: number | number[]) => {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    /* unsupported */
+  }
+};
 
 export default function Hero() {
   const [on, setOn] = useState(false);
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [fx, setFx] = useState(false);
   const [burst, setBurst] = useState(0);
+  const [warning, setWarning] = useState(false);
+  const [booting, setBooting] = useState(true);
   const fxTimer = useRef<number | undefined>(undefined);
   const unmountTimer = useRef<number | undefined>(undefined);
 
-  const toggle = () => {
+  // boot loader
+  const logoRef = useRef<HTMLImageElement>(null); // real logotype, in the hero
+  const cloneRef = useRef<HTMLImageElement>(null); // centered clone, in the overlay
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const bootWarnRef = useRef<HTMLParagraphElement>(null);
+
+  // crawling bug
+  const heroRef = useRef<HTMLElement>(null);
+  const bugRef = useRef<HTMLButtonElement>(null);
+  const bugBodyRef = useRef<HTMLSpanElement>(null);
+
+  const doToggle = () => {
     const next = !on;
+    buzz(next ? [25, 40, 20] : 15);
     setOn(next);
     setBurst((b) => b + 1);
     setFx(true);
@@ -34,11 +64,142 @@ export default function Hero() {
     }
   };
 
-  // whole-page jitter while the transition plays (fixed overlay can't transform the page)
+  const onBugClick = () => {
+    let acked = false;
+    try {
+      acked = !!localStorage.getItem(ACK_KEY);
+    } catch {
+      /* private mode */
+    }
+    if (!on && !acked) {
+      setWarning(true);
+      return;
+    }
+    doToggle();
+  };
+
+  const confirmWarning = () => {
+    try {
+      localStorage.setItem(ACK_KEY, "1");
+    } catch {
+      /* private mode */
+    }
+    setWarning(false);
+    doToggle();
+  };
+
+  /* boot loader: FLIP the centered clone onto the real logotype's rect, fade the
+     overlay out, then swap in the real logotype and drop the overlay */
+  useEffect(() => {
+    const logo = logoRef.current;
+    const clone = cloneRef.current;
+    const overlay = overlayRef.current;
+    if (!logo || !clone || !overlay || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setBooting(false);
+      return;
+    }
+    let t2: number | undefined;
+    const t1 = window.setTimeout(() => {
+      const from = clone.getBoundingClientRect();
+      const to = logo.getBoundingClientRect();
+      if (from.width > 0 && to.width > 0) {
+        const s = to.width / from.width;
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        clone.style.transition = "transform 900ms cubic-bezier(0.76, 0, 0.24, 1)";
+        clone.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
+      }
+      overlay.style.transition = "background-color 400ms ease 400ms";
+      overlay.style.backgroundColor = "transparent";
+      if (bootWarnRef.current) {
+        bootWarnRef.current.style.transition = "opacity 300ms ease";
+        bootWarnRef.current.style.opacity = "0";
+      }
+      t2 = window.setTimeout(() => setBooting(false), 1050);
+    }, 700);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, []);
+
+  /* crawl: after boot, the bug wanders the hero — turn toward a nearby random
+     point, scuttle there, pause, repeat. Translate on the button, rotation on the
+     inner body span (so hover-scale on the svg and the label stay independent). */
+  useEffect(() => {
+    if (booting) return;
+    const hero = heroRef.current;
+    const btn = bugRef.current;
+    const body = bugBodyRef.current;
+    if (!hero || !btn || !body || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let live = true;
+    let timer: number;
+    const pos = { x: 0, y: 0 }; // translate offset from the CSS anchor position
+    let anchor: { x: number; y: number } | null = null;
+
+    const step = () => {
+      if (!live) return;
+      const hr = hero.getBoundingClientRect();
+      const br = btn.getBoundingClientRect();
+      if (!anchor) anchor = { x: br.left - hr.left - pos.x, y: br.top - hr.top - pos.y };
+      const margin = 24;
+      const maxX = hr.width - br.width - margin;
+      const maxY = hr.height - br.height - margin;
+      let tx = pos.x;
+      let ty = pos.y;
+      for (let tries = 0; tries < 8; tries++) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = 60 + Math.random() * 130;
+        tx = pos.x + Math.cos(ang) * dist;
+        ty = pos.y + Math.sin(ang) * dist;
+        if (anchor.x + tx >= margin && anchor.x + tx <= maxX && anchor.y + ty >= margin && anchor.y + ty <= maxY) break;
+      }
+      tx = Math.min(Math.max(tx, margin - anchor.x), maxX - anchor.x);
+      ty = Math.min(Math.max(ty, margin - anchor.y), maxY - anchor.y);
+      const dx = tx - pos.x;
+      const dy = ty - pos.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 4) {
+        const dur = Math.max(0.7, dist / 55); // crawl speed ≈ 55px/s
+        const heading = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // svg faces up
+        body.style.transition = "transform 240ms ease";
+        body.style.transform = `rotate(${heading}deg)`;
+        btn.style.transition = `transform ${dur}s cubic-bezier(0.45, 0, 0.55, 1)`;
+        btn.style.transform = `translate(${tx}px, ${ty}px)`;
+        pos.x = tx;
+        pos.y = ty;
+        timer = window.setTimeout(step, dur * 1000 + 500 + Math.random() * 2400);
+      } else {
+        timer = window.setTimeout(step, 800);
+      }
+    };
+    timer = window.setTimeout(step, 1500);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [booting]);
+
+  // whole-page jitter while the toggle transition plays (fixed overlay can't transform the page)
   useEffect(() => {
     document.body.classList.toggle("dt-glitching", fx);
     return () => document.body.classList.remove("dt-glitching");
   }, [fx]);
+
+  // haptic pulses on pointer movement while the glitch is live
+  useEffect(() => {
+    if (!on) return;
+    let last = 0;
+    const onMove = () => {
+      const now = performance.now();
+      if (now - last > 130) {
+        last = now;
+        buzz(8);
+      }
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [on]);
 
   useEffect(
     () => () => {
@@ -50,20 +211,28 @@ export default function Hero() {
 
   return (
     <>
-      <section className="relative h-[68svh] min-h-[440px] w-full overflow-hidden sm:h-[80svh] lg:h-[min(92vh,900px)]">
+      <section
+        ref={heroRef}
+        className="relative h-[68svh] min-h-[440px] w-full overflow-hidden sm:h-[80svh] lg:h-[min(92vh,900px)]"
+      >
         {canvasMounted && (
           /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition ===== */
           <div className={`absolute inset-0 z-0 ${on ? "dt-canvas-in" : "dt-canvas-out"}`}>
             <HeroGlitch className="absolute inset-0" mode="landing" background={[1, 1, 1]} burst={burst} />
           </div>
         )}
-        {/* wordmark — plain black when off, complementary knock-out (difference) over the effect when on */}
+        {/* wordmark — gutter-aligned with the article content; plain black when off,
+            complementary knock-out (difference) over the effect when on */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
+          ref={logoRef}
           src="/logotype.svg"
           alt="Different Thinking"
-          className="pointer-events-none absolute bottom-[12%] left-[2.5%] right-[2.5%] z-[2] w-[95%]"
-          style={on ? { filter: "invert(1)", mixBlendMode: "difference" } : undefined}
+          className="pointer-events-none absolute bottom-[12%] left-[clamp(20px,4.9vw,86px)] right-[clamp(20px,4.9vw,86px)] z-[2] w-[calc(100%-2*clamp(20px,4.9vw,86px))]"
+          style={{
+            ...(on ? { filter: "invert(1)", mixBlendMode: "difference" as const } : null),
+            ...(booting ? { opacity: 0 } : null),
+          }}
         />
 
         {/* top chrome */}
@@ -76,17 +245,20 @@ export default function Hero() {
           </p>
           <NavIndex className="pointer-events-auto absolute right-[clamp(20px,3vw,54px)] top-[clamp(20px,4vh,52px)] scale-90 sm:scale-100" />
           <button
+            ref={bugRef}
             type="button"
-            onClick={toggle}
+            onClick={onBugClick}
             aria-pressed={on}
             aria-label={on ? "Turn the glitch off" : "Turn the glitch on"}
-            className="group pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] flex cursor-pointer items-end gap-2"
+            className="group pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] flex cursor-pointer items-end gap-2 will-change-transform"
           >
-            <BugMark
-              className={`h-[64px] w-auto transition-transform duration-150 group-hover:scale-110 group-active:scale-95 ${
-                on ? "dt-bug-on" : ""
-              }`}
-            />
+            <span ref={bugBodyRef} className="inline-block">
+              <BugMark
+                className={`h-[64px] w-auto transition-transform duration-150 group-hover:scale-110 group-active:scale-95 ${
+                  on ? "dt-bug-on" : ""
+                }`}
+              />
+            </span>
             <span className="text-[14px] tracking-tight">Click Click</span>
           </button>
           {/* codestrip */}
@@ -97,6 +269,58 @@ export default function Hero() {
           </div>
         </div>
       </section>
+
+      {/* boot loader: centered logotype FLIPs into the hero, overlay fades away */}
+      {booting && (
+        <div
+          ref={overlayRef}
+          aria-hidden
+          className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-paper"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img ref={cloneRef} src="/logotype.svg" alt="" className="w-[min(70vw,900px)]" />
+          <p
+            ref={bootWarnRef}
+            className="absolute inset-x-0 bottom-[10%] text-center font-mono text-[11px] text-neutral-500"
+          >
+            [ ! ] this site contains flashing imagery
+          </p>
+        </div>
+      )}
+
+      {/* photosensitivity warning — must be acknowledged before the first activation */}
+      {warning && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="Photosensitivity warning"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-white/60 px-6"
+        >
+          <div className="max-w-[430px] border border-hair bg-paper p-6 font-mono text-[12px] leading-relaxed shadow-[0_2px_24px_rgba(10,10,10,0.12)]">
+            <p className="mb-2">[ ! ] PHOTOSENSITIVITY WARNING</p>
+            <p className="text-neutral-600">
+              this switch triggers rapid flashing imagery and screen-wide strobe effects. not recommended if you are
+              sensitive to flashing lights.
+            </p>
+            <div className="mt-5 flex gap-4">
+              <button
+                type="button"
+                onClick={confirmWarning}
+                className="cursor-pointer border border-ink px-3 py-1 transition-colors hover:bg-ink hover:text-white"
+              >
+                [ enable ]
+              </button>
+              <button
+                type="button"
+                onClick={() => setWarning(false)}
+                className="cursor-pointer px-3 py-1 text-neutral-500 transition-colors hover:text-ink"
+              >
+                [ cancel ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* whole-screen glitch/flicker during the toggle transition */}
       {fx && (
