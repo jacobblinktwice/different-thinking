@@ -51,6 +51,7 @@ export class GlitchEngine {
     const gl = canvas.getContext("webgl", {
       antialias: false,
       premultipliedAlpha: false,
+      alpha: false, // opaque canvas — mask coverage composites over the paper, never bleeds page white
     }) as WebGLRenderingContext | null;
     if (!gl) throw new Error("WebGL unavailable");
     this.gl = gl;
@@ -347,6 +348,14 @@ export class GlitchEngine {
     const ox = Math.floor(rCss.x * dpr);
     const oy = c.height - Math.floor(rCss.y * dpr) - res.h;
     gl.bindFramebuffer(gl.FRAMEBUFFER, opts?.target ?? null);
+    // composite over the destination (screen) so mask/coverage crops against the paper;
+    // straight-write into the scene FBO (blend off) so its alpha carries true coverage.
+    if (opts?.target) {
+      gl.disable(gl.BLEND);
+    } else {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
     gl.viewport(ox, oy, res.w, res.h);
     const prog = this.prog.blit;
     gl.useProgram(prog);
