@@ -1,39 +1,12 @@
-import Link from "next/link";
-import HeroGlitch from "./HeroGlitch";
+import Hero from "./Hero";
+import NavIndex from "./NavIndex";
 
 /* Homepage — built to match Figma node 210:4 (Alex Branding / Home Page):
    editorial layout with top labels + nav, a full-width "DifferentThinking" logotype,
    a {reSrch} … <"aiLab"> codestrip, then a 4-column Wikipedia-style article + source.
 
-   The Figma hero is clean white; the glitch effect is a droppable layer. Here it's mounted
-   as the hero backdrop (with the wordmark complementary knock-out you've been tuning) — see the
-   GLITCH MOUNT POINT below. Set `SHOW_GLITCH = false` for the pure-Figma clean hero. */
-const SHOW_GLITCH = true;
-
-const NAV: [string, string][] = [
-  ["01", "About"],
-  ["02", "Different Thinkers"],
-  ["03", "Alex"],
-  ["04", "Specimen"],
-];
-
-function NavIndex({ className = "" }: { className?: string }) {
-  return (
-    <nav className={`grid grid-cols-[auto_1fr] gap-x-3 gap-y-[7px] ${className}`}>
-      {NAV.map(([n, label]) => {
-        const href = label === "Specimen" ? "/lab" : `#${label.toLowerCase().replace(/\s+/g, "-")}`;
-        return (
-          <div key={n} className="contents">
-            <span className="font-mono text-[10px] leading-5 text-neutral-500">[ {n} ]</span>
-            <Link href={href} className="text-[15px] leading-5 tracking-tight transition-opacity hover:opacity-50">
-              {label}
-            </Link>
-          </div>
-        );
-      })}
-    </nav>
-  );
-}
+   The hero (Hero.tsx, client) starts as the clean Figma hero; the bug icon toggles
+   the glitch composition on/off with a whole-screen flicker transition. */
 
 const COLUMNS: { lead?: boolean; html: string }[] = [
   {
@@ -54,54 +27,8 @@ const COLUMNS: { lead?: boolean; html: string }[] = [
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col bg-white text-ink">
-      {/* ===================== HERO ===================== */}
-      <section className="relative h-[68svh] min-h-[440px] w-full overflow-hidden sm:h-[80svh] lg:h-[min(92vh,900px)]">
-        {SHOW_GLITCH && (
-          <>
-            {/* ===== GLITCH MOUNT POINT — shared component + saved /lab composition ===== */}
-            <HeroGlitch className="absolute inset-0 z-0" mode="landing" background={[1, 1, 1]} />
-            {/* wordmark — complementary knock-out over the effect (difference blend) */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logotype.svg"
-              alt="Different Thinking"
-              aria-hidden
-              className="pointer-events-none absolute bottom-[12%] left-[2.5%] right-[2.5%] z-[2] w-[95%]"
-              style={{ filter: "invert(1)", mixBlendMode: "difference" }}
-            />
-          </>
-        )}
-        {!SHOW_GLITCH && (
-          /* Pure-Figma clean hero: black logotype on white */
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src="/logotype.svg"
-            alt="Different Thinking"
-            className="pointer-events-none absolute bottom-[12%] left-[2.5%] right-[2.5%] z-[2] w-[95%]"
-          />
-        )}
-
-        {/* top chrome */}
-        <div className="pointer-events-none absolute inset-0 z-[3]">
-          <div className="absolute left-[clamp(20px,4.9vw,86px)] top-[clamp(20px,4vh,44px)] text-[clamp(20px,1.9vw,31px)] font-medium tracking-[-0.02em]">
-            Your Bugs are Cool.
-          </div>
-          <p className="absolute left-1/2 top-[clamp(16px,3.5vh,52px)] hidden w-[min(240px,26vw)] -translate-x-1/4 text-[13px] leading-[1.35] tracking-tight lg:block">
-            An AI research lab building products for people who think differently.
-          </p>
-          <NavIndex className="pointer-events-auto absolute right-[clamp(20px,3vw,54px)] top-[clamp(20px,4vh,52px)] scale-90 sm:scale-100" />
-          <div className="pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] hidden items-end gap-2 md:flex">
-            <BugMark />
-            <span className="text-[14px] tracking-tight">Click Click</span>
-          </div>
-          {/* codestrip */}
-          <div className="absolute inset-x-0 bottom-[clamp(14px,3vh,40px)] grid grid-cols-3 px-[clamp(20px,4.9vw,86px)] font-mono text-[11px] sm:text-[15px]">
-            <span>{"{reSrch}"}</span>
-            <span>; @{"}"}</span>
-            <span>&lt;&quot;aiLab&quot;&gt;</span>
-          </div>
-        </div>
-      </section>
+      {/* ===================== HERO (client: bug-toggled glitch) ===================== */}
+      <Hero />
 
       {/* ===================== ARTICLE (Figma editorial layout) ===================== */}
       <section
@@ -128,18 +55,5 @@ export default function Home() {
         </div>
       </section>
     </main>
-  );
-}
-
-function BugMark() {
-  return (
-    <svg viewBox="0 0 52 66" className="h-[52px] w-[41px]" aria-label="bug">
-      <path
-        fill="#0A0A0A"
-        d="M26 5c1.4 3 1 5.7-1 7.7 2.9-1 4.8 1 5.7 3.8-1.9 0-3.8 1-4.8 2.9 3.8 0 6.7 1.9 7.7 5.7-2.9-1-5.7-1-7.7 1 4.8 1 8.6 3.8 9.6 8.6-3.8-1.9-7.7-2.9-10.5-1 3.8 1.9 6.7 4.8 6.7 9.6-2.9-2.9-6.7-4.8-10.5-3.8 1 3.8 0 7.7-2.9 10.5-1-3.8-1-7.7-2.9-10.5-3.8-1-7.7 1-10.5 3.8 0-4.8 2.9-7.7 6.7-9.6-2.9-1.9-6.7-1-10.5 1 1-4.8 4.8-7.7 9.6-8.6-1.9-1.9-4.8-1.9-7.7-1 1-3.8 3.8-5.7 7.7-5.7-1-1.9-2.9-2.9-4.8-2.9 1-2.9 2.9-4.8 5.7-3.8-1.9-1.9-2.4-4.8-1-7.7 1.4 2.4 2.9 3.8 5.7 3.8 2.9 0 4.3-1.4 5.7-3.8z"
-      />
-      <circle cx="22" cy="28" r="1.9" fill="#fff" />
-      <circle cx="31" cy="28" r="1.9" fill="#fff" />
-    </svg>
   );
 }

@@ -20,6 +20,9 @@ export interface GlitchProps {
   running?: boolean;
   /** Canvas clear colour as 0..1 RGB. Defaults to paper. */
   background?: [number, number, number];
+  /** Increment this counter to fire a short glitch-intensity spike (decays over ~1s).
+      Used by the homepage power-on/off toggle. */
+  burst?: number;
   className?: string;
   style?: CSSProperties;
 }
@@ -31,11 +34,14 @@ export function Glitch({
   mode = "landing",
   running = true,
   background,
+  burst,
   className,
   style,
 }: GlitchProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GlitchEngine | null>(null);
+  const burstRef = useRef(0); // 1 → 0 decaying spike, multiplies the global intensity
+  const burstSeen = useRef(burst);
 
   // live refs so the rAF loop always reads current props without re-initialising GL
   const cfgRef = useRef<BoxConfig[]>(config ?? defaultBoxes());
@@ -116,7 +122,8 @@ export function Glitch({
       const layerNow = layerRef.current;
       const react = (layerNow?.reactivity ?? 50) / 100;
       const drive = layerNow?.reactMode === "velocity" ? energy : posSmooth;
-      const mul = 1 + drive * (0.4 + react * 2.4);
+      burstRef.current *= Math.exp(-dt * 3.5); // toggle spike, ~gone in a second
+      const mul = (1 + drive * (0.4 + react * 2.4)) * (1 + burstRef.current * 3);
       engine.resize();
       engine.render(cfgRef.current, modeRef.current, elapsed, layerNow, mul, frontRef.current);
       raf = requestAnimationFrame(loop);
@@ -140,6 +147,13 @@ export function Glitch({
   useEffect(() => {
     if (engineRef.current && background) engineRef.current.bg = background;
   }, [background]);
+
+  useEffect(() => {
+    if (burst !== undefined && burst !== burstSeen.current) {
+      burstSeen.current = burst;
+      burstRef.current = 1;
+    }
+  }, [burst]);
 
   return (
     <canvas

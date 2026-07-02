@@ -18,11 +18,13 @@ export default function HeroGlitch({
   style,
   mode = "landing",
   background,
+  burst,
 }: {
   className?: string;
   style?: CSSProperties;
   mode?: GlitchMode;
   background?: [number, number, number];
+  burst?: number;
 }) {
   const [comp, setComp] = useState<Composition>(() => defaultComposition());
 
@@ -50,6 +52,7 @@ export default function HeroGlitch({
       frontLayer={comp.frontLayer}
       mode={mode}
       background={background}
+      burst={burst}
       className={className}
       style={style}
     />
