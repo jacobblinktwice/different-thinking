@@ -21,8 +21,6 @@ import {
   type GlitchMode,
 } from "@/components/glitch";
 
-const MASK_FX = ["slice", "pixstretch", "refract", "glitch"]; // effects that meaningfully distort a silhouette
-
 type Schema = Record<
   string,
   {
@@ -70,7 +68,6 @@ export default function LabPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [layer, setLayer] = useState<LayerConfig>(() => defaultLayer());
   const [frontLayer, setFrontLayer] = useState<FrontLayerConfig>(() => defaultFrontLayer());
-  const [stackTab, setStackTab] = useState<"content" | "mask">("content");
   const dragIndex = useRef<number | null>(null);
 
   const isLayer = active === "layer";
@@ -81,8 +78,7 @@ export default function LabPage() {
   const commitLayer = () => setLayer((l) => ({ ...l }));
   const commitFront = () => setFrontLayer((f) => ({ ...f }));
   const box = boxes[activeBox];
-  // the stack currently being edited: box content, or the box's mask (silhouette)
-  const curStack = stackTab === "mask" ? (box.mask ||= []) : box.effects;
+  const curStack = box.effects;
 
   // load any saved composition on mount; then autosave every change (shared with the homepage)
   const loaded = useRef(false);
@@ -205,7 +201,7 @@ export default function LabPage() {
             <div className="flex items-center gap-2">
               <span className="text-neutral-500">≈</span>
               <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">
-                {isLayer ? "Duplicate layer" : isFront ? "Front boxes layer" : stackTab === "mask" ? "Mask effects" : "Effects"}
+                {isLayer ? "Duplicate layer" : isFront ? "Front boxes layer" : "Effects"}
               </h2>
               {isBoxTab && (
                 <>
@@ -222,7 +218,7 @@ export default function LabPage() {
             </div>
             {addOpen && isBoxTab && (
               <div className="absolute right-4 top-12 z-30 min-w-[180px] rounded-lg border border-hair bg-paper p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.14)]">
-                {(stackTab === "mask" ? MASK_FX : Object.keys(S)).map((type) => (
+                {Object.keys(S).map((type) => (
                   <button
                     key={type}
                     onClick={() => addEffect(type)}
@@ -271,22 +267,6 @@ export default function LabPage() {
                 ▣ Front
               </button>
             </div>
-            {isBoxTab && (
-              <div className="mt-2.5 flex overflow-hidden rounded-md border border-hair text-[11px]">
-                {(["content", "mask"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setStackTab(t)}
-                    className={`flex-1 px-2 py-1.5 capitalize ${
-                      stackTab === t ? "bg-ink text-paper" : "bg-paper text-neutral-600 hover:bg-black/5"
-                    }`}
-                    title={t === "mask" ? "Effects on the box silhouette only" : "Effects on the box contents"}
-                  >
-                    {t === "mask" ? "Mask" : "Content"}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
@@ -294,10 +274,10 @@ export default function LabPage() {
             {isLayer && (
               <div className="flex flex-col gap-2">
                 <p className="px-1 font-mono text-[10px] leading-4 text-neutral-500">
-                  A duplicate of all boxes, one layer with its own slice + pixel-stretch. Z depth places
-                  it behind or in front of boxes. The whole composition&apos;s glitch reacts to the pointer —
-                  &ldquo;Position&rdquo; ties intensity to cursor distance from centre (smooth); &ldquo;Motion&rdquo;
-                  spikes on pointer speed + scroll. Reactivity scales the amount.
+                  A duplicate of all boxes, sitting behind them with its own slice + pixel-stretch (offset
+                  + dimmed). The whole composition&apos;s glitch reacts to the pointer — &ldquo;Position&rdquo;
+                  ties intensity to cursor distance from centre (smooth); &ldquo;Motion&rdquo; spikes on
+                  pointer speed + scroll. Reactivity scales the amount.
                 </p>
                 <Card title="Layer">
                   <Row label="Enabled">
@@ -309,7 +289,6 @@ export default function LabPage() {
                     />
                   </Row>
                   <Slider label="Opacity" min={0} max={100} step={1} unit="%" value={layer.opacity * 100} onChange={(v) => { layer.opacity = v / 100; commitLayer(); }} />
-                  <Slider label="Z depth" min={0} max={100} step={1} unit="%" value={layer.depth * 100} onChange={(v) => { layer.depth = v / 100; commitLayer(); }} />
                   <Slider label="Reactivity" min={0} max={100} step={1} unit="%" value={layer.reactivity} onChange={(v) => { layer.reactivity = v; commitLayer(); }} />
                   <Row label="React to">
                     <select
@@ -368,8 +347,8 @@ export default function LabPage() {
               </div>
             )}
 
-            {/* ===== BOX TABS: layout + effect stack ===== */}
-            {isBoxTab && stackTab === "content" && (
+            {/* ===== BOX TAB: layout + effect stack ===== */}
+            {isBoxTab && (
               <Card title="Layout & size">
                 {(["x", "y", "w", "h"] as const).map((k) => (
                   <Slider
@@ -386,26 +365,7 @@ export default function LabPage() {
                     }}
                   />
                 ))}
-                <Slider
-                  label="Depth"
-                  min={0}
-                  max={100}
-                  step={1}
-                  unit="%"
-                  value={(box.depth ?? 0.5) * 100}
-                  onChange={(v) => {
-                    box.depth = v / 100;
-                    commit();
-                  }}
-                />
               </Card>
-            )}
-
-            {isBoxTab && stackTab === "mask" && curStack.length === 0 && (
-              <p className="px-1 py-2 font-mono text-[10px] leading-4 text-neutral-500">
-                Mask is empty — the box uses its plain rounded rectangle. Add slicing / pixel-stretch /
-                refraction / glitch with ＋ to distort the box silhouette (its contents stay put).
-              </p>
             )}
 
             {/* effect cards — drag to reorder, eye to hide, – to remove, + to add */}

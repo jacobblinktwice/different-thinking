@@ -12,7 +12,6 @@ import {
   FRAG_DITHER,
   FRAG_BLIT,
   FRAG_GLITCH,
-  FRAG_MASK,
 } from "./shaders";
 import { hex2rgb, instantiate, boxRound, type BoxConfig, type Effect, type GradStop, type LayerConfig, type FrontLayerConfig } from "./config";
 
@@ -38,10 +37,6 @@ export class GlitchEngine {
   private pong: FBO | null = null;
   private fboW = 0;
   private fboH = 0;
-  private maskPing: FBO | null = null;
-  private maskPong: FBO | null = null;
-  private maskW = 0;
-  private maskH = 0;
   // full-canvas buffers for the whole-layer duplicate
   private scene: FBO | null = null;
   private dupA: FBO | null = null;
@@ -53,7 +48,7 @@ export class GlitchEngine {
     const gl = canvas.getContext("webgl", {
       antialias: false,
       premultipliedAlpha: false,
-      alpha: false, // opaque canvas — mask coverage composites over the paper, never bleeds page white
+      alpha: false, // opaque canvas — box coverage composites over the paper, never bleeds page white
     }) as WebGLRenderingContext | null;
     if (!gl) throw new Error("WebGL unavailable");
     this.gl = gl;
@@ -69,7 +64,6 @@ export class GlitchEngine {
       slice: mk(FRAG_SLICE),
       dither: mk(FRAG_DITHER),
       glitch: mk(FRAG_GLITCH),
-      mask: mk(FRAG_MASK),
       blit: mk(FRAG_BLIT),
     };
 
@@ -164,49 +158,6 @@ export class GlitchEngine {
     this.fboH = h;
     this.ping = this.makeFBO(w, h);
     this.pong = this.makeFBO(w, h);
-  }
-
-  private ensureMaskFBO(w: number, h: number) {
-    const gl = this.gl;
-    if (w === this.maskW && h === this.maskH && this.maskPing) return;
-    if (this.maskPing) {
-      gl.deleteTexture(this.maskPing.tex);
-      gl.deleteFramebuffer(this.maskPing.fb);
-      gl.deleteTexture(this.maskPong!.tex);
-      gl.deleteFramebuffer(this.maskPong!.fb);
-    }
-    this.maskW = w;
-    this.maskH = h;
-    this.maskPing = this.makeFBO(w, h);
-    this.maskPong = this.makeFBO(w, h);
-  }
-
-  /** render the box mask: a rounded-rect silhouette distorted by the mask effect chain */
-  private renderMask(effects: Effect[], res: Res, round: number, time: number): WebGLTexture {
-    const gl = this.gl;
-    this.ensureMaskFBO(res.w, res.h);
-    gl.disable(gl.BLEND);
-    // base rounded-rect coverage
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.maskPing!.fb);
-    gl.viewport(0, 0, res.w, res.h);
-    const mp = this.prog.mask;
-    gl.useProgram(mp);
-    this.bindAttr(mp);
-    gl.uniform2f(this.U(mp, "u_res"), res.w, res.h);
-    gl.uniform1f(this.U(mp, "u_round"), round || 0);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // distort the silhouette (processed bottom→top, like content)
-    let src = this.maskPing!;
-    let dst = this.maskPong!;
-    for (const e of effects.slice().reverse().filter((x) => x.on)) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
-      gl.viewport(0, 0, res.w, res.h);
-      this.drawPass(e.type, e, src.tex, res, time);
-      const tmp = src;
-      src = dst;
-      dst = tmp;
-    }
-    return src.tex;
   }
 
   /** one effect pass: read srcTex, write to the bound framebuffer */
@@ -345,7 +296,7 @@ export class GlitchEngine {
     round: number,
     opacity: number,
     dpr: number,
-    opts?: { target?: WebGLFramebuffer | null; useSrcAlpha?: boolean; mask?: WebGLTexture | null }
+    opts?: { target?: WebGLFramebuffer | null; useSrcAlpha?: boolean }
   ) {
     const gl = this.gl;
     const c = this.canvas;
@@ -353,7 +304,7 @@ export class GlitchEngine {
     const ox = Math.floor(rCss.x * dpr);
     const oy = c.height - Math.floor(rCss.y * dpr) - res.h;
     gl.bindFramebuffer(gl.FRAMEBUFFER, opts?.target ?? null);
-    // composite over the destination (screen) so mask/coverage crops against the paper;
+    // composite over the destination (screen) so coverage crops against the paper;
     // straight-write into the scene FBO (blend off) so its alpha carries true coverage.
     if (opts?.target) {
       gl.disable(gl.BLEND);
@@ -369,11 +320,6 @@ export class GlitchEngine {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.uniform1i(this.U(prog, "u_src"), 0);
-    // mask sampler (unit 1) — always bound to something to keep the sampler valid
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, opts?.mask ?? tex);
-    gl.uniform1i(this.U(prog, "u_mask"), 1);
-    gl.uniform1f(this.U(prog, "u_hasMask"), opts?.mask ? 1 : 0);
     gl.uniform2f(this.U(prog, "u_origin"), ox, oy);
     gl.uniform2f(this.U(prog, "u_size"), res.w, res.h);
     gl.uniform1f(this.U(prog, "u_round"), round || 0);
@@ -424,17 +370,12 @@ export class GlitchEngine {
       h: b.layout.h * H,
     }));
 
-    const boxDepth = (i: number) => boxes[i].depth ?? 0.5;
-
     const drawBox = (i: number, target: WebGLFramebuffer | null) => {
       const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
       const b = boxes[i];
       const round = boxRound(b);
-      // mask effects distort the box silhouette; render the mask BEFORE the content
-      // (different FBO pools, so both textures stay valid for the composite)
-      const maskTex = b.mask && b.mask.some((m) => m.on) ? this.renderMask(b.mask, res, round, time) : null;
       const tex = this.renderBoxChain(b.effects, res, time);
-      this.blit(tex, { x: rects[i].x, y: rects[i].y, w: rects[i].w, h: rects[i].h }, round, 1, dpr, { target, mask: maskTex });
+      this.blit(tex, { x: rects[i].x, y: rects[i].y, w: rects[i].w, h: rects[i].h }, round, 1, dpr, { target });
     };
 
     const doLayer = mode === "landing" && !!layer && layer.enabled;
@@ -449,15 +390,15 @@ export class GlitchEngine {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     if (!doLayer && !doFront) {
-      // z-order boxes by depth (back → front)
-      [...boxes.keys()].sort((a, b) => boxDepth(a) - boxDepth(b)).forEach((i) => drawBox(i, null));
+      // draw boxes in order (back → front)
+      for (let i = 0; i < boxes.length; i++) drawBox(i, null);
       return;
     }
 
     const full: Res = { w: c.width, h: c.height };
 
-    // composite all boxes (base positions) into a full-canvas scene buffer — the source for
-    // both the behind-duplicate and the front-boxes layer.
+    // composite all boxes into a full-canvas scene buffer — the source for the behind-duplicate
+    // and the front-boxes layer.
     this.ensureScene(c.width, c.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene!.fb);
     gl.viewport(0, 0, c.width, c.height);
@@ -480,40 +421,24 @@ export class GlitchEngine {
       return this.dupB!.tex;
     };
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, c.width, c.height);
-    gl.enable(gl.BLEND);
-
-    if (doFront) {
-      // Front-boxes-as-a-layer: duplicate (if any) sits behind at its offset/opacity, then the
-      // whole front composite is slice+pixel-stretched and drawn on top. (Per-box z-scatter with
-      // the duplicate is intentionally flattened while this is on.)
-      if (doLayer) {
-        const dupTex = applyPasses(layer!.slice, layer!.pixstretch);
-        this.blit(dupTex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, c.width, c.height);
-      }
-      const frontTex = applyPasses(frontLayer!.slice, frontLayer!.pixstretch);
-      this.blit(frontTex, { x: 0, y: 0, w: W, h: H }, 0, 1, dpr, { useSrcAlpha: true });
-      return;
+    // 1) duplicate layer, behind, at its offset + opacity
+    if (doLayer) {
+      const dupTex = applyPasses(layer!.slice, layer!.pixstretch);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, c.width, c.height);
+      gl.enable(gl.BLEND);
+      this.blit(dupTex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
     }
 
-    // doLayer && !doFront — original behaviour: boxes drawn individually, duplicate interleaved by depth
-    const dupTex = applyPasses(layer!.slice, layer!.pixstretch);
+    // 2) front boxes, on top: as one slice+pixel-stretched group (doFront), else individually
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, c.width, c.height);
     gl.enable(gl.BLEND);
-    type Item = { dup: boolean; depth: number; i: number };
-    const items: Item[] = boxes.map((_, i) => ({ dup: false, depth: boxDepth(i), i }));
-    items.push({ dup: true, depth: layer!.depth, i: -1 });
-    items.sort((a, b) => a.depth - b.depth);
-    for (const it of items) {
-      if (it.dup) {
-        this.blit(dupTex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
-      } else {
-        drawBox(it.i, null);
-      }
+    if (doFront) {
+      const frontTex = applyPasses(frontLayer!.slice, frontLayer!.pixstretch);
+      this.blit(frontTex, { x: 0, y: 0, w: W, h: H }, 0, 1, dpr, { useSrcAlpha: true });
+    } else {
+      for (let i = 0; i < boxes.length; i++) drawBox(i, null);
     }
   }
 
@@ -521,7 +446,7 @@ export class GlitchEngine {
     const gl = this.gl;
     for (const k in this.prog) gl.deleteProgram(this.prog[k]);
     gl.deleteBuffer(this.vbo);
-    for (const f of [this.ping, this.pong, this.maskPing, this.maskPong, this.scene, this.dupA, this.dupB]) {
+    for (const f of [this.ping, this.pong, this.scene, this.dupA, this.dupB]) {
       if (f) {
         gl.deleteTexture(f.tex);
         gl.deleteFramebuffer(f.fb);
