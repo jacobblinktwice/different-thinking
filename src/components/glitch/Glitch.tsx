@@ -23,6 +23,10 @@ export interface GlitchProps {
   /** Increment this counter to fire a short glitch-intensity spike (decays over ~1s).
       Used by the homepage power-on/off toggle. */
   burst?: number;
+  /** Appear/disappear: when provided, each box and layer grows from (or shrinks to)
+      its own centre with a fast-out/slow-settle ease. Mounting with shown=true plays
+      the grow-in; omit the prop to render at full size immediately (the /lab). */
+  shown?: boolean;
   /** Increment this counter to play the intro sweep: a decaying oscillation on the
       global drive (the same value mouse position feeds), hinting that the effect
       reacts to movement. Fired on power-on only. */
@@ -40,6 +44,7 @@ export function Glitch({
   background,
   burst,
   intro,
+  shown,
   className,
   style,
 }: GlitchProps) {
@@ -49,6 +54,9 @@ export function Glitch({
   const burstSeen = useRef(burst);
   const introTRef = useRef(Infinity); // seconds since the intro sweep started
   const introSeen = useRef(intro);
+  const shownRef = useRef(shown ?? true);
+  const appearRef = useRef(shown === undefined ? 1 : 0); // linear 0..1, eased per box in the engine
+  shownRef.current = shown ?? true;
 
   // live refs so the rAF loop always reads current props without re-initialising GL
   const cfgRef = useRef<BoxConfig[]>(config ?? defaultBoxes());
@@ -107,6 +115,7 @@ export function Glitch({
     let elapsed = 0;
     let tPrev = 0;
     let disposed = false;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const loop = (now: number) => {
       if (disposed) return;
@@ -139,8 +148,19 @@ export function Glitch({
       }
       burstRef.current *= Math.exp(-dt * 3.5); // toggle spike, ~gone in a second
       const mul = (1 + drive * (0.4 + react * 2.4)) * (1 + burstRef.current * 3);
+      // appear/disappear: linear progress toward shown, eased per box in the engine
+      const appearTarget = shownRef.current ? 1 : 0;
+      if (appearRef.current !== appearTarget) {
+        if (reducedMotion) {
+          appearRef.current = appearTarget;
+        } else if (appearTarget === 1) {
+          appearRef.current = Math.min(1, appearRef.current + dt / 0.55);
+        } else {
+          appearRef.current = Math.max(0, appearRef.current - dt / 0.35);
+        }
+      }
       engine.resize();
-      engine.render(cfgRef.current, modeRef.current, elapsed, layerNow, mul, frontRef.current);
+      engine.render(cfgRef.current, modeRef.current, elapsed, layerNow, mul, frontRef.current, appearRef.current, shownRef.current);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

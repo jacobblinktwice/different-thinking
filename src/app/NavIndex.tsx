@@ -14,8 +14,11 @@ export default function NavIndex({ className = "" }: { className?: string }) {
         const href = label === "Specimen" ? "/lab" : `#${label.toLowerCase().replace(/\s+/g, "-")}`;
         return (
           <div key={n} className="contents">
-            <span className="font-mono text-[10px] leading-5 text-neutral-500">[ {n} ]</span>
-            <Link href={href} className="text-[15px] leading-5 tracking-tight transition-opacity hover:opacity-50">
+            <span className="t-foot font-mono leading-5 text-neutral-500">[ {n} ]</span>
+            <Link
+              href={href}
+              className="t-body leading-5 tracking-tight transition-opacity duration-200 ease-[var(--ease-snap)] hover:opacity-50"
+            >
               {label}
             </Link>
           </div>

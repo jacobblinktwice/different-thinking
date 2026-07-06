@@ -1,22 +1,22 @@
 "use client";
 
-/* Hero with the bug-toggle: starts as the clean Figma hero (black logotype on white);
-   clicking the bug powers the glitch composition on/off with a whole-screen flicker
-   (fixed overlay + body jitter, see globals.css) and an intensity burst on the boxes
-   (the `burst` prop spikes the engine's global glitch multiplier).
+/* Full-viewport hero on the 5-column grid: logotype pinned to the bottom of the
+   viewport with the codestrip below it (columns 1-3). Starts as the clean Figma
+   hero; clicking the bug powers the glitch composition on/off — the composition
+   stutters out from the centre (stepped scale, see globals.css) with an intensity
+   burst on the boxes, and on power-on the `intro` counter plays a decaying sweep
+   on the glitch drive so the effect moves on its own and invites mouse interaction.
 
    Also owns: the boot loader (logotype starts centered on a paper overlay with the
-   photosensitivity warning, then FLIPs into its hero position), the crawling bug
-   (random walk within the hero, rotating to face its heading), and haptics (vibrate
-   on toggle + pulses on pointer movement while the glitch is live — Android/Chrome;
-   iOS has no vibrate API). On power-on the `intro` counter plays a decaying sweep on
-   the glitch drive so the effect moves on its own and invites mouse interaction. */
+   photosensitivity warning, then FLIPs into its hero position), the bug (slowly
+   pursues the cursor, turning to face its heading; rests while hovered), and
+   haptics (vibrate on toggle + pulses on pointer movement while the glitch is
+   live — Android/Chrome; iOS has no vibrate API). */
 import { useEffect, useRef, useState } from "react";
 import HeroGlitch from "./HeroGlitch";
 import NavIndex from "./NavIndex";
 
-const FX_MS = 700; // whole-screen flicker duration
-const OFF_UNMOUNT_MS = 560; // keep the canvas alive through the power-off animation
+const OFF_UNMOUNT_MS = 400; // keep the canvas alive through the shrink-out animation (0.35s)
 
 const buzz = (pattern: number | number[]) => {
   try {
@@ -29,11 +29,9 @@ const buzz = (pattern: number | number[]) => {
 export default function Hero() {
   const [on, setOn] = useState(false);
   const [canvasMounted, setCanvasMounted] = useState(false);
-  const [fx, setFx] = useState(false);
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);
   const [booting, setBooting] = useState(true);
-  const fxTimer = useRef<number | undefined>(undefined);
   const unmountTimer = useRef<number | undefined>(undefined);
 
   // boot loader
@@ -42,19 +40,22 @@ export default function Hero() {
   const overlayRef = useRef<HTMLDivElement>(null);
   const bootWarnRef = useRef<HTMLDivElement>(null);
 
-  // crawling bug
+  // pursuing bug
   const heroRef = useRef<HTMLElement>(null);
   const bugRef = useRef<HTMLButtonElement>(null);
   const bugBodyRef = useRef<HTMLSpanElement>(null);
+
+  // scroll-parallax layers
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const introRef = useRef<HTMLParagraphElement>(null);
+  const codeRef = useRef<HTMLDivElement>(null);
 
   const doToggle = () => {
     const next = !on;
     buzz(next ? [25, 40, 20] : 15);
     setOn(next);
     setBurst((b) => b + 1);
-    setFx(true);
-    window.clearTimeout(fxTimer.current);
-    fxTimer.current = window.setTimeout(() => setFx(false), FX_MS);
     window.clearTimeout(unmountTimer.current);
     if (next) {
       setCanvasMounted(true);
@@ -83,13 +84,13 @@ export default function Hero() {
         const s = to.width / from.width;
         const dx = to.left + to.width / 2 - (from.left + from.width / 2);
         const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-        clone.style.transition = "transform 900ms cubic-bezier(0.76, 0, 0.24, 1)";
+        clone.style.transition = "transform 900ms var(--ease-smooth)";
         clone.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
       }
-      overlay.style.transition = "background-color 400ms ease 400ms";
+      overlay.style.transition = "background-color 400ms var(--ease-smooth) 400ms";
       overlay.style.backgroundColor = "transparent";
       if (bootWarnRef.current) {
-        bootWarnRef.current.style.transition = "opacity 300ms ease";
+        bootWarnRef.current.style.transition = "opacity 300ms var(--ease-smooth)";
         bootWarnRef.current.style.opacity = "0";
       }
       t2 = window.setTimeout(() => setBooting(false), 1050);
@@ -100,69 +101,107 @@ export default function Hero() {
     };
   }, []);
 
-  /* crawl: after boot, the bug wanders the hero — turn toward a nearby random
-     point, scuttle there, pause, repeat. Translate on the button, rotation on the
-     inner body span (so hover-scale on the svg and the label stay independent). */
+  /* the bug slowly pursues the cursor: eases off as it closes in, waddles a
+     little, turns smoothly to face its heading, and rests while hovered.
+     Translate on the button, rotation on the inner body span (hover-scale on the
+     svg and the label stay independent). */
   useEffect(() => {
     if (booting) return;
     const hero = heroRef.current;
     const btn = bugRef.current;
     const body = bugBodyRef.current;
     if (!hero || !btn || !body || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let live = true;
-    let timer: number;
+    let raf = 0;
+    let last = 0;
     const pos = { x: 0, y: 0 }; // translate offset from the CSS anchor position
     let anchor: { x: number; y: number } | null = null;
+    let angle = 0;
+    const mouse = { x: 0, y: 0, seen: false };
+    const onMove = (e: PointerEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.seen = true;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    btn.style.transition = "none";
+    body.style.transition = "none";
 
-    const step = () => {
-      if (!live) return;
+    const tick = (now: number) => {
+      if (!last) last = now;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
       const hr = hero.getBoundingClientRect();
       const br = btn.getBoundingClientRect();
       if (!anchor) anchor = { x: br.left - hr.left - pos.x, y: br.top - hr.top - pos.y };
-      const margin = 24;
-      const topMargin = 190; // stay below the title + nav so the bug never blocks links
-      const maxX = hr.width - br.width - margin;
-      const maxY = hr.height - br.height - margin;
-      let tx = pos.x;
-      let ty = pos.y;
-      for (let tries = 0; tries < 8; tries++) {
-        const ang = Math.random() * Math.PI * 2;
-        const dist = 60 + Math.random() * 130;
-        tx = pos.x + Math.cos(ang) * dist;
-        ty = pos.y + Math.sin(ang) * dist;
-        if (anchor.x + tx >= margin && anchor.x + tx <= maxX && anchor.y + ty >= topMargin && anchor.y + ty <= maxY) break;
+      if (mouse.seen) {
+        const margin = 24;
+        const topMargin = 190; // stay below the title + nav so the bug never blocks links
+        const maxX = hr.width - br.width - margin;
+        const maxY = hr.height - br.height - margin;
+        // caught: rest while the cursor is over (or nearly over) the bug
+        const hovered =
+          mouse.x >= br.left - 10 && mouse.x <= br.right + 10 && mouse.y >= br.top - 10 && mouse.y <= br.bottom + 10;
+        const tx = Math.min(Math.max(mouse.x - hr.left - br.width / 2, margin), maxX) - anchor.x;
+        const ty = Math.min(Math.max(mouse.y - hr.top - br.height / 2, topMargin), maxY) - anchor.y;
+        const dx = tx - pos.x;
+        const dy = ty - pos.y;
+        const dist = Math.hypot(dx, dy);
+        if (!hovered && dist > 30) {
+          const speed = Math.min(55, 12 + dist * 0.22); // saunter; slows on approach
+          const heading = Math.atan2(dy, dx) + Math.sin(now / 450) * 0.35; // organic waddle
+          pos.x += Math.cos(heading) * speed * dt;
+          pos.y += Math.sin(heading) * speed * dt;
+          // turn smoothly toward the travel direction (svg faces up)
+          const target = (heading * 180) / Math.PI + 90;
+          const diff = ((target - angle) % 360 + 540) % 360 - 180;
+          angle += diff * Math.min(1, dt * 5);
+          btn.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+          body.style.transform = `rotate(${angle}deg)`;
+        }
       }
-      tx = Math.min(Math.max(tx, margin - anchor.x), maxX - anchor.x);
-      ty = Math.min(Math.max(ty, topMargin - anchor.y), maxY - anchor.y);
-      const dx = tx - pos.x;
-      const dy = ty - pos.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist > 4) {
-        const dur = Math.max(0.7, dist / 55); // crawl speed ≈ 55px/s
-        const heading = (Math.atan2(dy, dx) * 180) / Math.PI + 90; // svg faces up
-        body.style.transition = "transform 240ms ease";
-        body.style.transform = `rotate(${heading}deg)`;
-        btn.style.transition = `transform ${dur}s cubic-bezier(0.45, 0, 0.55, 1)`;
-        btn.style.transform = `translate(${tx}px, ${ty}px)`;
-        pos.x = tx;
-        pos.y = ty;
-        timer = window.setTimeout(step, dur * 1000 + 500 + Math.random() * 2400);
-      } else {
-        timer = window.setTimeout(step, 800);
-      }
+      raf = requestAnimationFrame(tick);
     };
-    timer = window.setTimeout(step, 1500);
+    raf = requestAnimationFrame(tick);
     return () => {
-      live = false;
-      window.clearTimeout(timer);
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
     };
   }, [booting]);
 
-  // whole-page jitter while the toggle transition plays (fixed overlay can't transform the page)
+  /* scroll parallax, 2xa.studio reference: each layer CHASES its scroll target
+     with its own quick easing rate (not one long smooth tween) — the differential
+     catch-up speeds give the page that smooth-jumping, slightly-detached feel.
+     Transforms go directly on each element — never on a wrapper around the
+     logotype, whose difference blend would isolate inside a transformed stacking
+     context and render plain white. */
   useEffect(() => {
-    document.body.classList.toggle("dt-glitching", fx);
-    return () => document.body.classList.remove("dt-glitching");
-  }, [fx]);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // f = parallax factor, rate = chase speed (per second; higher = snappier)
+    const layers: { ref: { current: HTMLElement | null }; f: number; rate: number; cur: number }[] = [
+      { ref: canvasWrapRef, f: 0.05, rate: 10, cur: 0 }, // composition trails
+      { ref: logoRef, f: -0.06, rate: 6, cur: 0 }, // logotype drifts, laziest
+      { ref: titleRef, f: 0.12, rate: 16, cur: 0 }, // title snaps along
+      { ref: introRef, f: 0.08, rate: 5, cur: 0 },
+      { ref: codeRef, f: -0.28, rate: 12, cur: 0 }, // codestrip rises over the logotype
+    ];
+    let raf = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      if (!last) last = now;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const y = Math.min(window.scrollY, window.innerHeight * 1.5);
+      for (const l of layers) {
+        const el = l.ref.current;
+        if (!el) continue;
+        l.cur += (y * l.f - l.cur) * Math.min(1, 1 - Math.exp(-dt * l.rate));
+        el.style.transform = `translate3d(0, ${l.cur.toFixed(2)}px, 0)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   // haptic pulses on pointer movement while the glitch is live
   useEffect(() => {
@@ -179,71 +218,76 @@ export default function Hero() {
     return () => window.removeEventListener("pointermove", onMove);
   }, [on]);
 
-  useEffect(
-    () => () => {
-      window.clearTimeout(fxTimer.current);
-      window.clearTimeout(unmountTimer.current);
-    },
-    [],
-  );
+  useEffect(() => () => window.clearTimeout(unmountTimer.current), []);
 
   return (
     <>
-      <section
-        ref={heroRef}
-        className="relative h-[68svh] min-h-[440px] w-full overflow-hidden sm:h-[80svh] lg:h-[min(92vh,900px)]"
-      >
+      <section ref={heroRef} className="relative h-svh min-h-[540px] w-full overflow-hidden">
         {canvasMounted && (
-          /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition ===== */
-          <div className={`absolute inset-0 z-0 ${on ? "dt-canvas-in" : "dt-canvas-out"}`}>
-            <HeroGlitch className="absolute inset-0" mode="landing" background={[1, 1, 1]} burst={burst} intro={intro} />
+          /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition =====
+             each box/layer grows from (or shrinks to) its own centre via `shown` */
+          <div ref={canvasWrapRef} className="absolute inset-0 z-0">
+            <HeroGlitch
+              className="absolute inset-0"
+              mode="landing"
+              background={[1, 1, 1]}
+              burst={burst}
+              intro={intro}
+              shown={on}
+            />
           </div>
         )}
-        {/* wordmark — gutter-aligned with the article content; plain black when off,
-            complementary knock-out (difference) over the effect when on */}
+        {/* wordmark — pinned to the bottom of the viewport, gutter-aligned; plain
+            black when off, complementary knock-out (difference) over the effect when on */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={logoRef}
           src="/logotype.svg"
           alt="Different Thinking"
-          className="pointer-events-none absolute bottom-[12%] left-[clamp(20px,4.9vw,86px)] right-[clamp(20px,4.9vw,86px)] z-[2] w-[calc(100%-2*clamp(20px,4.9vw,86px))]"
+          className="pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] w-[calc(100%-2*var(--gutter))]"
           style={{
             ...(on ? { filter: "invert(1)", mixBlendMode: "difference" as const } : null),
             ...(booting ? { opacity: 0 } : null),
           }}
         />
 
-        {/* top chrome */}
-        <div className="pointer-events-none absolute inset-0 z-[3]">
-          <div className="absolute left-[clamp(20px,4.9vw,86px)] top-[clamp(20px,4vh,44px)] text-[clamp(20px,1.9vw,31px)] font-medium tracking-[-0.02em]">
-            Your Bugs are Cool.
-          </div>
-          <p className="absolute left-1/2 top-[clamp(16px,3.5vh,52px)] hidden w-[min(240px,26vw)] -translate-x-1/4 text-[13px] leading-[1.35] tracking-tight lg:block">
-            An AI research lab building products for people who think differently.
-          </p>
-          <NavIndex className="pointer-events-auto absolute right-[clamp(20px,3vw,54px)] top-[clamp(20px,4vh,52px)] scale-90 sm:scale-100" />
-          <button
-            ref={bugRef}
-            type="button"
-            onClick={doToggle}
-            aria-pressed={on}
-            aria-label={on ? "Turn the glitch off" : "Turn the glitch on"}
-            className="group pointer-events-auto absolute right-[clamp(60px,13vw,205px)] top-[clamp(150px,24vh,290px)] flex cursor-pointer items-end gap-2 will-change-transform"
-          >
-            <span ref={bugBodyRef} className="inline-block">
-              <BugMark
-                className={`h-[64px] w-auto transition-transform duration-150 group-hover:scale-110 group-active:scale-95 ${
-                  on ? "dt-bug-on" : ""
-                }`}
-              />
-            </span>
-            <span className="text-[14px] tracking-tight">Click Click</span>
-          </button>
-          {/* codestrip */}
-          <div className="absolute inset-x-0 bottom-[clamp(14px,3vh,40px)] grid grid-cols-3 px-[clamp(20px,4.9vw,86px)] font-mono text-[11px] sm:text-[15px]">
-            <span>{"{reSrch}"}</span>
-            <span>; @{"}"}</span>
-            <span>&lt;&quot;aiLab&quot;&gt;</span>
+        {/* top chrome, laid out on the 5-column grid */}
+        <div className="pointer-events-none absolute inset-0 z-[3] px-[var(--gutter)]">
+          <div className="relative h-full w-full">
+            <div ref={titleRef} className="t-title absolute left-0 top-[clamp(20px,4vh,44px)] font-medium tracking-[-0.02em]">
+              Your Bugs are Cool.
+            </div>
+            <p
+              ref={introRef}
+              className="t-body absolute top-[clamp(22px,4.2vh,48px)] hidden leading-[1.35] tracking-tight md:left-[33.3333%] md:block md:w-[28%] lg:left-[60%] lg:w-[18%]"
+            >
+              An AI research lab building products for people who think differently.
+            </p>
+            <NavIndex className="pointer-events-auto absolute right-0 top-[clamp(20px,4vh,44px)] md:left-[66.6667%] md:right-auto lg:left-[80%]" />
+            <button
+              ref={bugRef}
+              type="button"
+              onClick={doToggle}
+              aria-pressed={on}
+              aria-label={on ? "Turn the glitch off" : "Turn the glitch on"}
+              className="group pointer-events-auto absolute right-[clamp(30px,9vw,170px)] top-[clamp(150px,24vh,290px)] flex cursor-pointer items-end gap-2 will-change-transform"
+            >
+              <span ref={bugBodyRef} className="inline-block">
+                <BugMark className="h-[64px] w-auto transition-transform duration-200 ease-[var(--ease-snap)] group-hover:scale-110 group-active:scale-95" />
+              </span>
+              <span className="t-body tracking-tight">Click Click</span>
+            </button>
+            {/* codestrip — one item per column (first three), mid grey, resting at
+                the viewport bottom; its fast parallax slides it up OVER the
+                logotype on scroll (chrome z-3 sits above the logotype's z-2) */}
+            <div
+              ref={codeRef}
+              className="t-subhead absolute inset-x-0 bottom-[clamp(16px,3svh,32px)] font-mono text-neutral-400"
+            >
+              <span className="absolute bottom-0 left-0">{"{reSrch}"}</span>
+              <span className="absolute bottom-0 left-[33.3333%] lg:left-[20%]">; @{"}"}</span>
+              <span className="absolute bottom-0 left-[66.6667%] lg:left-[40%]">&lt;&quot;aiLab&quot;&gt;</span>
+            </div>
           </div>
         </div>
       </section>
@@ -261,16 +305,6 @@ export default function Hero() {
             <p>[ ! ] PHOTOSENSITIVITY WARNING</p>
             <p className="mt-1 text-neutral-500">this site contains flashing imagery and strobe effects</p>
           </div>
-        </div>
-      )}
-
-      {/* whole-screen glitch/flicker during the toggle transition */}
-      {fx && (
-        <div aria-hidden className="pointer-events-none fixed inset-0 z-[60]">
-          <div className="dt-fx-flash absolute inset-0" />
-          <div className="dt-fx-band dt-fx-band-1" />
-          <div className="dt-fx-band dt-fx-band-2" />
-          <div className="dt-fx-band dt-fx-band-3" />
         </div>
       )}
     </>

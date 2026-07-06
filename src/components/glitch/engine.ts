@@ -21,6 +21,32 @@ type Rect = { x: number; y: number; w: number; h: number };
 type Res = { w: number; h: number };
 const REF = 900;
 
+/* appear easings — the site's motion mix (keep in sync with the --ease-* tokens
+   in globals.css). Boxes alternate the two snappy curves for a glitchy, uneven
+   attack; the dup/front layers grow on the smooth curve behind them.
+   Solve x(t) for t by bisection (x is monotonic for x1,x2 ∈ [0,1]), return y(t). */
+type Bez = { x1: number; y1: number; x2: number; y2: number };
+const EASE_SNAP_A: Bez = { x1: 0.012, y1: 1.109, x2: 0.892, y2: 0.999 };
+const EASE_SNAP_B: Bez = { x1: 0, y1: 0.985, x2: 0.129, y2: 0.99 };
+const EASE_SMOOTH: Bez = { x1: 0.997, y1: -0.011, x2: 0.015, y2: 0.995 };
+const EASE_CLOSE: Bez = { x1: 0.45, y1: 0, x2: 0.1, y2: 1 };
+function bezY(c: Bez, p: number): number {
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  let lo = 0;
+  let hi = 1;
+  let t = p;
+  for (let i = 0; i < 18; i++) {
+    t = (lo + hi) / 2;
+    const u = 1 - t;
+    const x = 3 * u * u * t * c.x1 + 3 * u * t * t * c.x2 + t * t * t;
+    if (x < p) lo = t;
+    else hi = t;
+  }
+  const u = 1 - t;
+  return Math.max(0, 3 * u * u * t * c.y1 + 3 * u * t * t * c.y2 + t * t * t);
+}
+
 export class GlitchEngine {
   readonly gl: WebGLRenderingContext;
   readonly canvas: HTMLCanvasElement;
@@ -354,7 +380,9 @@ export class GlitchEngine {
     time: number,
     layer?: LayerConfig | null,
     glitchMul?: number,
-    frontLayer?: FrontLayerConfig | null
+    frontLayer?: FrontLayerConfig | null,
+    appear = 1,
+    appearIn = true
   ) {
     const gl = this.gl;
     const c = this.canvas;
@@ -370,12 +398,36 @@ export class GlitchEngine {
       h: b.layout.h * H,
     }));
 
+    // appear: each box (and the dup/front layers) grows from its own centre,
+    // staggered per box. Opening: boxes alternate the two snappy curves. Closing:
+    // everything follows EASE_CLOSE in its own direction (an ease-in-out — gentle
+    // start, fast middle, soft landing at zero). Mirrored snap curves collapsed
+    // boxes to specks instantly and lingered; this reads smooth AND quick.
+    const ease = (c: Bez, p: number) => (appearIn ? bezY(c, p) : bezY(EASE_CLOSE, p));
+    const stag = boxes.length > 1 ? 0.12 : 0;
+    const seg = 1 - stag * (boxes.length - 1);
+    const scaleOf = (i: number) =>
+      appear >= 1
+        ? 1
+        : ease(i % 2 ? EASE_SNAP_B : EASE_SNAP_A, Math.min(1, Math.max(0, (appear - stag * i) / seg)));
+    // the dup/front groups are built FROM the scene, whose boxes already grow from
+    // their own centres — scaling the group blit too would compound (boxes vanish
+    // early). Instead the echo fades in on the smooth curve for depth.
+    const layerEase = appear >= 1 ? 1 : ease(EASE_SMOOTH, appear);
+
     const drawBox = (i: number, target: WebGLFramebuffer | null) => {
-      const res = { w: Math.max(2, Math.floor(rects[i].w * dpr)), h: Math.max(2, Math.floor(rects[i].h * dpr)) };
+      const s = scaleOf(i);
+      if (s < 0.02) return;
+      const r0 = rects[i];
+      const r =
+        s === 1
+          ? r0
+          : { x: r0.x + (r0.w * (1 - s)) / 2, y: r0.y + (r0.h * (1 - s)) / 2, w: r0.w * s, h: r0.h * s };
+      const res = { w: Math.max(2, Math.floor(r.w * dpr)), h: Math.max(2, Math.floor(r.h * dpr)) };
       const b = boxes[i];
-      const round = boxRound(b);
+      const round = boxRound(b) * s;
       const tex = this.renderBoxChain(b.effects, res, time);
-      this.blit(tex, { x: rects[i].x, y: rects[i].y, w: rects[i].w, h: rects[i].h }, round, 1, dpr, { target });
+      this.blit(tex, r, round, 1, dpr, { target });
     };
 
     const doLayer = mode === "landing" && !!layer && layer.enabled;
@@ -421,16 +473,25 @@ export class GlitchEngine {
       return this.dupB!.tex;
     };
 
-    // 1) duplicate layer, behind, at its offset + opacity
-    if (doLayer) {
+    // 1) duplicate layer, behind, at its offset + opacity — its boxes already grow
+    //    inside the scene; the echo itself fades in on the smooth curve
+    if (doLayer && layerEase >= 0.01) {
       const dupTex = applyPasses(layer!.slice, layer!.pixstretch);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, c.width, c.height);
       gl.enable(gl.BLEND);
-      this.blit(dupTex, { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H }, 0, layer!.opacity, dpr, { useSrcAlpha: true });
+      this.blit(
+        dupTex,
+        { x: (layer!.offsetX / 100) * W, y: (layer!.offsetY / 100) * H, w: W, h: H },
+        0,
+        layer!.opacity * layerEase,
+        dpr,
+        { useSrcAlpha: true }
+      );
     }
 
-    // 2) front boxes, on top: as one slice+pixel-stretched group (doFront), else individually
+    // 2) front boxes, on top: as one slice+pixel-stretched group (doFront), else
+    //    individually. Full-rect blit — the boxes inside already animate.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, c.width, c.height);
     gl.enable(gl.BLEND);
