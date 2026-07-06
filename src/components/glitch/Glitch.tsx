@@ -154,9 +154,9 @@ export function Glitch({
         if (reducedMotion) {
           appearRef.current = appearTarget;
         } else if (appearTarget === 1) {
-          appearRef.current = Math.min(1, appearRef.current + dt / 0.55);
+          appearRef.current = Math.min(1, appearRef.current + dt / 0.6);
         } else {
-          appearRef.current = Math.max(0, appearRef.current - dt / 0.35);
+          appearRef.current = Math.max(0, appearRef.current - dt / 0.6);
         }
       }
       engine.resize();

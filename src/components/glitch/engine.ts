@@ -26,10 +26,8 @@ const REF = 900;
    attack; the dup/front layers grow on the smooth curve behind them.
    Solve x(t) for t by bisection (x is monotonic for x1,x2 ∈ [0,1]), return y(t). */
 type Bez = { x1: number; y1: number; x2: number; y2: number };
-const EASE_SNAP_A: Bez = { x1: 0.012, y1: 1.109, x2: 0.892, y2: 0.999 };
-const EASE_SNAP_B: Bez = { x1: 0, y1: 0.985, x2: 0.129, y2: 0.99 };
-const EASE_SMOOTH: Bez = { x1: 0.997, y1: -0.011, x2: 0.015, y2: 0.995 };
-const EASE_CLOSE: Bez = { x1: 0.45, y1: 0, x2: 0.1, y2: 1 };
+const EASE_APPEAR: Bez = { x1: 0, y1: 1, x2: 0, y2: 1 }; // instant burst, long settle
+const EASE_SMOOTH: Bez = { x1: 0.997, y1: -0.011, x2: 0.015, y2: 0.995 }; // echo fade
 function bezY(c: Bez, p: number): number {
   if (p <= 0) return 0;
   if (p >= 1) return 1;
@@ -399,17 +397,14 @@ export class GlitchEngine {
     }));
 
     // appear: each box (and the dup/front layers) grows from its own centre,
-    // staggered per box. Opening: boxes alternate the two snappy curves. Closing:
-    // everything follows EASE_CLOSE in its own direction (an ease-in-out — gentle
-    // start, fast middle, soft landing at zero). Mirrored snap curves collapsed
-    // boxes to specks instantly and lingered; this reads smooth AND quick.
-    const ease = (c: Bez, p: number) => (appearIn ? bezY(c, p) : bezY(EASE_CLOSE, p));
+    // staggered per box, on EASE_APPEAR — an instant burst with a long settle.
+    // Closing mirrors it in time (1 - ease(1 - p)): the same shape played
+    // backwards, fast drop then a soft glide to zero.
+    const ease = (c: Bez, p: number) => (appearIn ? bezY(c, p) : 1 - bezY(c, 1 - p));
     const stag = boxes.length > 1 ? 0.12 : 0;
     const seg = 1 - stag * (boxes.length - 1);
     const scaleOf = (i: number) =>
-      appear >= 1
-        ? 1
-        : ease(i % 2 ? EASE_SNAP_B : EASE_SNAP_A, Math.min(1, Math.max(0, (appear - stag * i) / seg)));
+      appear >= 1 ? 1 : ease(EASE_APPEAR, Math.min(1, Math.max(0, (appear - stag * i) / seg)));
     // the dup/front groups are built FROM the scene, whose boxes already grow from
     // their own centres — scaling the group blit too would compound (boxes vanish
     // early). Instead the echo fades in on the smooth curve for depth.

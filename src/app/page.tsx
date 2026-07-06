@@ -50,10 +50,7 @@ export default function Home() {
       <Hero />
 
       {/* ===================== ARTICLE (Figma editorial layout) ===================== */}
-      <section
-        id="about"
-        className="relative border-t border-hair px-[var(--gutter)] py-[clamp(40px,5vw,72px)]"
-      >
+      <section id="about" className="relative px-[var(--gutter)] py-[clamp(40px,5vw,72px)]">
         <div className="grid grid-cols-1 gap-y-10 md:grid-cols-3 md:gap-x-0 lg:grid-cols-5">
           {COLUMNS.map((html, i) => (
             <div

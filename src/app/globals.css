@@ -31,6 +31,9 @@
   /* closing/settling: gentle start, fast middle, soft landing — the snap curves
      mirrored collapse to specks instantly, so closes get their own curve */
   --ease-close: cubic-bezier(0.45, 0, 0.1, 1);
+  /* the appear curve — instant burst, long settle. Shared by the glitch boxes
+     (EASE_APPEAR in engine.ts, keep in sync) and the loader's logotype travel. */
+  --ease-appear: cubic-bezier(0, 1, 0, 1);
 }
 
 @theme inline {
