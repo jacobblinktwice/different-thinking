@@ -84,16 +84,16 @@ export default function Hero() {
         const s = to.width / from.width;
         const dx = to.left + to.width / 2 - (from.left + from.width / 2);
         const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-        clone.style.transition = "transform 600ms var(--ease-appear)";
+        clone.style.transition = "transform 900ms var(--ease-smooth)";
         clone.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
       }
-      overlay.style.transition = "background-color 350ms var(--ease-smooth) 250ms";
+      overlay.style.transition = "background-color 400ms var(--ease-smooth) 400ms";
       overlay.style.backgroundColor = "transparent";
       if (bootWarnRef.current) {
         bootWarnRef.current.style.transition = "opacity 300ms var(--ease-smooth)";
         bootWarnRef.current.style.opacity = "0";
       }
-      t2 = window.setTimeout(() => setBooting(false), 750);
+      t2 = window.setTimeout(() => setBooting(false), 1050);
     }, 1400);
     return () => {
       window.clearTimeout(t1);

@@ -67,6 +67,9 @@ export class GlitchEngine {
   private dupB: FBO | null = null;
   private sceneW = 0;
   private sceneH = 0;
+  // per-activation random start rects for the appear animation: [x, y, size] in 0..1
+  private appearSeeds: [number, number, number][] = [];
+  private lastAppear = 1;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl", {
@@ -385,7 +388,12 @@ export class GlitchEngine {
     const gl = this.gl;
     const c = this.canvas;
     if (c.width === 0 || c.height === 0) return;
-    this.gmul = glitchMul == null ? 1 : glitchMul;
+    // transition boost: while the boxes are appearing/disappearing, crank the
+    // displacement-type params (slice shift, pixel stretch, glitch, rgb split —
+    // everything gmul touches, incl. the echo/front group passes) so the in-flight
+    // state is visibly wilder than the settled one
+    const trans = 1 - Math.min(1, Math.max(0, appear));
+    this.gmul = (glitchMul == null ? 1 : glitchMul) * (1 + trans * 2);
     const dpr = this.dpr();
     const W = c.clientWidth;
     const H = c.clientHeight;
@@ -396,33 +404,52 @@ export class GlitchEngine {
       h: b.layout.h * H,
     }));
 
-    // appear: each box (and the dup/front layers) grows from its own centre,
-    // staggered per box, on EASE_APPEAR — an instant burst with a long settle.
-    // Closing mirrors it in time (1 - ease(1 - p)): the same shape played
-    // backwards, fast drop then a soft glide to zero.
+    // appear: each box animates in FROM a random position and size (stable per
+    // activation via appearSeeds), staggered per box, on EASE_APPEAR — an extreme
+    // ease-in: the scattered boxes hold, then slam into the real layout at the
+    // end. Closing mirrors it in time (1 - ease(1 - p)): a quick scatter back
+    // toward the random rects while fading out.
+    if (appearIn && this.lastAppear <= 0 && appear > 0) {
+      this.appearSeeds = boxes.map(() => [Math.random(), Math.random(), Math.random()]);
+    }
+    this.lastAppear = appear;
+    while (this.appearSeeds.length < boxes.length) {
+      this.appearSeeds.push([Math.random(), Math.random(), Math.random()]);
+    }
     const ease = (c: Bez, p: number) => (appearIn ? bezY(c, p) : 1 - bezY(c, 1 - p));
     const stag = boxes.length > 1 ? 0.12 : 0;
     const seg = 1 - stag * (boxes.length - 1);
-    const scaleOf = (i: number) =>
+    const progressOf = (i: number) =>
       appear >= 1 ? 1 : ease(EASE_APPEAR, Math.min(1, Math.max(0, (appear - stag * i) / seg)));
-    // the dup/front groups are built FROM the scene, whose boxes already grow from
-    // their own centres — scaling the group blit too would compound (boxes vanish
-    // early). Instead the echo fades in on the smooth curve for depth.
+    // the dup/front groups are built FROM the scene, whose boxes already animate —
+    // transforming the group blits too would compound. The echo instead fades in
+    // on the smooth curve for depth.
     const layerEase = appear >= 1 ? 1 : ease(EASE_SMOOTH, appear);
 
     const drawBox = (i: number, target: WebGLFramebuffer | null) => {
-      const s = scaleOf(i);
-      if (s < 0.02) return;
-      const r0 = rects[i];
-      const r =
-        s === 1
-          ? r0
-          : { x: r0.x + (r0.w * (1 - s)) / 2, y: r0.y + (r0.h * (1 - s)) / 2, w: r0.w * s, h: r0.h * s };
+      const s = progressOf(i);
+      // closing: fade the scattered boxes out as they fly back
+      const opacity = appearIn ? 1 : Math.min(1, s * 1.5);
+      if (!appearIn && opacity <= 0.01) return;
+      let r = rects[i];
+      if (s < 1) {
+        const [ry, rx, rs] = this.appearSeeds[i];
+        const sw = r.w * (0.15 + rs * 1.1); // random start size: 0.15–1.25× final
+        const sh = r.h * (0.15 + rs * 1.1);
+        const sx = rx * Math.max(0, W - sw);
+        const sy = ry * Math.max(0, H - sh);
+        r = {
+          x: sx + (r.x - sx) * s,
+          y: sy + (r.y - sy) * s,
+          w: sw + (r.w - sw) * s,
+          h: sh + (r.h - sh) * s,
+        };
+      }
       const res = { w: Math.max(2, Math.floor(r.w * dpr)), h: Math.max(2, Math.floor(r.h * dpr)) };
       const b = boxes[i];
-      const round = boxRound(b) * s;
+      const round = boxRound(b);
       const tex = this.renderBoxChain(b.effects, res, time);
-      this.blit(tex, r, round, 1, dpr, { target });
+      this.blit(tex, r, round, opacity, dpr, { target });
     };
 
     const doLayer = mode === "landing" && !!layer && layer.enabled;
