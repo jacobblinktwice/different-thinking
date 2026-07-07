@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import Bugs from "./Bugs";
 import DataTexture from "./DataTexture";
 import Hero from "./Hero";
+import HoverImages from "./HoverImages";
 import LiveLog from "./LiveLog";
 import NavIndex from "./NavIndex";
 import Rulers from "./Rulers";
@@ -36,6 +37,7 @@ export default function Home() {
       <LiveLog />
       <Rulers />
       <ScrollScramble />
+      <HoverImages />
       {/* vertical guides bounding the columns, running the full page height —
           5 columns on desktop (lg), 3 on tablet (md), gutter lines only on mobile */}
       <div

@@ -191,6 +191,37 @@ nav a:hover,
   animation: dt-boot-inner-out 0.7s cubic-bezier(1, 0, 1, 0) both;
 }
 
+/* ===== hover imagery on article links (HoverImages.tsx) =====
+   Borderless image chasing the cursor, tagged object-identifier style. */
+.dt-hoverimg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  width: 220px;
+  pointer-events: none;
+}
+.dt-hoverimg img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.dt-hoverimg-tag {
+  position: absolute;
+  top: -15px;
+  left: 0;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 14px;
+  color: var(--ink);
+  background: rgba(252, 252, 252, 0.85);
+  white-space: nowrap;
+}
+.dt-hoverimg.dt-on {
+  animation: dt-wipe-in 0.22s var(--ease-snap) both;
+}
+
 /* ===== object-recognition boxes (Hero toggle) =====
    Hairline bounding boxes + confidence tags flashing at the glitch boxes'
    target rects during the in/out animation. */
