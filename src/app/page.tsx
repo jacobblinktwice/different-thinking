@@ -1,3 +1,4 @@
+import Bugs from "./Bugs";
 import Hero from "./Hero";
 import NavIndex from "./NavIndex";
 import SmoothScroll from "./SmoothScroll";
@@ -21,6 +22,7 @@ export default function Home() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
       <SmoothScroll />
+      <Bugs />
       {/* vertical guides bounding the columns, running the full page height —
           5 columns on desktop (lg), 3 on tablet (md), gutter lines only on mobile */}
       <div
@@ -62,9 +64,14 @@ export default function Home() {
           {/* nav sidebar in the last column (repeats in the article, per Figma) */}
           <div className="hidden md:col-start-3 md:block lg:col-start-auto">
             <NavIndex />
+            {/* ambient visual bug: an asset that never loaded */}
+            <div aria-hidden className="mt-12">
+              <div className="dt-checker h-[46px] w-[46px]" />
+              <p className="t-foot mt-1.5 font-mono text-neutral-400">missing_texture.png</p>
+            </div>
           </div>
         </div>
-        <div className="t-subhead mt-16 text-right font-mono text-neutral-500">
+        <div data-bug="src" className="t-subhead mt-16 text-right font-mono text-neutral-500">
           &lt;src: &quot;Wikipedia&quot;&gt;
         </div>
       </section>

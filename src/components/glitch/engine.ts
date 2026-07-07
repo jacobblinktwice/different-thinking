@@ -388,12 +388,6 @@ export class GlitchEngine {
     const gl = this.gl;
     const c = this.canvas;
     if (c.width === 0 || c.height === 0) return;
-    // transition boost: while the boxes are appearing/disappearing, crank the
-    // displacement-type params (slice shift, pixel stretch, glitch, rgb split —
-    // everything gmul touches, incl. the echo/front group passes) so the in-flight
-    // state is visibly wilder than the settled one
-    const trans = 1 - Math.min(1, Math.max(0, appear));
-    this.gmul = (glitchMul == null ? 1 : glitchMul) * (1 + trans * 2);
     const dpr = this.dpr();
     const W = c.clientWidth;
     const H = c.clientHeight;
@@ -425,6 +419,12 @@ export class GlitchEngine {
     // transforming the group blits too would compound. The echo instead fades in
     // on the smooth curve for depth.
     const layerEase = appear >= 1 ? 1 : ease(EASE_SMOOTH, appear);
+    // transition boost: while the boxes are in flight, crank the displacement-type
+    // params (slice shift, pixel stretch, glitch, rgb split — everything gmul
+    // touches, incl. the echo/front group passes). Follows the SAME easing as the
+    // movement (EASE_APPEAR, un-staggered) so distortion unwinds in step with it.
+    const trans = appear >= 1 ? 0 : 1 - ease(EASE_APPEAR, Math.min(1, Math.max(0, appear)));
+    this.gmul = (glitchMul == null ? 1 : glitchMul) * (1 + trans * 2);
 
     const drawBox = (i: number, target: WebGLFramebuffer | null) => {
       const s = progressOf(i);

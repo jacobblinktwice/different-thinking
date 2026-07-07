@@ -110,6 +110,12 @@ export function Glitch({
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("pointerleave", onLeave);
     window.addEventListener("blur", onLeave);
+    // freeze-frame visual bug (Bugs.tsx): hold the last rendered frame briefly
+    let freezeUntil = 0;
+    const onFreeze = (e: Event) => {
+      freezeUntil = performance.now() / 1000 + (((e as CustomEvent).detail as number) || 0.3);
+    };
+    window.addEventListener("dt-freeze", onFreeze);
 
     let raf = 0;
     let elapsed = 0;
@@ -120,6 +126,12 @@ export function Glitch({
     const loop = (now: number) => {
       if (disposed) return;
       now /= 1000;
+      if (now < freezeUntil) {
+        // frozen: skip the render entirely so the last frame holds
+        tPrev = now;
+        raf = requestAnimationFrame(loop);
+        return;
+      }
       if (!tPrev) tPrev = now;
       const dt = Math.min(now - tPrev, 0.05);
       tPrev = now;
@@ -172,6 +184,7 @@ export function Glitch({
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("blur", onLeave);
+      window.removeEventListener("dt-freeze", onFreeze);
       engine.dispose();
       engineRef.current = null;
     };

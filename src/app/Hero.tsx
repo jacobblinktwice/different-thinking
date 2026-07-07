@@ -84,16 +84,16 @@ export default function Hero() {
         const s = to.width / from.width;
         const dx = to.left + to.width / 2 - (from.left + from.width / 2);
         const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-        clone.style.transition = "transform 900ms var(--ease-smooth)";
+        clone.style.transition = "transform 600ms cubic-bezier(1, 0, 0, 1)";
         clone.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
       }
-      overlay.style.transition = "background-color 400ms var(--ease-smooth) 400ms";
+      overlay.style.transition = "background-color 350ms var(--ease-smooth) 250ms";
       overlay.style.backgroundColor = "transparent";
       if (bootWarnRef.current) {
         bootWarnRef.current.style.transition = "opacity 300ms var(--ease-smooth)";
         bootWarnRef.current.style.opacity = "0";
       }
-      t2 = window.setTimeout(() => setBooting(false), 1050);
+      t2 = window.setTimeout(() => setBooting(false), 750);
     }, 1400);
     return () => {
       window.clearTimeout(t1);
@@ -195,7 +195,9 @@ export default function Hero() {
         const el = l.ref.current;
         if (!el) continue;
         l.cur += (y * l.f - l.cur) * Math.min(1, 1 - Math.exp(-dt * l.rate));
-        el.style.transform = `translate3d(0, ${l.cur.toFixed(2)}px, 0)`;
+        // compose any episode transform from Bugs.tsx (dataset.dtBugT) so visual
+        // bugs can warp parallax-managed layers without being overwritten
+        el.style.transform = `translate3d(0, ${l.cur.toFixed(2)}px, 0)${el.dataset.dtBugT || ""}`;
       }
       raf = requestAnimationFrame(tick);
     };
@@ -222,7 +224,7 @@ export default function Hero() {
 
   return (
     <>
-      <section ref={heroRef} className="relative h-svh min-h-[540px] w-full overflow-hidden">
+      <section ref={heroRef} data-bug="hero" className="relative h-svh min-h-[540px] w-full overflow-hidden">
         {canvasMounted && (
           /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition =====
              each box/layer grows from (or shrinks to) its own centre via `shown` */
@@ -242,6 +244,7 @@ export default function Hero() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={logoRef}
+          data-bug="logotype"
           src="/logotype.svg"
           alt="Different Thinking"
           className="pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] w-[calc(100%-2*var(--gutter))]"
@@ -254,7 +257,11 @@ export default function Hero() {
         {/* top chrome, laid out on the 5-column grid */}
         <div className="pointer-events-none absolute inset-0 z-[3] px-[var(--gutter)]">
           <div className="relative h-full w-full">
-            <div ref={titleRef} className="t-title absolute left-0 top-[clamp(20px,4vh,44px)] font-medium tracking-[-0.02em]">
+            <div
+              ref={titleRef}
+              data-bug="title"
+              className="t-title absolute left-0 top-[clamp(20px,4vh,44px)] font-medium tracking-[-0.02em]"
+            >
               Your Bugs are Cool.
             </div>
             <p
@@ -272,16 +279,19 @@ export default function Hero() {
               aria-label={on ? "Turn the glitch off" : "Turn the glitch on"}
               className="group pointer-events-auto absolute right-[clamp(30px,9vw,170px)] top-[clamp(150px,24vh,290px)] flex cursor-pointer items-end gap-2 will-change-transform"
             >
-              <span ref={bugBodyRef} className="inline-block">
+              <span ref={bugBodyRef} data-bug="bugmark" className="inline-block">
                 <BugMark className="h-[64px] w-auto transition-transform duration-200 ease-[var(--ease-snap)] group-hover:scale-110 group-active:scale-95" />
               </span>
-              <span className="t-body tracking-tight">Click Click</span>
+              <span data-bug="clicklabel" className="t-body tracking-tight">
+                Click Click
+              </span>
             </button>
             {/* codestrip — one item per column (first three), mid grey, resting at
                 the viewport bottom; its fast parallax slides it up OVER the
                 logotype on scroll (chrome z-3 sits above the logotype's z-2) */}
             <div
               ref={codeRef}
+              data-bug="codestrip"
               className="t-subhead absolute inset-x-0 bottom-[clamp(16px,3svh,32px)] font-mono text-neutral-400"
             >
               <span className="absolute bottom-0 left-0">{"{reSrch}"}</span>

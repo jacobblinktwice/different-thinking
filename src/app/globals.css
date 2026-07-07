@@ -59,3 +59,45 @@ body {
 
 /* The glitch appear/disappear is engine-driven (each box and layer grows from its
    own centre — see appearEase in engine.ts and the `shown` prop on <Glitch>). */
+
+/* ===== curated visual bugs (Bugs.tsx) ===== */
+/* classic engine missing-texture checkerboard */
+.dt-checker {
+  background: repeating-conic-gradient(#ff00dc 0% 25%, #0a0a0a 0% 50%) 0 0 / 14px 14px;
+}
+/* broken-image placeholder (episodic swap for the bug icon) */
+.dt-missing-box {
+  position: relative;
+  border: 1px solid #b3b3b3;
+  background: #fff;
+}
+.dt-missing-box::before {
+  content: "✕";
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 10px;
+  line-height: 1;
+  color: #e00;
+  font-family: var(--font-mono);
+}
+/* visual-static band (feTurbulence noise) */
+.dt-noise-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.9'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+/* hard-coded lighting: one diagonal hard-edged highlight, no falloff */
+.dt-hard-light {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.5) 38%, rgba(10, 10, 10, 0.08) 38.15%);
+  mix-blend-mode: hard-light;
+}
