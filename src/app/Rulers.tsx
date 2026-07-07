@@ -38,10 +38,30 @@ export default function Rulers() {
     buildX();
     buildY();
     const onResize = () => {
-      buildX();
+      buildX(); // wipes the X ruler — re-append the mouse marker after
       buildY();
+      x.appendChild(mx);
     };
     window.addEventListener("resize", onResize);
+
+    // mouse position indicators (blue line + live coordinate, one per axis)
+    const mx = document.createElement("span");
+    mx.className = "dt-ruler-mx";
+    mx.style.display = "none";
+    const my = document.createElement("span");
+    my.className = "dt-ruler-my";
+    my.style.display = "none";
+    const mouse = { x: 0, y: 0, seen: false };
+    const onMove = (e: PointerEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.seen = true;
+    };
+    const onLeave = () => {
+      mouse.seen = false;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerleave", onLeave);
 
     let raf = 0;
     let frame = 0;
@@ -60,17 +80,36 @@ export default function Rulers() {
         const base = s - (s % 100);
         for (let i = 0; i < yPool.length; i++) {
           const doc = base + i * 100;
-          yPool[i].style.top = `${doc - s}px`;
+          const vy = doc - s;
+          yPool[i].style.top = `${vy}px`;
           yPool[i].textContent = String(doc);
+          // corner: hide Y ticks whose labels would collide with the X ruler's "0"
+          yPool[i].style.visibility = vy < 20 ? "hidden" : "visible";
+        }
+        if (mouse.seen) {
+          mx.style.display = "";
+          my.style.display = "";
+          mx.style.left = `${mouse.x}px`;
+          mx.textContent = String(Math.round(mouse.x));
+          my.style.top = `${mouse.y}px`;
+          my.textContent = String(s + Math.round(mouse.y));
+        } else {
+          mx.style.display = "none";
+          my.style.display = "none";
         }
       }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
 
+    x.appendChild(mx);
+    y.appendChild(my);
+
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerleave", onLeave);
     };
   }, []);
 

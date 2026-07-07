@@ -44,7 +44,8 @@ export default function Hero() {
   // boot loader + logotype (Exposure variable-font test)
   const logoRef = useRef<HTMLHeadingElement>(null); // real logotype, in the hero
   const overlayRef = useRef<HTMLDivElement>(null);
-  const bootInnerRef = useRef<HTMLDivElement>(null); // bug + warning, exits upward
+  const [lettersLive, setLettersLive] = useState(false); // logotype reveal, starts mid-exit
+  const bootProgRef = useRef<HTMLParagraphElement>(null); // loading readout in the overlay
 
   // pursuing bug
   const heroRef = useRef<HTMLElement>(null);
@@ -78,29 +79,42 @@ export default function Hero() {
     }
   };
 
-  /* boot loader: hold for the photosensitivity warning, then the bug + warning
-     exit UPWARD on the same curve the logotype letters rise in on — a match cut
-     of two upward motions (see .dt-logo-live in CSS) */
+  /* boot loader: hold for the photosensitivity warning, then the bug+warning
+     exit upward on cubic-bezier(1,0,1,0) while the still, solid background
+     clears via a circular reveal from the centre-bottom (Pixel power-animation
+     style — .dt-boot-out in CSS); the logotype letters start rising mid-exit */
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setBooting(false);
+      setLettersLive(true);
       return;
     }
+    let tL: number | undefined;
     let t2: number | undefined;
+    // loading readout: eased fill across the hold, completing just before exit
+    const start = performance.now();
+    const prog = window.setInterval(() => {
+      const el = bootProgRef.current;
+      if (!el) return;
+      const t = Math.min(1, (performance.now() - start) / 1300);
+      const e = 1 - (1 - t) ** 2;
+      const blocks = Math.round(e * 12);
+      el.textContent = `[${"▓".repeat(blocks)}${"░".repeat(12 - blocks)}] ${Math.floor(e * 100)}%`;
+    }, 50);
     const t1 = window.setTimeout(() => {
-      overlay.style.transition = "background-color 400ms var(--ease-smooth)";
-      overlay.style.backgroundColor = "transparent";
-      if (bootInnerRef.current) {
-        bootInnerRef.current.style.transition =
-          "transform 700ms cubic-bezier(1, 0, 1, 0), opacity 500ms var(--ease-smooth)";
-        bootInnerRef.current.style.transform = "translateY(-16vh)";
-        bootInnerRef.current.style.opacity = "0";
-      }
-      t2 = window.setTimeout(() => setBooting(false), 430);
+      window.clearInterval(prog);
+      if (bootProgRef.current) bootProgRef.current.textContent = "[▓▓▓▓▓▓▓▓▓▓▓▓] 100%";
+      overlay.classList.add("dt-boot-out");
+      // bug/warning exit 0-700ms, THEN the bg reveal blooms (650-1250ms);
+      // letters start rising as the reveal opens
+      tL = window.setTimeout(() => setLettersLive(true), 800);
+      t2 = window.setTimeout(() => setBooting(false), 1300);
     }, 1400);
     return () => {
+      window.clearInterval(prog);
       window.clearTimeout(t1);
+      window.clearTimeout(tL);
       window.clearTimeout(t2);
     };
   }, []);
@@ -351,7 +365,7 @@ export default function Hero() {
           data-bug="logotype"
           aria-label="Different Thinking"
           className={`dt-logotype pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] z-[2] whitespace-nowrap ${
-            booting ? "invisible" : "dt-logo-live"
+            lettersLive ? "dt-logo-live" : "invisible"
           }`}
           style={on ? { color: "#fff", mixBlendMode: "difference" as const } : undefined}
         >
@@ -415,13 +429,21 @@ export default function Hero() {
       {booting && (
         <div
           ref={overlayRef}
-          className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center bg-paper"
+          className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center"
         >
-          <div ref={bootInnerRef} className="flex flex-col items-center">
-            <BugMark className="h-[clamp(72px,10vh,110px)] w-auto text-ink" />
+          {/* solid, still paper background — clears via a circular reveal from
+              the centre-bottom on exit */}
+          <div aria-hidden className="dt-boot-bg absolute inset-0" />
+          <div className="dt-boot-inner relative flex flex-col items-center">
+            <BugMark className="h-[clamp(72px,10vh,110px)] w-auto text-paper" />
             <div className="mt-10 text-center font-mono text-[12px] leading-relaxed">
-              <p>[ ! ] PHOTOSENSITIVITY WARNING</p>
-              <p className="mt-1 text-neutral-500">this site contains flashing imagery and strobe effects</p>
+              <p className="text-paper">[ ! ] PHOTOSENSITIVITY WARNING</p>
+              <p className="mt-1.5 text-neutral-500">this site contains flashing imagery and strobe effects</p>
+              {/* loading readout — fills through the hold so the dark screen
+                  reads as working, not stuck */}
+              <p ref={bootProgRef} className="mt-8 text-paper">
+                [░░░░░░░░░░░░] 0%
+              </p>
             </div>
           </div>
         </div>

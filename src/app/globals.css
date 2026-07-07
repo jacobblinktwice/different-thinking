@@ -142,6 +142,55 @@ nav a:hover,
   }
 }
 
+/* ===== boot loader exit =====
+   The background stays still and solid; only the bug + warning move (upward, on
+   the hesitate-then-rocket curve). The paper clears via a soft-edged circular
+   reveal blooming from the centre-bottom — Google-Pixel power-animation style —
+   done as an animated radial mask (registered custom property = the hole radius,
+   as a % of the gradient extent from bottom-centre to the top corners). */
+@property --dt-holer {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+.dt-boot-bg {
+  background: var(--ink); /* dark loader — contrast against the paper homepage */
+}
+@keyframes dt-boot-hole {
+  to {
+    --dt-holer: 135%;
+  }
+}
+@keyframes dt-boot-bgfade {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dt-boot-inner-out {
+  to {
+    transform: translateY(-18vh);
+    opacity: 0;
+  }
+}
+.dt-boot-out .dt-boot-bg {
+  /* hole radius leads, 16% feathered edge trails — fully solid at --dt-holer 0 */
+  mask-image: radial-gradient(circle at 50% 100%, transparent calc(var(--dt-holer) - 16%), #000 var(--dt-holer));
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 100%,
+    transparent calc(var(--dt-holer) - 16%),
+    #000 var(--dt-holer)
+  );
+  /* the bg holds solid until the bug/warning have flown out (their exit runs
+     0-700ms), THEN the reveal blooms; the plain fade doubles as the fallback
+     where @property isn't supported */
+  animation:
+    dt-boot-hole 0.6s cubic-bezier(0, 1, 0, 1) 650ms both,
+    dt-boot-bgfade 0.25s ease 1000ms both;
+}
+.dt-boot-out .dt-boot-inner {
+  animation: dt-boot-inner-out 0.7s cubic-bezier(1, 0, 1, 0) both;
+}
+
 /* ===== object-recognition boxes (Hero toggle) =====
    Hairline bounding boxes + confidence tags flashing at the glitch boxes'
    target rects during the in/out animation. */
@@ -223,6 +272,25 @@ nav a:hover,
   width: 100%;
   border-top: 1px solid rgba(10, 10, 10, 0.25);
   padding: 2px 0 0 2px;
+}
+/* mouse position indicators — blue line + live coordinate on each axis */
+.dt-ruler-mx {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-left: 1px solid var(--blue);
+  padding-left: 3px;
+  line-height: 17px;
+  color: var(--blue);
+  white-space: nowrap;
+}
+.dt-ruler-my {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-top: 1px solid var(--blue);
+  padding: 2px 0 0 2px;
+  color: var(--blue);
 }
 
 /* ===== data texture + live log (DataTexture.tsx / LiveLog.tsx) ===== */
