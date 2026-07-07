@@ -45,6 +45,12 @@
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
+html {
+  /* scroll anchoring + the scroll-scramble's text mutations feed back into each
+     other (reflow nudges scrollTop → reads as velocity → more scrambling, forever) */
+  overflow-anchor: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -102,6 +108,80 @@ nav a:hover,
   text-decoration: none;
 }
 
+/* ===== Exposure logotype test (variable font, EXPO axis −100..100) ===== */
+@font-face {
+  font-family: "Exposure";
+  src: url("/fonts/ExposureTrialVAR.ttf") format("truetype-variations");
+  font-display: block;
+}
+.dt-logotype {
+  font-family: "Exposure", var(--font-sans);
+  letter-spacing: -0.1em; /* −10% tracking */
+  line-height: 0.9;
+  font-variation-settings: "EXPO" 0;
+  font-kerning: none;
+}
+.dt-logo-ch {
+  display: inline-block;
+}
+@keyframes dt-logo-in {
+  from {
+    transform: translateY(0.42em);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* letters rise in centre-out (per-span animation-delay set inline); the long
+     duration draws out the burst-then-settle of the ease */
+  .dt-logo-live .dt-logo-ch {
+    animation: dt-logo-in 1.5s cubic-bezier(0, 1, 0, 1) both;
+  }
+}
+
+/* ===== object-recognition boxes (Hero toggle) =====
+   Hairline bounding boxes + confidence tags flashing at the glitch boxes'
+   target rects during the in/out animation. */
+@keyframes dt-detect {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 0.25;
+  }
+  28% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.dt-detect {
+  position: absolute;
+  border: 1px solid rgba(10, 10, 10, 0.6);
+  animation: dt-detect 0.72s steps(1, end) both;
+}
+.dt-detect-tag {
+  position: absolute;
+  top: -15px;
+  left: -1px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 14px;
+  color: var(--ink);
+  background: rgba(252, 252, 252, 0.85);
+}
+
 /* ===== figma-style rulers (Rulers.tsx) — glitch mode only ===== */
 .dt-ruler {
   position: fixed;
@@ -149,15 +229,22 @@ nav a:hover,
 @keyframes dt-wipe-in {
   from {
     clip-path: inset(0 100% 0 0);
+    opacity: 0;
   }
   to {
     clip-path: inset(0 0 0 0);
+    opacity: 1;
   }
 }
-/* glitch-only texture blocks: hidden at rest, snap-wipe in while the glitch is open */
+/* glitch-only texture blocks: hidden at rest, snap-wipe in while the glitch is
+   open; the base transition runs the wipe in reverse on the way OUT (per-block
+   transition-delay set inline for a quick cascade) */
 .dt-tex-g {
   clip-path: inset(0 100% 0 0);
   opacity: 0;
+  transition:
+    clip-path 0.28s var(--ease-snap),
+    opacity 0.22s var(--ease-snap);
 }
 .dt-tex-g.dt-tex-on {
   opacity: 1;

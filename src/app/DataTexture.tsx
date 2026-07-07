@@ -64,9 +64,11 @@ export default function DataTexture() {
       if (!last) last = now;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      // every ~15 frames: the whole texture exists only while the glitch is open
-      if (frame++ % 15 === 0) {
-        const on = !!document.querySelector("section canvas");
+      // every ~15 frames: the whole texture exists only while the glitch is open.
+      // Keyed on the toggle state (not canvas presence) so the OUT starts the
+      // moment the glitch is switched off, not after the canvas unmounts.
+      if (frame++ % 5 === 0) {
+        const on = document.querySelector("button[aria-pressed]")?.getAttribute("aria-pressed") === "true";
         for (let i = 0; i < els.length; i++) els[i].classList.toggle("dt-tex-on", on);
       }
       const y = window.scrollY;
@@ -87,7 +89,7 @@ export default function DataTexture() {
         <pre
           key={i}
           className={`t-foot dt-tex-g absolute font-mono leading-[1.6] ${b.dim ? "text-neutral-300" : "text-neutral-400"}`}
-          style={{ left: b.left, top: b.top, animationDelay: `${i * 35}ms` }}
+          style={{ left: b.left, top: b.top, animationDelay: `${i * 35}ms`, transitionDelay: `${i * 18}ms` }}
         >
           {b.text}
         </pre>

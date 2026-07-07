@@ -15,8 +15,11 @@
 import { useEffect, useRef, useState } from "react";
 import HeroGlitch from "./HeroGlitch";
 import NavIndex from "./NavIndex";
+import { defaultComposition, loadComposition, type BoxLayout } from "@/components/glitch";
 
 const OFF_UNMOUNT_MS = 650; // keep the canvas alive through the shrink-out animation (0.6s)
+const LOGO_TEXT = "DifferentThinking";
+const LOGO_MID = (LOGO_TEXT.length - 1) / 2;
 
 const buzz = (pattern: number | number[]) => {
   try {
@@ -32,13 +35,16 @@ export default function Hero() {
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);
   const [booting, setBooting] = useState(true);
+  // object-recognition hairline boxes, flashed at the boxes' target rects
+  // for a beat while the glitch's in/out animation runs
+  const [detect, setDetect] = useState<BoxLayout[] | null>(null);
   const unmountTimer = useRef<number | undefined>(undefined);
+  const detectTimer = useRef<number | undefined>(undefined);
 
-  // boot loader
-  const logoRef = useRef<HTMLImageElement>(null); // real logotype, in the hero
-  const cloneRef = useRef<HTMLImageElement>(null); // centered clone, in the overlay
+  // boot loader + logotype (Exposure variable-font test)
+  const logoRef = useRef<HTMLHeadingElement>(null); // real logotype, in the hero
   const overlayRef = useRef<HTMLDivElement>(null);
-  const bootWarnRef = useRef<HTMLDivElement>(null);
+  const bootInnerRef = useRef<HTMLDivElement>(null); // bug + warning, exits upward
 
   // pursuing bug
   const heroRef = useRef<HTMLElement>(null);
@@ -59,6 +65,10 @@ export default function Hero() {
     );
     setOn(next);
     setBurst((b) => b + 1);
+    const comp = loadComposition() ?? defaultComposition();
+    setDetect(comp.boxes.map((b) => b.layout));
+    window.clearTimeout(detectTimer.current);
+    detectTimer.current = window.setTimeout(() => setDetect(null), 800);
     window.clearTimeout(unmountTimer.current);
     if (next) {
       setCanvasMounted(true);
@@ -68,39 +78,101 @@ export default function Hero() {
     }
   };
 
-  /* boot loader: FLIP the centered clone onto the real logotype's rect, fade the
-     overlay out, then swap in the real logotype and drop the overlay */
+  /* boot loader: hold for the photosensitivity warning, then the bug + warning
+     exit UPWARD on the same curve the logotype letters rise in on — a match cut
+     of two upward motions (see .dt-logo-live in CSS) */
   useEffect(() => {
-    const logo = logoRef.current;
-    const clone = cloneRef.current;
     const overlay = overlayRef.current;
-    if (!logo || !clone || !overlay || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!overlay || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setBooting(false);
       return;
     }
     let t2: number | undefined;
-    // hold long enough for the photosensitivity warning to be read before the FLIP
     const t1 = window.setTimeout(() => {
-      const from = clone.getBoundingClientRect();
-      const to = logo.getBoundingClientRect();
-      if (from.width > 0 && to.width > 0) {
-        const s = to.width / from.width;
-        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
-        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-        clone.style.transition = "transform 600ms cubic-bezier(1, 0, 0, 1)";
-        clone.style.transform = `translate(${dx}px, ${dy}px) scale(${s})`;
-      }
-      overlay.style.transition = "background-color 350ms var(--ease-smooth) 250ms";
+      overlay.style.transition = "background-color 400ms var(--ease-smooth)";
       overlay.style.backgroundColor = "transparent";
-      if (bootWarnRef.current) {
-        bootWarnRef.current.style.transition = "opacity 300ms var(--ease-smooth)";
-        bootWarnRef.current.style.opacity = "0";
+      if (bootInnerRef.current) {
+        bootInnerRef.current.style.transition =
+          "transform 700ms cubic-bezier(1, 0, 1, 0), opacity 500ms var(--ease-smooth)";
+        bootInnerRef.current.style.transform = "translateY(-16vh)";
+        bootInnerRef.current.style.opacity = "0";
       }
-      t2 = window.setTimeout(() => setBooting(false), 750);
+      t2 = window.setTimeout(() => setBooting(false), 430);
     }, 1400);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
+    };
+  }, []);
+
+  /* fit the logotype to the content width (gutter to gutter) once the variable
+     font is ready, and again on resize — measured at the rest EXPO value */
+  useEffect(() => {
+    const el = logoRef.current;
+    if (!el) return;
+    const fit = () => {
+      const hero = heroRef.current;
+      if (!hero) return;
+      const gutter = parseFloat(getComputedStyle(el).left) || 0;
+      el.style.fontSize = "100px";
+      const w = el.scrollWidth;
+      if (w > 0) el.style.fontSize = `${(100 * (hero.clientWidth - gutter * 2)) / w}px`;
+    };
+    document.fonts.ready.then(fit);
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+
+  /* scroll + mouse ↔ variable font: the RESTING EXPO value rides the scroll —
+     0 with the hero at rest, up to +100 as the logotype slides off the top of
+     the page — while cursor proximity pulls individual letters toward −100 on
+     top of that baseline, decaying back as the pointer leaves */
+  useEffect(() => {
+    const el = logoRef.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const spans = Array.from(el.querySelectorAll("span"));
+    const cur = spans.map(() => 0);
+    const mouse = { x: -1e5, y: -1e5 };
+    const onMove = (e: PointerEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    };
+    const onLeave = () => {
+      mouse.x = -1e5;
+      mouse.y = -1e5;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerleave", onLeave);
+    let raf = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      if (!last) last = now;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      // read phase — rect.bottom runs restBottom → 0 as the wordmark exits the top
+      const restBottom = window.innerHeight - (parseFloat(getComputedStyle(el).bottom) || 0);
+      const r0 = el.getBoundingClientRect();
+      const base = 100 * Math.min(1, Math.max(0, 1 - r0.bottom / Math.max(1, restBottom)));
+      const targets = spans.map((s) => {
+        const r = s.getBoundingClientRect();
+        const d = Math.hypot(mouse.x - (r.left + r.width / 2), mouse.y - (r.top + r.height / 2));
+        const influence = Math.exp(-((d / 200) ** 2));
+        return base + (-100 - base) * influence;
+      });
+      // write phase
+      const k = Math.min(1, 1 - Math.exp(-dt * 9));
+      for (let i = 0; i < spans.length; i++) {
+        cur[i] += (targets[i] - cur[i]) * k;
+        if (Math.abs(cur[i]) < 0.05) cur[i] = 0;
+        spans[i].style.fontVariationSettings = `"EXPO" ${cur[i].toFixed(1)}`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerleave", onLeave);
     };
   }, []);
 
@@ -223,7 +295,13 @@ export default function Hero() {
     return () => window.removeEventListener("pointermove", onMove);
   }, [on]);
 
-  useEffect(() => () => window.clearTimeout(unmountTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(unmountTimer.current);
+      window.clearTimeout(detectTimer.current);
+    },
+    [],
+  );
 
   return (
     <>
@@ -242,20 +320,47 @@ export default function Hero() {
             />
           </div>
         )}
-        {/* wordmark — pinned to the bottom of the viewport, gutter-aligned; plain
-            black when off, complementary knock-out (difference) over the effect when on */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        {detect && (
+          /* object-recognition pass: hairline bounding boxes + confidence tags
+             flash at each box's target rect while the in/out animation runs */
+          <div aria-hidden className="pointer-events-none absolute inset-0 z-[4]">
+            {detect.map((r, i) => (
+              <div
+                key={i}
+                className="dt-detect"
+                style={{
+                  left: `${r.x * 100}%`,
+                  top: `${r.y * 100}%`,
+                  width: `${r.w * 100}%`,
+                  height: `${r.h * 100}%`,
+                  animationDelay: `${i * 60}ms`,
+                }}
+              >
+                <span className="dt-detect-tag">{`bx_0${i + 1} :: ${(0.64 + i * 0.09).toFixed(2)}`}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* wordmark — Exposure variable-font TEST replacing the SVG logotype.
+            Pinned to the bottom of the viewport, gutter-aligned, −10% tracking;
+            plain ink when off, difference knock-out over the effect when on.
+            Blend + parallax transform live on this same element (a transformed
+            wrapper would isolate the blend). */}
+        <h1
           ref={logoRef}
           data-bug="logotype"
-          src="/logotype.svg"
-          alt="Different Thinking"
-          className="pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] w-[calc(100%-2*var(--gutter))]"
-          style={{
-            ...(on ? { filter: "invert(1)", mixBlendMode: "difference" as const } : null),
-            ...(booting ? { opacity: 0 } : null),
-          }}
-        />
+          aria-label="Different Thinking"
+          className={`dt-logotype pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] z-[2] whitespace-nowrap ${
+            booting ? "invisible" : "dt-logo-live"
+          }`}
+          style={on ? { color: "#fff", mixBlendMode: "difference" as const } : undefined}
+        >
+          {LOGO_TEXT.split("").map((ch, i) => (
+            <span key={i} aria-hidden className="dt-logo-ch" style={{ animationDelay: `${Math.abs(i - LOGO_MID) * 45}ms` }}>
+              {ch}
+            </span>
+          ))}
+        </h1>
 
         {/* top chrome, laid out on the 5-column grid */}
         <div className="pointer-events-none absolute inset-0 z-[3] px-[var(--gutter)]">
@@ -269,7 +374,7 @@ export default function Hero() {
             </div>
             <p
               ref={introRef}
-              className="t-body absolute top-[clamp(22px,4.2vh,48px)] hidden leading-[1.35] tracking-tight md:left-[33.3333%] md:block md:w-[28%] lg:left-[60%] lg:w-[18%]"
+              className="t-body absolute top-[clamp(22px,4.2vh,48px)] hidden text-balance leading-[1.35] tracking-tight md:left-[33.3333%] md:block md:w-[28%] lg:left-[60%] lg:w-[18%]"
             >
               An AI research lab building products for people who think differently.
             </p>
@@ -312,11 +417,12 @@ export default function Hero() {
           ref={overlayRef}
           className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center bg-paper"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img ref={cloneRef} src="/logotype.svg" alt="Different Thinking" className="w-[min(70vw,900px)]" />
-          <div ref={bootWarnRef} className="mt-10 text-center font-mono text-[12px] leading-relaxed">
-            <p>[ ! ] PHOTOSENSITIVITY WARNING</p>
-            <p className="mt-1 text-neutral-500">this site contains flashing imagery and strobe effects</p>
+          <div ref={bootInnerRef} className="flex flex-col items-center">
+            <BugMark className="h-[clamp(72px,10vh,110px)] w-auto text-ink" />
+            <div className="mt-10 text-center font-mono text-[12px] leading-relaxed">
+              <p>[ ! ] PHOTOSENSITIVITY WARNING</p>
+              <p className="mt-1 text-neutral-500">this site contains flashing imagery and strobe effects</p>
+            </div>
           </div>
         </div>
       )}
