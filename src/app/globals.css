@@ -60,6 +60,140 @@ body {
 /* The glitch appear/disappear is engine-driven (each box and layer grows from its
    own centre — see appearEase in engine.ts and the `shown` prop on <Glitch>). */
 
+/* ===== link hover: everything else recedes =====
+   Hovering a text link greys out its surroundings instead of the link itself —
+   the nav dims its other entries; the article dims all its columns. */
+nav a,
+nav span {
+  transition: opacity 200ms var(--ease-snap);
+}
+nav:has(a:hover) a:not(:hover),
+nav:has(a:hover) span {
+  opacity: 0.3;
+}
+#about .article-col {
+  transition: color 200ms var(--ease-snap);
+}
+#about:has(.wl:hover) .article-col {
+  color: #b6b6b6;
+}
+
+/* multi-shade highlight sweep on the hovered link itself (word-block reference):
+   grey → ink → blue, snapping between shades, holding blue while hovered */
+@keyframes dt-highlight {
+  0% {
+    background-color: #c9c9c9;
+    color: var(--ink);
+  }
+  38% {
+    background-color: var(--ink);
+    color: var(--paper);
+  }
+  100% {
+    background-color: var(--blue);
+    color: #fff;
+  }
+}
+nav a:hover,
+#about .wl:hover {
+  animation: dt-highlight 0.34s steps(1, end) both;
+  padding: 0.08em 0.18em;
+  margin: -0.08em -0.18em;
+  text-decoration: none;
+}
+
+/* ===== figma-style rulers (Rulers.tsx) — glitch mode only ===== */
+.dt-ruler {
+  position: fixed;
+  z-index: 45;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: #9a9a9a;
+  opacity: 0;
+}
+.dt-ruler.dt-ruler-on {
+  opacity: 1;
+  animation: dt-wipe-in 0.25s var(--ease-snap) both;
+}
+.dt-ruler-x {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 18px;
+}
+.dt-ruler-y {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 18px;
+}
+.dt-ruler-tick-x {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-left: 1px solid rgba(10, 10, 10, 0.25);
+  padding-left: 3px;
+  line-height: 17px;
+}
+.dt-ruler-tick-y {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-top: 1px solid rgba(10, 10, 10, 0.25);
+  padding: 2px 0 0 2px;
+}
+
+/* ===== data texture + live log (DataTexture.tsx / LiveLog.tsx) ===== */
+@keyframes dt-wipe-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* glitch-only texture blocks: hidden at rest, snap-wipe in while the glitch is open */
+.dt-tex-g {
+  clip-path: inset(0 100% 0 0);
+  opacity: 0;
+}
+.dt-tex-g.dt-tex-on {
+  opacity: 1;
+  animation: dt-wipe-in 0.22s var(--ease-snap) both;
+}
+/* live-log lines: solid off-white highlight for contrast over the article, and
+   they slide in/out on the burst ease (cubic-bezier(0,1,0,1), user-picked) */
+@keyframes dt-log-in {
+  from {
+    transform: translateX(-18px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes dt-log-out {
+  to {
+    transform: translateX(-18px);
+    opacity: 0;
+  }
+}
+.dt-log-line {
+  display: block;
+  width: fit-content;
+  white-space: pre;
+  padding: 0 6px;
+  margin-left: -6px;
+  background: #f2f2ef;
+  animation: dt-log-in 0.24s cubic-bezier(0, 1, 0, 1) both;
+}
+.dt-log-line.dt-log-out {
+  animation: dt-log-out 0.2s cubic-bezier(0, 1, 0, 1) both;
+}
+
 /* ===== curated visual bugs (Bugs.tsx) ===== */
 /* classic engine missing-texture checkerboard */
 .dt-checker {

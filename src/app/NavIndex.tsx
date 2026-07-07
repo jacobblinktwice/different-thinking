@@ -15,10 +15,7 @@ export default function NavIndex({ className = "" }: { className?: string }) {
         return (
           <div key={n} className="contents">
             <span className="t-foot font-mono leading-5 text-neutral-500">[ {n} ]</span>
-            <Link
-              href={href}
-              className="t-body leading-5 tracking-tight transition-opacity duration-200 ease-[var(--ease-snap)] hover:opacity-50"
-            >
+            <Link href={href} className="t-body w-fit leading-5 tracking-tight">
               {label}
             </Link>
           </div>

@@ -54,6 +54,9 @@ export default function Hero() {
   const doToggle = () => {
     const next = !on;
     buzz(next ? [25, 40, 20] : 15);
+    window.dispatchEvent(
+      new CustomEvent("dt-log", { detail: next ? "glitch :: ON — page infected" : "glitch :: OFF — patched" }),
+    );
     setOn(next);
     setBurst((b) => b + 1);
     window.clearTimeout(unmountTimer.current);

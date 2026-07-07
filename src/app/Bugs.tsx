@@ -1,10 +1,12 @@
 "use client";
 
 /* Curated visual-bug episodes, scattered across the page. One episode fires at a
-   time every ~4-9s, runs 100-900ms, and always restores what it touched — that's
-   what keeps it feeling art-directed instead of broken. Two pieces are ambient
-   rather than scheduled: the missing_texture.png tile (static, in page.tsx) and
-   the article pop-in (scroll-driven, below).
+   time (~4-9s apart at rest), runs 100-900ms, and always restores what it touched —
+   that's what keeps it feeling art-directed instead of broken. While the glitch is
+   OPEN the page is "infected": cadence jumps to ~1.6-4.8s, episodes sometimes
+   double-fire, and the onOnly episodes (rgb-split, selection-invert) join the
+   rotation. Also here: text links scramble briefly on hover. Ambient (not
+   scheduled): the missing_texture.png tile (static, in page.tsx).
 
    Review API (browser console):
      dtBugs.list          — all episode ids
@@ -70,7 +72,9 @@ export default function Bugs() {
       return true;
     };
 
-    const episodes: { id: string; run: () => boolean }[] = [
+    // onOnly episodes join the rotation only while the glitch is open — the bug
+    // "infects" the rest of the page
+    const episodes: { id: string; onOnly?: boolean; run: () => boolean }[] = [
       {
         // 1. Unfiltered Textures & Hard-Coded Lighting
         id: "unfiltered-texture",
@@ -106,10 +110,11 @@ export default function Bugs() {
       },
       {
         // 3. Micro-stuttering / Rubberbanding — a layer jitters and snaps back
+        // (article columns removed from the pool — jitter on body copy read badly)
         id: "micro-stutter",
         run() {
           const el = pick(
-            [q("section nav"), q('[data-bug="clicklabel"]'), ...qa(".article-col")].filter(Boolean) as HTMLElement[],
+            [q("section nav"), q('[data-bug="clicklabel"]'), q('[data-bug="src"]')].filter(Boolean) as HTMLElement[],
           );
           if (!el || el.dataset.dtStut) return false;
           el.dataset.dtStut = "1";
@@ -168,17 +173,48 @@ export default function Bugs() {
         },
       },
       {
-        // 6. Vector Warping / Resolution Downscaling — the logotype warps briefly.
-        // Goes through dataset.dtBugT: the parallax loop composes it every frame.
-        id: "vector-warp",
+        // page infection (glitch-on only): RGB-split flash on a random text block
+        id: "rgb-split",
+        onOnly: true,
         run() {
-          const el = q('[data-bug="logotype"]');
-          if (!el || el.dataset.dtBugT) return false;
-          el.dataset.dtBugT = " skewX(-3.5deg) scaleY(1.06)";
-          later(() => (el.dataset.dtBugT = " skewX(2deg) scaleY(0.97)"), 80);
+          if (!q("section canvas")) return false;
+          const el = pick(
+            [q('[data-bug="title"]'), q("section nav"), q('[data-bug="src"]'), ...qa(".article-col")].filter(
+              Boolean,
+            ) as HTMLElement[],
+          );
+          if (!el || el.dataset.dtRgb) return false;
+          el.dataset.dtRgb = "1";
+          el.style.textShadow = "2px 0 rgba(255,0,220,0.8), -2px 0 rgba(0,255,255,0.8)";
+          later(() => (el.style.textShadow = "3px 0 rgba(0,255,255,0.7), -3px 0 rgba(255,0,220,0.7)"), 80);
           later(() => {
-            delete el.dataset.dtBugT;
-          }, 160);
+            el.style.textShadow = "";
+            delete el.dataset.dtRgb;
+          }, 170);
+          return true;
+        },
+      },
+      {
+        // page infection (glitch-on only): a text block flashes inverted, like a
+        // rogue selection sweep
+        id: "selection-invert",
+        onOnly: true,
+        run() {
+          if (!q("section canvas")) return false;
+          const el = pick(
+            [q('[data-bug="clicklabel"]'), ...qa("nav a"), ...qa('[data-bug="codestrip"] span')].filter(
+              Boolean,
+            ) as HTMLElement[],
+          );
+          if (!el || el.dataset.dtInv) return false;
+          el.dataset.dtInv = "1";
+          el.style.background = "#0a0a0a";
+          el.style.color = "#fcfcfc";
+          later(() => {
+            el.style.background = "";
+            el.style.color = "";
+            delete el.dataset.dtInv;
+          }, 140);
           return true;
         },
       },
@@ -237,47 +273,43 @@ export default function Bugs() {
       },
     ];
 
-    // 10. Unanchored Assets / Screen Pop-in — article columns arrive a beat late,
-    // offset, then snap into place (once each, on first scroll into view)
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const en of entries) {
-          if (!en.isIntersecting) continue;
-          io.unobserve(en.target);
-          const el = en.target as HTMLElement;
-          el.style.visibility = "hidden";
-          later(() => {
-            el.style.visibility = "";
-            el.style.transform = "translateY(12px)";
-            later(() => {
-              el.style.transform = "";
-            }, 90);
-          }, 110 + Math.random() * 170);
-        }
-      },
-      { threshold: 0.15 },
-    );
-    qa(".article-col").forEach((el) => io.observe(el));
+    // hover interaction: text links scramble briefly when the cursor lands on them
+    const onHover = (e: Event) => {
+      const a = (e.target as HTMLElement | null)?.closest?.("nav a, .article-col .wl") as HTMLElement | null;
+      if (a) scramble(a, 240);
+    };
+    document.addEventListener("mouseover", onHover, { passive: true });
 
     const muted = new Set<string>();
     const runById = (id: string) => {
       const e = episodes.find((x) => x.id === id);
       if (e?.run()) {
-        console.log(`[dt-bug] ${id}`);
+        announce(id);
         return true;
       }
       return false;
     };
-    const runRandom = () => {
-      const pool = episodes.filter((e) => !muted.has(e.id));
+    const announce = (id: string) => {
+      console.log(`[dt-bug] ${id}`);
+      window.dispatchEvent(new CustomEvent("dt-log", { detail: `bug :: ${id}` }));
+    };
+    const fireOne = (pool: typeof episodes) => {
       for (let i = 0; i < 6 && pool.length; i++) {
         const e = pick(pool);
         if (e.run()) {
-          console.log(`[dt-bug] ${e.id}`);
-          break;
+          announce(e.id);
+          return true;
         }
       }
-      later(runRandom, 3800 + Math.random() * 5200);
+      return false;
+    };
+    const runRandom = () => {
+      const on = !!q("section canvas"); // glitch open = the page is infected
+      const pool = episodes.filter((e) => !muted.has(e.id) && (!e.onOnly || on));
+      fireOne(pool);
+      // while open: much denser cadence, sometimes a rapid second hit
+      if (on && Math.random() < 0.35) later(() => fireOne(pool), 300 + Math.random() * 500);
+      later(runRandom, on ? 1600 + Math.random() * 3200 : 3800 + Math.random() * 5200);
     };
     later(runRandom, 5000); // let the boot loader finish first
 
@@ -291,7 +323,7 @@ export default function Bugs() {
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
-      io.disconnect();
+      document.removeEventListener("mouseover", onHover);
       delete (window as unknown as { dtBugs?: DtBugs }).dtBugs;
     };
   }, []);

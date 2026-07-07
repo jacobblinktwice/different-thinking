@@ -1,6 +1,9 @@
 import Bugs from "./Bugs";
+import DataTexture from "./DataTexture";
 import Hero from "./Hero";
+import LiveLog from "./LiveLog";
 import NavIndex from "./NavIndex";
+import Rulers from "./Rulers";
 import SmoothScroll from "./SmoothScroll";
 
 /* Homepage — built to match Figma node 210:4 (Alex Branding / Home Page):
@@ -23,6 +26,9 @@ export default function Home() {
     <main className="relative flex flex-1 flex-col bg-white text-ink">
       <SmoothScroll />
       <Bugs />
+      <DataTexture />
+      <LiveLog />
+      <Rulers />
       {/* vertical guides bounding the columns, running the full page height —
           5 columns on desktop (lg), 3 on tablet (md), gutter lines only on mobile */}
       <div
