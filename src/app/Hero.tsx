@@ -20,6 +20,10 @@ import { defaultComposition, loadComposition, type BoxLayout } from "@/component
 const OFF_UNMOUNT_MS = 650; // keep the canvas alive through the shrink-out animation (0.6s)
 const LOGO_TEXT = "DifferentThinking";
 const LOGO_MID = (LOGO_TEXT.length - 1) / 2;
+/* logotype effect — swap here:
+   "exposure" = real 205TF Exposure variable font (EXPO axis; licensed trial)
+   "melt"     = free Baskervville + fake-exposure blow-out (stroke+blur+threshold) */
+const LOGO_MODE: "exposure" | "melt" = "exposure";
 
 const buzz = (pattern: number | number[]) => {
   try {
@@ -31,6 +35,8 @@ const buzz = (pattern: number | number[]) => {
 
 export default function Hero() {
   const [on, setOn] = useState(false);
+  const onRef = useRef(false); // live glitch state for the rAF logotype loop
+  onRef.current = on;
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);
@@ -97,7 +103,7 @@ export default function Hero() {
     const prog = window.setInterval(() => {
       const el = bootProgRef.current;
       if (!el) return;
-      const t = Math.min(1, (performance.now() - start) / 1300);
+      const t = Math.min(1, (performance.now() - start) / 950);
       const e = 1 - (1 - t) ** 2;
       const blocks = Math.round(e * 12);
       el.textContent = `[${"▓".repeat(blocks)}${"░".repeat(12 - blocks)}] ${Math.floor(e * 100)}%`;
@@ -106,11 +112,11 @@ export default function Hero() {
       window.clearInterval(prog);
       if (bootProgRef.current) bootProgRef.current.textContent = "[▓▓▓▓▓▓▓▓▓▓▓▓] 100%";
       overlay.classList.add("dt-boot-out");
-      // bug/warning exit 0-700ms, THEN the bg reveal blooms (650-1250ms);
-      // letters start rising as the reveal opens
-      tL = window.setTimeout(() => setLettersLive(true), 800);
-      t2 = window.setTimeout(() => setBooting(false), 1300);
-    }, 1400);
+      // bug/warning lift 0-720ms, THEN the bg reveal blooms (600-1350ms);
+      // letters start rising as the reveal opens, overlay unmounts once it's done
+      tL = window.setTimeout(() => setLettersLive(true), 760);
+      t2 = window.setTimeout(() => setBooting(false), 1450);
+    }, 1000);
     return () => {
       window.clearInterval(prog);
       window.clearTimeout(t1);
@@ -137,17 +143,21 @@ export default function Hero() {
     return () => window.removeEventListener("resize", fit);
   }, []);
 
-  /* scroll + mouse ↔ "exposure" via stroke + melt: near the cursor each letter
-     grows a subtle same-colour text-stroke (fattens WITHOUT changing advance
-     width — no wordmark shift) plus a blur; the melt filter (.dt-melt-on) then
-     re-hardens it into flat, rounded blobs. A small scroll baseline thickens the
-     wordmark as it slides off the top. Only while the glitch is OFF. */
+  /* scroll + mouse ↔ logotype, two modes (LOGO_MODE):
+     • "exposure" — the real variable font's EXPO axis: rests at 0, rides scroll
+       up to +100 as the wordmark exits the top, and cursor proximity pulls
+       letters toward −100.
+     • "melt" — fake exposure on a free serif: near the cursor each letter grows a
+       same-colour text-stroke (no advance-width change → no reflow) + blur, and
+       the #dt-melt alpha-threshold filter (applied imperatively only while
+       melting, so rest stays crisp) re-hardens it into flat rounded blobs. */
   useEffect(() => {
     const el = logoRef.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const spans = Array.from(el.querySelectorAll("span"));
-    const curS = spans.map(() => 0); // stroke px
-    const curB = spans.map(() => 0); // blur px (re-hardened by the melt filter)
+    const cur = spans.map(() => 0); // exposure: EXPO axis value
+    const curS = spans.map(() => 0); // melt: stroke px
+    const curB = spans.map(() => 0); // melt: blur px
     const mouse = { x: -1e5, y: -1e5 };
     const onMove = (e: PointerEvent) => {
       mouse.x = e.clientX;
@@ -165,30 +175,36 @@ export default function Hero() {
       if (!last) last = now;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      const melt = el.classList.contains("dt-melt-on"); // glitch off → stroke+blur+threshold
+      const fx = !onRef.current; // effects active while the glitch is OFF
       const fs = parseFloat(getComputedStyle(el).fontSize) || 100;
-      // scroll baseline thickens as the wordmark exits the top
       const restBottom = window.innerHeight - (parseFloat(getComputedStyle(el).bottom) || 0);
       const r0 = el.getBoundingClientRect();
       const prog = Math.min(1, Math.max(0, 1 - r0.bottom / Math.max(1, restBottom)));
-      const inf = spans.map((s) => {
-        const r = s.getBoundingClientRect();
-        const d = Math.hypot(mouse.x - (r.left + r.width / 2), mouse.y - (r.top + r.height / 2));
-        return Math.exp(-((d / 240) ** 2)); // cursor proximity 0..1
-      });
-      // write phase — stroke + blur, only while the melt filter is active; snap
-      // to zero the instant it's off (glitch on) so nothing lingers under the blend
       const k = Math.min(1, 1 - Math.exp(-dt * 10));
-      for (let i = 0; i < spans.length; i++) {
-        if (melt) {
-          curS[i] += (fs * (0.012 * prog + 0.05 * inf[i]) - curS[i]) * k;
-          curB[i] += (fs * (0.02 * prog + 0.06 * inf[i]) - curB[i]) * k;
-        } else {
-          curS[i] = 0;
-          curB[i] = 0;
+      const dist = (s: Element) => {
+        const r = s.getBoundingClientRect();
+        return Math.hypot(mouse.x - (r.left + r.width / 2), mouse.y - (r.top + r.height / 2));
+      };
+      if (LOGO_MODE === "exposure") {
+        const base = fx ? prog * 100 : 0; // scroll 0 → +100 as it exits the top
+        for (let i = 0; i < spans.length; i++) {
+          const influence = Math.exp(-((dist(spans[i]) / 200) ** 2));
+          const target = fx ? base + (-100 - base) * influence : 0; // cursor → −100
+          cur[i] += (target - cur[i]) * (k * 0.9);
+          spans[i].style.fontVariationSettings = `"EXPO" ${cur[i].toFixed(1)}`;
         }
-        spans[i].style.setProperty("-webkit-text-stroke-width", curS[i] > 0.02 ? `${curS[i].toFixed(2)}px` : "0");
-        spans[i].style.filter = curB[i] > 0.05 ? `blur(${curB[i].toFixed(2)}px)` : "";
+      } else {
+        let maxB = 0;
+        for (let i = 0; i < spans.length; i++) {
+          const inf = fx ? Math.exp(-((dist(spans[i]) / 240) ** 2)) : 0;
+          curS[i] += ((fx ? fs * (0.012 * prog + 0.05 * inf) : 0) - curS[i]) * k;
+          curB[i] += ((fx ? fs * (0.02 * prog + 0.06 * inf) : 0) - curB[i]) * k;
+          if (curB[i] > maxB) maxB = curB[i];
+          spans[i].style.setProperty("-webkit-text-stroke-width", curS[i] > 0.02 ? `${curS[i].toFixed(2)}px` : "0");
+          spans[i].style.filter = curB[i] > 0.05 ? `blur(${curB[i].toFixed(2)}px)` : "";
+        }
+        // threshold melt only while actually blurred — rest = native crisp AA
+        el.style.filter = maxB > 0.4 ? "url(#dt-melt)" : "";
       }
       raf = requestAnimationFrame(tick);
     };
@@ -335,8 +351,8 @@ export default function Hero() {
         <defs>
           <filter id="dt-melt" x="-8%" y="-40%" width="116%" height="180%" colorInterpolationFilters="sRGB">
             <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -5" result="t" />
-            {/* re-soften the hard threshold edges back to smooth anti-aliasing */}
-            <feGaussianBlur in="t" stdDeviation="0.6" />
+            {/* light re-soften of the hard threshold edges (only active during melt) */}
+            <feGaussianBlur in="t" stdDeviation="0.4" />
           </filter>
         </defs>
       </svg>
@@ -385,9 +401,9 @@ export default function Hero() {
           ref={logoRef}
           data-bug="logotype"
           aria-label="Different Thinking"
-          className={`dt-logotype pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] z-[2] whitespace-nowrap ${
+          className={`dt-logotype ${LOGO_MODE === "exposure" ? "dt-logo-exposure" : "dt-logo-melt"} pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] z-[2] whitespace-nowrap ${
             lettersLive ? "dt-logo-live" : "invisible"
-          } ${on ? "" : "dt-melt-on"}`}
+          }`}
           style={on ? { color: "#fff", mixBlendMode: "difference" as const } : undefined}
         >
           {LOGO_TEXT.split("").map((ch, i) => (

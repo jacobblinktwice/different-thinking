@@ -108,14 +108,11 @@ nav a:hover,
   text-decoration: none;
 }
 
-/* ===== logotype: "fake exposure" via stroke + melt (Averia Serif Libre) =====
-   Recreating Exposure's blown-out look without the licence. Near the cursor each
-   letter grows a subtle same-colour text-stroke (fattens WITHOUT changing advance
-   width, so the wordmark doesn't shift) plus a blur; the melt filter re-hardens
-   it into flat, rounded blobs. Driven per-letter in Hero.tsx. */
+/* ===== logotype — two swappable modes (pick via LOGO_MODE in Hero.tsx) =====
+   "exposure": the real 205TF Exposure variable font (EXPO axis, licensed trial).
+   "melt": free Baskervville + a fake-exposure blow-out (stroke+blur re-hardened
+   by the #dt-melt alpha-threshold filter, applied imperatively only on hover). */
 .dt-logotype {
-  font-family: "Libre Baskerville", var(--font-sans);
-  letter-spacing: -0.06em;
   line-height: 0.9;
   font-kerning: none;
   -webkit-text-stroke-color: currentColor;
@@ -123,11 +120,19 @@ nav a:hover,
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
-/* melt: per-letter blur (Hero.tsx) + this SVG alpha-threshold filter re-hardens
-   the blurred edges into FLAT solid blobs (no grey halo like contrast()). Only
-   while the glitch is OFF — when on, the difference-blend knockout takes over. */
-.dt-logotype.dt-melt-on {
-  filter: url(#dt-melt);
+@font-face {
+  font-family: "Exposure";
+  src: url("/fonts/ExposureTrialVAR.ttf") format("truetype-variations");
+  font-display: block;
+}
+.dt-logo-exposure {
+  font-family: "Exposure", var(--font-sans);
+  letter-spacing: -0.1em;
+  font-variation-settings: "EXPO" 0;
+}
+.dt-logo-melt {
+  font-family: "Baskervville", var(--font-sans);
+  letter-spacing: -0.06em;
 }
 .dt-logo-ch {
   display: inline-block;
@@ -143,10 +148,10 @@ nav a:hover,
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  /* letters rise in centre-out (per-span animation-delay set inline); the long
-     duration draws out the burst-then-settle of the ease */
+  /* letters rise in centre-out (per-span animation-delay set inline); a smooth
+     ease-out draws the rise across the whole duration instead of snapping */
   .dt-logo-live .dt-logo-ch {
-    animation: dt-logo-in 1.5s cubic-bezier(0, 1, 0, 1) both;
+    animation: dt-logo-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
 
@@ -192,11 +197,11 @@ nav a:hover,
      0-700ms), THEN the reveal blooms; the plain fade doubles as the fallback
      where @property isn't supported */
   animation:
-    dt-boot-hole 0.6s cubic-bezier(0, 1, 0, 1) 650ms both,
-    dt-boot-bgfade 0.25s ease 1000ms both;
+    dt-boot-hole 0.75s cubic-bezier(0.33, 1, 0.68, 1) 600ms both,
+    dt-boot-bgfade 0.28s ease 1030ms both;
 }
 .dt-boot-out .dt-boot-inner {
-  animation: dt-boot-inner-out 0.7s cubic-bezier(1, 0, 1, 0) both;
+  animation: dt-boot-inner-out 0.72s cubic-bezier(0.5, 0, 0.75, 0.4) both;
 }
 
 /* ===== hover imagery on article links (HoverImages.tsx) =====
