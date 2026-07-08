@@ -108,18 +108,26 @@ nav a:hover,
   text-decoration: none;
 }
 
-/* ===== Exposure logotype test (variable font, EXPO axis −100..100) ===== */
-@font-face {
-  font-family: "Exposure";
-  src: url("/fonts/ExposureTrialVAR.ttf") format("truetype-variations");
-  font-display: block;
-}
+/* ===== logotype: "fake exposure" via stroke + melt (Averia Serif Libre) =====
+   Recreating Exposure's blown-out look without the licence. Near the cursor each
+   letter grows a subtle same-colour text-stroke (fattens WITHOUT changing advance
+   width, so the wordmark doesn't shift) plus a blur; the melt filter re-hardens
+   it into flat, rounded blobs. Driven per-letter in Hero.tsx. */
 .dt-logotype {
-  font-family: "Exposure", var(--font-sans);
-  letter-spacing: -0.1em; /* −10% tracking */
+  font-family: "Libre Baskerville", var(--font-sans);
+  letter-spacing: -0.06em;
   line-height: 0.9;
-  font-variation-settings: "EXPO" 0;
   font-kerning: none;
+  -webkit-text-stroke-color: currentColor;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+/* melt: per-letter blur (Hero.tsx) + this SVG alpha-threshold filter re-hardens
+   the blurred edges into FLAT solid blobs (no grey halo like contrast()). Only
+   while the glitch is OFF — when on, the difference-blend knockout takes over. */
+.dt-logotype.dt-melt-on {
+  filter: url(#dt-melt);
 }
 .dt-logo-ch {
   display: inline-block;

@@ -119,8 +119,8 @@ export default function Hero() {
     };
   }, []);
 
-  /* fit the logotype to the content width (gutter to gutter) once the variable
-     font is ready, and again on resize — measured at the rest EXPO value */
+  /* fit the logotype to the content width (gutter to gutter) once the font is
+     ready, and again on resize */
   useEffect(() => {
     const el = logoRef.current;
     if (!el) return;
@@ -137,15 +137,17 @@ export default function Hero() {
     return () => window.removeEventListener("resize", fit);
   }, []);
 
-  /* scroll + mouse ↔ variable font: the RESTING EXPO value rides the scroll —
-     0 with the hero at rest, up to +100 as the logotype slides off the top of
-     the page — while cursor proximity pulls individual letters toward −100 on
-     top of that baseline, decaying back as the pointer leaves */
+  /* scroll + mouse ↔ "exposure" via stroke + melt: near the cursor each letter
+     grows a subtle same-colour text-stroke (fattens WITHOUT changing advance
+     width — no wordmark shift) plus a blur; the melt filter (.dt-melt-on) then
+     re-hardens it into flat, rounded blobs. A small scroll baseline thickens the
+     wordmark as it slides off the top. Only while the glitch is OFF. */
   useEffect(() => {
     const el = logoRef.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const spans = Array.from(el.querySelectorAll("span"));
-    const cur = spans.map(() => 0);
+    const curS = spans.map(() => 0); // stroke px
+    const curB = spans.map(() => 0); // blur px (re-hardened by the melt filter)
     const mouse = { x: -1e5, y: -1e5 };
     const onMove = (e: PointerEvent) => {
       mouse.x = e.clientX;
@@ -163,22 +165,30 @@ export default function Hero() {
       if (!last) last = now;
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      // read phase — rect.bottom runs restBottom → 0 as the wordmark exits the top
+      const melt = el.classList.contains("dt-melt-on"); // glitch off → stroke+blur+threshold
+      const fs = parseFloat(getComputedStyle(el).fontSize) || 100;
+      // scroll baseline thickens as the wordmark exits the top
       const restBottom = window.innerHeight - (parseFloat(getComputedStyle(el).bottom) || 0);
       const r0 = el.getBoundingClientRect();
-      const base = 100 * Math.min(1, Math.max(0, 1 - r0.bottom / Math.max(1, restBottom)));
-      const targets = spans.map((s) => {
+      const prog = Math.min(1, Math.max(0, 1 - r0.bottom / Math.max(1, restBottom)));
+      const inf = spans.map((s) => {
         const r = s.getBoundingClientRect();
         const d = Math.hypot(mouse.x - (r.left + r.width / 2), mouse.y - (r.top + r.height / 2));
-        const influence = Math.exp(-((d / 200) ** 2));
-        return base + (-100 - base) * influence;
+        return Math.exp(-((d / 240) ** 2)); // cursor proximity 0..1
       });
-      // write phase
-      const k = Math.min(1, 1 - Math.exp(-dt * 9));
+      // write phase — stroke + blur, only while the melt filter is active; snap
+      // to zero the instant it's off (glitch on) so nothing lingers under the blend
+      const k = Math.min(1, 1 - Math.exp(-dt * 10));
       for (let i = 0; i < spans.length; i++) {
-        cur[i] += (targets[i] - cur[i]) * k;
-        if (Math.abs(cur[i]) < 0.05) cur[i] = 0;
-        spans[i].style.fontVariationSettings = `"EXPO" ${cur[i].toFixed(1)}`;
+        if (melt) {
+          curS[i] += (fs * (0.012 * prog + 0.05 * inf[i]) - curS[i]) * k;
+          curB[i] += (fs * (0.02 * prog + 0.06 * inf[i]) - curB[i]) * k;
+        } else {
+          curS[i] = 0;
+          curB[i] = 0;
+        }
+        spans[i].style.setProperty("-webkit-text-stroke-width", curS[i] > 0.02 ? `${curS[i].toFixed(2)}px` : "0");
+        spans[i].style.filter = curB[i] > 0.05 ? `blur(${curB[i].toFixed(2)}px)` : "";
       }
       raf = requestAnimationFrame(tick);
     };
@@ -319,6 +329,17 @@ export default function Hero() {
 
   return (
     <>
+      {/* alpha-threshold "melt" filter for the logotype — hardens per-letter blur
+          into flat solid blobs (no grey halo). */}
+      <svg width="0" height="0" aria-hidden className="absolute">
+        <defs>
+          <filter id="dt-melt" x="-8%" y="-40%" width="116%" height="180%" colorInterpolationFilters="sRGB">
+            <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -5" result="t" />
+            {/* re-soften the hard threshold edges back to smooth anti-aliasing */}
+            <feGaussianBlur in="t" stdDeviation="0.6" />
+          </filter>
+        </defs>
+      </svg>
       <section ref={heroRef} data-bug="hero" className="relative h-svh min-h-[540px] w-full overflow-hidden">
         {canvasMounted && (
           /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition =====
@@ -366,7 +387,7 @@ export default function Hero() {
           aria-label="Different Thinking"
           className={`dt-logotype pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] z-[2] whitespace-nowrap ${
             lettersLive ? "dt-logo-live" : "invisible"
-          }`}
+          } ${on ? "" : "dt-melt-on"}`}
           style={on ? { color: "#fff", mixBlendMode: "difference" as const } : undefined}
         >
           {LOGO_TEXT.split("").map((ch, i) => (

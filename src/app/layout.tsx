@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import "@fontsource/libre-baskerville/latin-400.css"; // serif for the logotype (melted "exposure" test)
 import "./globals.css";
 
 const neueMontreal = localFont({
