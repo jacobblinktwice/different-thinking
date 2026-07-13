@@ -635,18 +635,50 @@ function GradientEditor({
       />
       <div className="mt-1.5 flex gap-1.5">
         {grad.map((s, i) => (
-          <input
-            key={i}
-            type="color"
-            value={s.c}
-            onChange={(e) => {
-              s.c = e.target.value;
-              onChange();
-            }}
-            className="h-5 w-6 rounded border border-hair"
-          />
+          <GradStopColor key={i} stop={s} onChange={onChange} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/* one gradient stop: colour swatch + editable hex code input. The hex field keeps
+   local text so partial/invalid typing doesn't break the picker; it commits to the
+   stop only when it's a valid #rgb / #rrggbb. */
+function GradStopColor({ stop, onChange }: { stop: { p: number; c: string }; onChange: () => void }) {
+  const [text, setText] = useState(stop.c);
+  useEffect(() => setText(stop.c), [stop.c]);
+  const commit = (raw: string) => {
+    let h = raw.trim();
+    if (h && !h.startsWith("#")) h = "#" + h;
+    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(h)) {
+      stop.c = h;
+      onChange();
+    }
+  };
+  const pickerVal = /^#[0-9a-fA-F]{6}$/.test(stop.c) ? stop.c : "#000000";
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <input
+        type="color"
+        value={pickerVal}
+        onChange={(e) => {
+          stop.c = e.target.value;
+          setText(e.target.value);
+          onChange();
+        }}
+        className="h-5 w-6 rounded border border-hair"
+      />
+      <input
+        value={text}
+        spellCheck={false}
+        onChange={(e) => {
+          setText(e.target.value);
+          commit(e.target.value);
+        }}
+        onBlur={() => commit(text)}
+        className="w-[52px] rounded border border-hair bg-transparent px-1 py-0.5 text-center font-mono text-[10px] uppercase text-neutral-700"
+      />
     </div>
   );
 }

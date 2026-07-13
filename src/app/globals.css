@@ -235,46 +235,6 @@ nav a:hover,
   animation: dt-wipe-in 0.22s var(--ease-snap) both;
 }
 
-/* ===== object-recognition boxes (Hero toggle) =====
-   Hairline bounding boxes + confidence tags flashing at the glitch boxes'
-   target rects during the in/out animation. */
-@keyframes dt-detect {
-  0% {
-    opacity: 0;
-  }
-  8% {
-    opacity: 1;
-  }
-  18% {
-    opacity: 0.25;
-  }
-  28% {
-    opacity: 1;
-  }
-  82% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-.dt-detect {
-  position: absolute;
-  border: 1px solid rgba(10, 10, 10, 0.6);
-  animation: dt-detect 0.72s steps(1, end) both;
-}
-.dt-detect-tag {
-  position: absolute;
-  top: -15px;
-  left: -1px;
-  padding: 0 4px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  line-height: 14px;
-  color: var(--ink);
-  background: rgba(252, 252, 252, 0.85);
-}
-
 /* ===== figma-style rulers (Rulers.tsx) — glitch mode only ===== */
 .dt-ruler {
   position: fixed;

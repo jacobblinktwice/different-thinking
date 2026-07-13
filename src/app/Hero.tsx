@@ -15,7 +15,6 @@
 import { useEffect, useRef, useState } from "react";
 import HeroGlitch from "./HeroGlitch";
 import NavIndex from "./NavIndex";
-import { defaultComposition, loadComposition, type BoxLayout } from "@/components/glitch";
 
 const OFF_UNMOUNT_MS = 650; // keep the canvas alive through the shrink-out animation (0.6s)
 const LOGO_TEXT = "DifferentThinking";
@@ -41,11 +40,7 @@ export default function Hero() {
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);
   const [booting, setBooting] = useState(true);
-  // object-recognition hairline boxes, flashed at the boxes' target rects
-  // for a beat while the glitch's in/out animation runs
-  const [detect, setDetect] = useState<BoxLayout[] | null>(null);
   const unmountTimer = useRef<number | undefined>(undefined);
-  const detectTimer = useRef<number | undefined>(undefined);
 
   // boot loader + logotype (Exposure variable-font test)
   const logoRef = useRef<HTMLHeadingElement>(null); // real logotype, in the hero
@@ -72,10 +67,6 @@ export default function Hero() {
     );
     setOn(next);
     setBurst((b) => b + 1);
-    const comp = loadComposition() ?? defaultComposition();
-    setDetect(comp.boxes.map((b) => b.layout));
-    window.clearTimeout(detectTimer.current);
-    detectTimer.current = window.setTimeout(() => setDetect(null), 800);
     window.clearTimeout(unmountTimer.current);
     if (next) {
       setCanvasMounted(true);
@@ -335,13 +326,7 @@ export default function Hero() {
     return () => window.removeEventListener("pointermove", onMove);
   }, [on]);
 
-  useEffect(
-    () => () => {
-      window.clearTimeout(unmountTimer.current);
-      window.clearTimeout(detectTimer.current);
-    },
-    [],
-  );
+  useEffect(() => () => window.clearTimeout(unmountTimer.current), []);
 
   return (
     <>
@@ -369,27 +354,6 @@ export default function Hero() {
               intro={intro}
               shown={on}
             />
-          </div>
-        )}
-        {detect && (
-          /* object-recognition pass: hairline bounding boxes + confidence tags
-             flash at each box's target rect while the in/out animation runs */
-          <div aria-hidden className="pointer-events-none absolute inset-0 z-[4]">
-            {detect.map((r, i) => (
-              <div
-                key={i}
-                className="dt-detect"
-                style={{
-                  left: `${r.x * 100}%`,
-                  top: `${r.y * 100}%`,
-                  width: `${r.w * 100}%`,
-                  height: `${r.h * 100}%`,
-                  animationDelay: `${i * 60}ms`,
-                }}
-              >
-                <span className="dt-detect-tag">{`bx_0${i + 1} :: ${(0.64 + i * 0.09).toFixed(2)}`}</span>
-              </div>
-            ))}
           </div>
         )}
         {/* wordmark — Exposure variable-font TEST replacing the SVG logotype.
