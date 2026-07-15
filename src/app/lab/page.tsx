@@ -60,7 +60,67 @@ const EyeOffIcon = (
   </svg>
 );
 
-export default function LabPage() {
+/* The lab is not linked publicly and sits behind a lightweight access code
+   (session-scoped — a fresh browser session asks again). */
+const LAB_CODE = "rewired";
+const LAB_KEY = "dt-lab-key";
+
+export default function LabGate() {
+  const [unlocked, setUnlocked] = useState(false);
+  const [text, setText] = useState("");
+  const [denied, setDenied] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(LAB_KEY) === "1") setUnlocked(true);
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  if (unlocked) return <LabPage />;
+
+  const submit = () => {
+    if (text.trim().toLowerCase() === LAB_CODE) {
+      try {
+        sessionStorage.setItem(LAB_KEY, "1");
+      } catch {
+        /* storage unavailable */
+      }
+      setUnlocked(true);
+    } else {
+      setDenied(true);
+      setText("");
+      window.setTimeout(() => setDenied(false), 1200);
+    }
+  };
+
+  return (
+    <main className="flex min-h-svh flex-col items-center justify-center bg-ink font-mono text-[13px] text-paper">
+      <p className="mb-6 text-neutral-500">[ restricted ] specimen lab</p>
+      <div className="flex items-center gap-2">
+        <span>access ::</span>
+        <input
+          autoFocus
+          value={text}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          className="w-40 border-b border-neutral-600 bg-transparent px-1 py-0.5 text-paper outline-none focus:border-paper"
+        />
+        <button type="button" onClick={submit} className="cursor-pointer px-2 py-0.5 text-neutral-400 hover:text-paper">
+          [ enter ]
+        </button>
+      </div>
+      <p className={`mt-4 h-4 text-[11px] ${denied ? "text-[#f9432f]" : "text-transparent"}`}>
+        err :: access denied
+      </p>
+    </main>
+  );
+}
+
+function LabPage() {
   const [boxes, setBoxes] = useState<BoxConfig[]>(() => defaultBoxes());
   const [active, setActive] = useState<number | "layer" | "front">(0);
   const [mode, setMode] = useState<GlitchMode>("grid");

@@ -45,8 +45,8 @@ export function defaultLayer(): LayerConfig {
     offsetY: 3,
     reactivity: 50,
     reactMode: "position",
-    slice: { shift: 14, shiftV: 7, soft: 0, random: 40, speed: 0, glitch: 0, tx: 50, ty: 50, srot: 0, sangle: 0 },
-    pixstretch: { offset: 38, smooth: 22, falloff: 0, tx: 50, ty: 50, prot: 0, pangle: 0 },
+    slice: { shift: 14, shiftV: 6, soft: 0, random: 3, speed: 0, glitch: 4, tx: 50, ty: 50, srot: 0, sangle: 0 },
+    pixstretch: { offset: 1, smooth: 0, falloff: 29, tx: 50, ty: 50, prot: 0, pangle: 0 },
   };
 }
 
@@ -59,9 +59,9 @@ export interface FrontLayerConfig {
 }
 export function defaultFrontLayer(): FrontLayerConfig {
   return {
-    enabled: false,
-    slice: { shift: 20, shiftV: 0, soft: 0, random: 40, speed: 0, glitch: 0, tx: 50, ty: 50, srot: 0, sangle: 0 },
-    pixstretch: { offset: 0, smooth: 20, falloff: 0, tx: 50, ty: 50, prot: 0, pangle: 0 },
+    enabled: true,
+    slice: { shift: 5, shiftV: 0, soft: 0, random: 0, speed: 0, glitch: 1, tx: 50, ty: 50, srot: 0, sangle: 0 },
+    pixstretch: { offset: -1, smooth: 0, falloff: 34, tx: 50, ty: 50, prot: 0, pangle: -180 },
   };
 }
 

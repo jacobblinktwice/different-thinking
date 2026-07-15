@@ -13,7 +13,7 @@
    haptics (vibrate on toggle + pulses on pointer movement while the glitch is
    live — Android/Chrome; iOS has no vibrate API). */
 import { useEffect, useRef, useState } from "react";
-import HeroGlitch from "./HeroGlitch";
+import HeroGlitch, { type HeroTweaks } from "./HeroGlitch";
 import NavIndex from "./NavIndex";
 
 const OFF_UNMOUNT_MS = 650; // keep the canvas alive through the shrink-out animation (0.6s)
@@ -40,6 +40,8 @@ export default function Hero() {
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);
   const [booting, setBooting] = useState(true);
+  // public play-sliders (glitch mode only): local variations, reset on refresh
+  const [tweaks, setTweaks] = useState<HeroTweaks>({ gain: 50, slice: 50, stretch: 50, speed: 50 });
   const unmountTimer = useRef<number | undefined>(undefined);
 
   // boot loader + logotype (Exposure variable-font test)
@@ -353,7 +355,40 @@ export default function Hero() {
               burst={burst}
               intro={intro}
               shown={on}
+              tweaks={tweaks}
             />
+          </div>
+        )}
+        {on && !booting && (
+          /* public play-sliders — console-styled, right-centre; local only,
+             never saved, so a refresh resets everything */
+          <div className="dt-tweaks absolute right-[var(--gutter)] top-1/2 z-[7] hidden -translate-y-1/2 select-none font-mono md:block">
+            <p className="dt-tweak-line t-foot mb-2 text-neutral-500">[ tweak :: local only ]</p>
+            {(
+              [
+                ["intensity", "gain"],
+                ["slice", "slice"],
+                ["stretch", "stretch"],
+                ["speed", "speed"],
+              ] as [string, keyof HeroTweaks][]
+            ).map(([label, key], i) => (
+              <label
+                key={key}
+                className="dt-tweak-line t-foot mb-1.5 flex items-center gap-2 text-ink"
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <span className="w-[62px]">{label}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={tweaks[key]}
+                  onChange={(e) => setTweaks((t) => ({ ...t, [key]: +e.target.value }))}
+                  className="dt-tweak-range"
+                />
+                <span className="w-[24px] text-right text-neutral-500">{tweaks[key]}</span>
+              </label>
+            ))}
           </div>
         )}
         {/* wordmark — Exposure variable-font TEST replacing the SVG logotype.

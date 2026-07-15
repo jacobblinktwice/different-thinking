@@ -31,6 +31,9 @@ export interface GlitchProps {
       global drive (the same value mouse position feeds), hinting that the effect
       reacts to movement. Fired on power-on only. */
   intro?: number;
+  /** Extra user-driven multiplier on the global glitch intensity (1 = neutral).
+      Used by the public tweak sliders. */
+  gain?: number;
   className?: string;
   style?: CSSProperties;
 }
@@ -45,11 +48,14 @@ export function Glitch({
   burst,
   intro,
   shown,
+  gain,
   className,
   style,
 }: GlitchProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GlitchEngine | null>(null);
+  const gainRef = useRef(1);
+  gainRef.current = gain ?? 1;
   const burstRef = useRef(0); // 1 → 0 decaying spike, multiplies the global intensity
   const burstSeen = useRef(burst);
   const introTRef = useRef(Infinity); // seconds since the intro sweep started
@@ -159,7 +165,7 @@ export function Glitch({
         if (sweep > drive) drive = sweep;
       }
       burstRef.current *= Math.exp(-dt * 3.5); // toggle spike, ~gone in a second
-      const mul = (1 + drive * (0.4 + react * 2.4)) * (1 + burstRef.current * 3);
+      const mul = (1 + drive * (0.4 + react * 2.4)) * (1 + burstRef.current * 3) * gainRef.current;
       // appear/disappear: linear progress toward shown, eased per box in the engine
       const appearTarget = shownRef.current ? 1 : 0;
       if (appearRef.current !== appearTarget) {
