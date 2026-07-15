@@ -5,7 +5,7 @@ import HoverImages from "./HoverImages";
 import LiveLog from "./LiveLog";
 import NavIndex from "./NavIndex";
 import Rulers from "./Rulers";
-import ScrollScramble from "./ScrollScramble";
+import ScrollReveal from "./ScrollReveal";
 import SmoothScroll from "./SmoothScroll";
 
 /* Homepage — built to match Figma node 210:4 (Alex Branding / Home Page):
@@ -39,7 +39,7 @@ export default function Home() {
       <DataTexture />
       <LiveLog />
       <Rulers />
-      <ScrollScramble />
+      <ScrollReveal />
       <HoverImages />
       {/* vertical guides bounding the columns, running the full page height —
           5 columns on desktop (lg), 3 on tablet (md), gutter lines only on mobile */}
