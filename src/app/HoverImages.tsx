@@ -51,7 +51,11 @@ export default function HoverImages() {
       return;
 
     const terms = () =>
-      Array.from(new Set(Array.from(document.querySelectorAll<HTMLElement>(".article-col .wl"), (a) => a.textContent || "")));
+      Array.from(
+        new Set(
+          Array.from(document.querySelectorAll<HTMLElement>(".article-col .wl"), (a) => a.dataset.term || a.textContent || ""),
+        ),
+      );
     // prefetch after boot so first hovers are instant
     const pre = window.setTimeout(() => terms().forEach((t) => void fetchThumb(t)), 4000);
 
@@ -77,8 +81,9 @@ export default function HoverImages() {
     const show = async (link: HTMLElement) => {
       active = link;
       const id = ++session;
-      // the hover-scramble may have glyphed the text — its stored original wins
-      const term = (link.dataset.dtOrig || link.textContent || "").trim();
+      // data-term overrides the display text (e.g. "bug" → "software bug");
+      // otherwise the hover-scramble may have glyphed the text — its stored original wins
+      const term = (link.dataset.term || link.dataset.dtOrig || link.textContent || "").trim();
       if (!term) return;
       tag.textContent = `${term.toLowerCase().replace(/ /g, "_")} :: ${conf(term)}`;
       img.style.display = "none";
