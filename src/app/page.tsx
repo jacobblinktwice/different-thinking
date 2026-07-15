@@ -77,19 +77,18 @@ export default function Home() {
               />
               {i === 3 && (
                 /* nav sidebar after the first row of columns (repeats in the article, per Figma) */
-                <div className="hidden md:block">
+                <div className="hidden lg:block">
                   <NavIndex />
-                  {/* ambient visual bug: an asset that never loaded */}
-                  <div aria-hidden className="mt-12">
-                    <div className="dt-checker h-[46px] w-[46px]" />
-                    <p className="t-foot mt-1.5 font-mono text-neutral-400">missing_texture.png</p>
-                  </div>
                 </div>
               )}
             </Fragment>
           ))}
         </div>
-        <div data-bug="src" className="t-subhead mt-16 text-right font-mono text-neutral-500">
+        {/* tablet/mobile: the repeated menu sits after the paragraphs instead */}
+        <div className="mt-16 lg:hidden">
+          <NavIndex />
+        </div>
+        <div data-bug="src" className="t-body mt-16 font-mono text-neutral-500">
           &lt;src: &quot;Wikipedia&quot;&gt;
         </div>
       </section>

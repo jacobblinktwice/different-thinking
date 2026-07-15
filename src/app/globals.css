@@ -386,9 +386,6 @@ nav a:hover,
 
 /* ===== curated visual bugs (Bugs.tsx) ===== */
 /* classic engine missing-texture checkerboard */
-.dt-checker {
-  background: repeating-conic-gradient(#ff00dc 0% 25%, #0a0a0a 0% 50%) 0 0 / 14px 14px;
-}
 /* broken-image placeholder (episodic swap for the bug icon) */
 .dt-missing-box {
   position: relative;

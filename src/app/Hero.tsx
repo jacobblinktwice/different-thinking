@@ -290,7 +290,7 @@ export default function Hero() {
       { ref: logoRef, f: -0.06, rate: 6, cur: 0 }, // logotype drifts, laziest
       { ref: titleRef, f: 0.12, rate: 16, cur: 0 }, // title snaps along
       { ref: introRef, f: 0.08, rate: 5, cur: 0 },
-      { ref: codeRef, f: -0.28, rate: 12, cur: 0 }, // codestrip rises over the logotype
+      { ref: codeRef, f: -0.06, rate: 6, cur: 0 }, // codestrip drifts with the logotype, no overlap
     ];
     let raf = 0;
     let last = 0;
@@ -445,12 +445,12 @@ export default function Hero() {
               </span>
             </button>
             {/* codestrip — one item per column (first three), mid grey, resting at
-                the viewport bottom; its fast parallax slides it up OVER the
-                logotype on scroll (chrome z-3 sits above the logotype's z-2) */}
+                the viewport bottom; parallax matches the logotype so it never
+                overlaps it on scroll */}
             <div
               ref={codeRef}
               data-bug="codestrip"
-              className="t-subhead absolute inset-x-0 bottom-[clamp(16px,3svh,32px)] font-mono text-neutral-400"
+              className="t-body absolute inset-x-0 bottom-[clamp(16px,3svh,32px)] font-mono text-neutral-400"
             >
               <span className="absolute bottom-0 left-0">{"{reSrch}"}</span>
               <span className="absolute bottom-0 left-[33.3333%] lg:left-[20%]">; @{"}"}</span>
