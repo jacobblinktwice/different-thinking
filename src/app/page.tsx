@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import Bugs from "./Bugs";
 import DataTexture from "./DataTexture";
 import Hero from "./Hero";
@@ -72,23 +71,28 @@ export default function Home() {
 
       {/* ===================== ARTICLE (Figma editorial layout) ===================== */}
       <section id="about" className="relative px-[var(--gutter)] py-[clamp(40px,5vw,72px)]">
-        {/* mobile: stacked; tablet: THREE long CSS columns (column-major flow,
-            paragraphs whole via break-inside-avoid); desktop: the 5-track grid */}
-        <div className="md:columns-3 md:gap-x-0 lg:grid lg:grid-cols-5 lg:gap-y-10">
-          {COLUMNS.map((html, i) => (
-            <Fragment key={i}>
-              <div className="article-col mb-10 md:break-inside-avoid lg:mb-0 t-body leading-[1.55] tracking-[0.005em] text-neutral-800 md:pr-8 [&_.wl]:underline [&_.wl]:decoration-neutral-400">
+        {/* mobile: stacked; tablet: THREE long CSS columns; desktop: FOUR long
+            columns spanning tracks 1-4 of the grid, with the repeated menu in
+            track 5 (paragraphs flow column-major, kept whole via
+            break-inside-avoid) */}
+        <div className="lg:grid lg:grid-cols-5">
+          <div className="md:columns-3 md:gap-x-0 lg:col-span-4 lg:columns-4">
+            {COLUMNS.map((html, i) => (
+              /* no gap between paragraphs — a first-line indent marks each new
+                 one instead (skipped on the opener) */
+              <div
+                key={i}
+                className={`article-col break-inside-avoid t-body leading-[1.55] tracking-[0.005em] text-neutral-800 md:pr-8 [&_.wl]:underline [&_.wl]:decoration-neutral-400${i > 0 ? " indent-6" : ""}`}
+              >
                 {/* inner wrapper = the reveal target */}
                 <div className="article-inner" dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }} />
               </div>
-              {i === 3 && (
-                /* nav sidebar after the first row of columns (repeats in the article, per Figma) */
-                <div className="hidden lg:block">
-                  <NavIndex />
-                </div>
-              )}
-            </Fragment>
-          ))}
+            ))}
+          </div>
+          {/* nav sidebar in the fifth column (repeats in the article, per Figma) */}
+          <div className="hidden lg:block">
+            <NavIndex />
+          </div>
         </div>
         <div data-bug="src" className="t-body mt-16 font-mono text-neutral-500">
           &lt;src: &quot;manifesto.md&quot;&gt;
