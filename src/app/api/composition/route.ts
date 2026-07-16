@@ -3,9 +3,11 @@
    homepage reads it (GET) — so a save goes live for everyone, not just the
    browser that made it.
 
-   Storage: Vercel Blob in production (requires a Blob store on the project —
-   BLOB_READ_WRITE_TOKEN is injected automatically once one exists). Local dev
-   falls back to plain files under .data/ (gitignored). */
+   Storage: Vercel Blob in production. Works with both auth modes — OIDC
+   (BLOB_STORE_ID + VERCEL_OIDC_TOKEN, the default for newly created stores)
+   and the legacy static BLOB_READ_WRITE_TOKEN — and with either store access
+   mode (private/public, tried in that order). Local dev falls back to plain
+   files under .data/ (gitignored). */
 import { NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -18,19 +20,22 @@ const VERS_PATH = "glitch/versions.json";
 const LAB_CODE = "rewired";
 const MAX_VERSIONS = 15;
 
-const hasBlob = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+const hasBlob = () => !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 const localFile = (p: string) => path.join(process.cwd(), ".data", p.replace("/", "_"));
+const ACCESS_MODES = ["private", "public"] as const;
 
 async function readJson(p: string): Promise<unknown | null> {
   if (hasBlob()) {
-    try {
-      const { head } = await import("@vercel/blob");
-      const h = await head(p);
-      const r = await fetch(`${h.url}${h.url.includes("?") ? "&" : "?"}ts=${Date.now()}`, { cache: "no-store" });
-      return r.ok ? await r.json() : null;
-    } catch {
-      return null; // not found / storage hiccup
+    const { get } = await import("@vercel/blob");
+    for (const access of ACCESS_MODES) {
+      try {
+        const res = await get(p, { access, useCache: false });
+        if (res?.stream) return await new Response(res.stream as BodyInit).json();
+      } catch {
+        /* wrong access mode for this store — try the other */
+      }
     }
+    return null; // not found / storage hiccup
   }
   try {
     return JSON.parse(await fs.readFile(localFile(p), "utf8"));
@@ -43,14 +48,22 @@ async function writeJson(p: string, data: unknown): Promise<void> {
   const body = JSON.stringify(data);
   if (hasBlob()) {
     const { put } = await import("@vercel/blob");
-    await put(p, body, {
-      access: "public",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: "application/json",
-      cacheControlMaxAge: 0,
-    });
-    return;
+    let lastErr: unknown;
+    for (const access of ACCESS_MODES) {
+      try {
+        await put(p, body, {
+          access,
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json",
+          cacheControlMaxAge: 0,
+        });
+        return;
+      } catch (err) {
+        lastErr = err; // wrong access mode for this store — try the other
+      }
+    }
+    throw lastErr;
   }
   await fs.mkdir(path.dirname(localFile(p)), { recursive: true });
   await fs.writeFile(localFile(p), body);
