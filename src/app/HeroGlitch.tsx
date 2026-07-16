@@ -1,9 +1,11 @@
 "use client";
 
-/* Homepage hero: renders the shared <Glitch> using the composition saved from /lab
-   (localStorage), falling back to the baked default. Live-updates across tabs via
-   `storage`. Optional `tweaks` (the public play-sliders) scale a LOCAL clone of
-   the composition — nothing is ever written back, so a refresh resets it. */
+/* Homepage hero: renders the shared <Glitch> using the composition published
+   from /lab. The server copy (/api/composition — shared by ALL visitors) wins;
+   localStorage gives the lab owner's browser an instant paint before the fetch
+   lands, and the baked default covers everything else. Live-updates across tabs
+   via `storage`. Optional `tweaks` (the public play-sliders) scale a LOCAL
+   clone of the composition — nothing is ever written back, so a refresh resets it. */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   Glitch,
@@ -43,6 +45,18 @@ export default function HeroGlitch({
   useEffect(() => {
     const saved = loadComposition();
     if (saved) setComp(saved);
+    // the published (site-wide) composition trumps any local copy
+    let dead = false;
+    fetch("/api/composition")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (dead || !j?.comp) return;
+        const p = parseComposition(j.comp);
+        if (p) setComp(p);
+      })
+      .catch(() => {
+        /* offline / no storage — keep local/baked */
+      });
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
@@ -54,7 +68,10 @@ export default function HeroGlitch({
       }
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      dead = true;
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   const tweaked = useMemo(() => {

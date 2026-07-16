@@ -174,20 +174,47 @@ function LabPage() {
   const box = boxes[activeBox];
   const curStack = box.effects;
 
-  // load the draft (falling back to the live save) on mount; autosave every
-  // change to the DRAFT only — the homepage is untouched until SAVE
+  // load the draft (falling back to the published live composition) on mount;
+  // autosave every change to the DRAFT only — live is untouched until SAVE.
+  // Live + versions come from the server (/api/composition, shared across all
+  // devices); localStorage is only a fallback when the server has nothing.
   const loaded = useRef(false);
   useEffect(() => {
-    const live = loadComposition();
-    liveSnap.current = live ? JSON.stringify(snapshotComposition(live.boxes, live.layer, live.frontLayer)) : null;
-    const c = loadDraft() ?? live;
-    if (c) {
-      setBoxes(c.boxes);
-      setLayer(c.layer);
-      setFrontLayer(c.frontLayer);
-    }
-    setVersions(listVersions());
-    loaded.current = true;
+    (async () => {
+      let live: ReturnType<typeof loadComposition> = null;
+      let liveRaw: unknown = null;
+      let vers: VersionEntry[] = [];
+      try {
+        const r = await fetch("/api/composition");
+        if (r.ok) {
+          const j = (await r.json()) as { comp?: unknown; versions?: VersionEntry[] };
+          if (j.comp) {
+            live = parseComposition(j.comp);
+            if (live) liveRaw = j.comp;
+          }
+          if (Array.isArray(j.versions)) vers = j.versions;
+        }
+      } catch {
+        /* offline — fall back to local */
+      }
+      if (!live) {
+        live = loadComposition();
+        if (live) liveRaw = snapshotComposition(live.boxes, live.layer, live.frontLayer);
+        if (!vers.length) vers = listVersions();
+      }
+      liveSnap.current = liveRaw ? JSON.stringify(liveRaw) : null;
+      const c = loadDraft() ?? live;
+      if (c) {
+        setBoxes(c.boxes);
+        setLayer(c.layer);
+        setFrontLayer(c.frontLayer);
+      }
+      setVersions(vers);
+      loaded.current = true;
+      if (c) {
+        setDirty(JSON.stringify(snapshotComposition(c.boxes, c.layer, c.frontLayer)) !== liveSnap.current);
+      }
+    })();
   }, []);
   useEffect(() => {
     if (!loaded.current) return;
@@ -198,10 +225,29 @@ function LabPage() {
     return () => clearTimeout(t);
   }, [boxes, layer, frontLayer]);
 
-  const saveLive = () => {
-    saveComposition(boxes, layer, frontLayer);
-    setVersions(pushVersion(boxes, layer, frontLayer));
-    liveSnap.current = JSON.stringify(snapshotComposition(boxes, layer, frontLayer));
+  const [saving, setSaving] = useState(false);
+  const saveLive = async () => {
+    if (saving) return;
+    setSaving(true);
+    const snap = snapshotComposition(boxes, layer, frontLayer);
+    try {
+      const res = await fetch("/api/composition", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-lab-key": LAB_CODE },
+        body: JSON.stringify(snap),
+      });
+      const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; versions?: VersionEntry[] } | null;
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      if (Array.isArray(j.versions)) setVersions(j.versions);
+      else setVersions(pushVersion(boxes, layer, frontLayer));
+    } catch (err) {
+      setSaving(false);
+      alert(`Couldn't publish live: ${err instanceof Error ? err.message : err}`);
+      return;
+    }
+    saveComposition(boxes, layer, frontLayer); // local mirror = instant homepage paint on this device
+    liveSnap.current = JSON.stringify(snap);
+    setSaving(false);
     setDirty(false);
     setSavedFlash(true);
     window.setTimeout(() => setSavedFlash(false), 1600);
@@ -296,15 +342,15 @@ function LabPage() {
         </button>
         <button
           onClick={saveLive}
-          disabled={!dirty && !savedFlash}
+          disabled={saving || (!dirty && !savedFlash)}
           className={
-            dirty
+            dirty && !saving
               ? "cursor-pointer bg-blue px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-white hover:bg-ink"
               : "bg-[#f2f2ef] px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-neutral-400"
           }
-          title="Publish the draft to the homepage"
+          title="Publish the draft to the live site (all visitors)"
         >
-          {savedFlash ? "saved ✓" : dirty ? "save → live" : "live ✓"}
+          {saving ? "saving…" : savedFlash ? "saved ✓" : dirty ? "save → live" : "live ✓"}
         </button>
         {historyOpen && (
           <div className="absolute right-5 top-12 z-40 w-[280px] bg-paper p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.16)]">
@@ -348,8 +394,8 @@ function LabPage() {
           </div>
         </div>
 
-        {/* controls */}
-        <aside className="flex max-h-[52vh] w-full flex-none flex-col bg-paper lg:max-h-none lg:w-[380px]">
+        {/* controls — a floating panel, detached from the top bar */}
+        <aside className="m-3 flex max-h-[52vh] w-auto flex-none flex-col bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] lg:my-4 lg:ml-0 lg:mr-4 lg:max-h-none lg:w-[380px]">
           <div className="relative p-4 pb-3">
             <div className="flex items-center gap-2">
               <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">
@@ -415,7 +461,8 @@ function LabPage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2.5 pb-2.5">
+          {/* px-4 matches the header block above so every card lines up with the tabs */}
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-4 pb-4">
             {/* ===== LAYER TAB: the duplicated layer behind the boxes ===== */}
             {isLayer && (
               <div className="flex flex-col gap-1.5">
@@ -495,23 +542,29 @@ function LabPage() {
 
             {/* ===== BOX TAB: layout + effect stack ===== */}
             {isBoxTab && (
-              <Card title="Layout & size" open={openCards.has("layout")} onToggle={() => toggleCard("layout")}>
-                {(["x", "y", "w", "h"] as const).map((k) => (
-                  <Slider
-                    key={k}
-                    label={{ x: "X", y: "Y", w: "Width", h: "Height" }[k]}
-                    min={k === "w" || k === "h" ? 2 : 0}
-                    max={100}
-                    step={0.1}
-                    unit="%"
-                    value={box.layout[k] * 100}
-                    onChange={(v) => {
-                      box.layout[k] = v / 100;
-                      commit();
-                    }}
-                  />
-                ))}
-              </Card>
+              <>
+                <Card title="Layout & size" open={openCards.has("layout")} onToggle={() => toggleCard("layout")}>
+                  {(["x", "y", "w", "h"] as const).map((k) => (
+                    <Slider
+                      key={k}
+                      label={{ x: "X", y: "Y", w: "Width", h: "Height" }[k]}
+                      min={k === "w" || k === "h" ? 2 : 0}
+                      max={100}
+                      step={0.1}
+                      unit="%"
+                      value={box.layout[k] * 100}
+                      onChange={(v) => {
+                        box.layout[k] = v / 100;
+                        commit();
+                      }}
+                    />
+                  ))}
+                </Card>
+                {/* divider between the box's layout and its effect stack */}
+                <div className="mb-0.5 mt-3 font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+                  [ effect stack ]
+                </div>
+              </>
             )}
 
             {/* effect cards — click the name to open/collapse, drag to reorder,
@@ -545,7 +598,7 @@ function LabPage() {
                       className="flex flex-1 cursor-pointer items-center gap-2 text-left"
                       title={open ? "Collapse" : "Open"}
                     >
-                      <span className="w-2 font-mono text-[9px] text-neutral-400">{open ? "▾" : "▸"}</span>
+                      <span className="w-3.5 font-mono text-[13px] leading-none text-neutral-500">{open ? "▾" : "▸"}</span>
                       <span className="flex-1 font-mono text-[12px] tracking-tight">{def.name}</span>
                     </button>
                     <button
@@ -656,7 +709,7 @@ function LabPage() {
             })}
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5 p-2.5 pt-0">
+          <div className="grid grid-cols-3 gap-1.5 p-4 pt-0">
             <button
               onClick={() => {
                 setBoxes(defaultBoxes());
@@ -707,7 +760,7 @@ function Card({
   return (
     <div className={BLOCK}>
       <button onClick={onToggle} className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-left" title={open ? "Collapse" : "Open"}>
-        <span className="w-2 font-mono text-[9px] text-neutral-400">{open ? "▾" : "▸"}</span>
+        <span className="w-3.5 font-mono text-[13px] leading-none text-neutral-500">{open ? "▾" : "▸"}</span>
         <span className="flex-1 font-mono text-[12px] tracking-tight">{title}</span>
       </button>
       {open && <div className="flex flex-col gap-2 px-3.5 pb-3.5">{children}</div>}
