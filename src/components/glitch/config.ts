@@ -145,8 +145,11 @@ export function boxRound(box: BoxConfig): number {
 }
 
 /* =====================================================================
-   Persistence — one composition (boxes + layer) shared across /lab and /.
-   Version-stamped so a stale save is ignored after the baked baseline changes.
+   Persistence — the LIVE composition (read by the homepage) is only written
+   by the lab's explicit save; the lab keeps its own autosaved DRAFT so a
+   refresh never loses work, plus a capped version history of live saves.
+   All version-stamped so a stale save is ignored after the baked baseline
+   changes.
    ===================================================================== */
 export interface Composition {
   boxes: BoxConfig[];
@@ -154,17 +157,59 @@ export interface Composition {
   frontLayer: FrontLayerConfig;
 }
 export const STORAGE_KEY = "dt-glitch-config";
+export const DRAFT_KEY = "dt-glitch-draft";
+export const VERSIONS_KEY = "dt-glitch-versions";
+const MAX_VERSIONS = 15;
 
 export function defaultComposition(): Composition {
   return { boxes: defaultBoxes(), layer: defaultLayer(), frontLayer: defaultFrontLayer() };
 }
 
+/** The plain serialized shape all persistence writes ({v, boxes, layer, frontLayer}). */
+export function snapshotComposition(boxes: BoxConfig[], layer: LayerConfig, frontLayer: FrontLayerConfig) {
+  return clone({ v: CFG_VERSION, boxes: serialize(boxes), layer, frontLayer });
+}
+
 export function saveComposition(boxes: BoxConfig[], layer: LayerConfig, frontLayer: FrontLayerConfig) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: CFG_VERSION, boxes: serialize(boxes), layer, frontLayer }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotComposition(boxes, layer, frontLayer)));
   } catch {
     /* storage unavailable (e.g. data: URL) — noop */
   }
+}
+
+export function saveDraft(boxes: BoxConfig[], layer: LayerConfig, frontLayer: FrontLayerConfig) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshotComposition(boxes, layer, frontLayer)));
+  } catch {
+    /* noop */
+  }
+}
+
+export type VersionEntry = { t: number; snap: ReturnType<typeof snapshotComposition> };
+
+export function listVersions(): VersionEntry[] {
+  try {
+    const raw = localStorage.getItem(VERSIONS_KEY);
+    const list = raw ? (JSON.parse(raw) as VersionEntry[]) : [];
+    return Array.isArray(list) ? list.filter((e) => e && typeof e.t === "number" && e.snap) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Record a live save in the history (newest first, capped). Returns the new list. */
+export function pushVersion(boxes: BoxConfig[], layer: LayerConfig, frontLayer: FrontLayerConfig): VersionEntry[] {
+  const list = [{ t: Date.now(), snap: snapshotComposition(boxes, layer, frontLayer) }, ...listVersions()].slice(
+    0,
+    MAX_VERSIONS,
+  );
+  try {
+    localStorage.setItem(VERSIONS_KEY, JSON.stringify(list));
+  } catch {
+    /* noop */
+  }
+  return list;
 }
 
 /** Parse a stored/imported blob into a Composition. Accepts the versioned object
@@ -194,6 +239,16 @@ export function parseComposition(raw: unknown): Composition | null {
 export function loadComposition(): Composition | null {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
+    if (!s) return null;
+    return parseComposition(JSON.parse(s));
+  } catch {
+    return null;
+  }
+}
+
+export function loadDraft(): Composition | null {
+  try {
+    const s = localStorage.getItem(DRAFT_KEY);
     if (!s) return null;
     return parseComposition(JSON.parse(s));
   } catch {

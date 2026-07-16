@@ -266,6 +266,29 @@ nav a:hover,
   background: var(--ink);
 }
 
+/* full-width variant for the lab panels — same sharp square thumb */
+.dt-range {
+  width: 100%;
+  height: 2px;
+  cursor: pointer;
+  appearance: none;
+  background: rgba(10, 10, 10, 0.22);
+  accent-color: var(--ink);
+}
+.dt-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  background: var(--ink);
+}
+.dt-range::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 0;
+  background: var(--ink);
+}
+
 /* ===== figma-style rulers (Rulers.tsx) — glitch mode only ===== */
 .dt-ruler {
   position: fixed;

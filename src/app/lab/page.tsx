@@ -1,7 +1,12 @@
 "use client";
 
 /* Effect lab — renders the shared <Glitch> component in isolation with live controls.
-   Tuning here maps 1:1 onto the same component the homepage uses. */
+   Tuning here maps 1:1 onto the same component the homepage uses.
+
+   Persistence: every change autosaves to a DRAFT (refresh-safe); the homepage
+   only updates when SAVE is pressed, which also records a version in the
+   history. UI follows the live site's console language: sharp solid blocks,
+   mono labels, no outlines. */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Glitch } from "@/components/glitch";
@@ -14,11 +19,17 @@ import {
   saveComposition,
   loadComposition,
   parseComposition,
+  saveDraft,
+  loadDraft,
+  snapshotComposition,
+  listVersions,
+  pushVersion,
   SCHEMA,
   type BoxConfig,
   type LayerConfig,
   type FrontLayerConfig,
   type GlitchMode,
+  type VersionEntry,
 } from "@/components/glitch";
 
 type Schema = Record<
@@ -120,6 +131,12 @@ export default function LabGate() {
   );
 }
 
+/* shared block styles — the live site's console look */
+const BLOCK = "bg-[#f2f2ef]";
+const BTN =
+  "cursor-pointer bg-[#f2f2ef] px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-neutral-600 hover:bg-ink hover:text-paper";
+const BTN_ON = "cursor-pointer bg-ink px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-paper";
+
 function LabPage() {
   const [boxes, setBoxes] = useState<BoxConfig[]>(() => defaultBoxes());
   const [active, setActive] = useState<number | "layer" | "front">(0);
@@ -129,6 +146,23 @@ function LabPage() {
   const [layer, setLayer] = useState<LayerConfig>(() => defaultLayer());
   const [frontLayer, setFrontLayer] = useState<FrontLayerConfig>(() => defaultFrontLayer());
   const dragIndex = useRef<number | null>(null);
+
+  // draft/live/save state
+  const [dirty, setDirty] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [versions, setVersions] = useState<VersionEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const liveSnap = useRef<string | null>(null);
+
+  // collapsed/open state of the individual effect + section cards (by effect id / key)
+  const [openCards, setOpenCards] = useState<Set<number | string>>(() => new Set(["layout"]));
+  const toggleCard = (key: number | string) =>
+    setOpenCards((s) => {
+      const n = new Set(s);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
 
   const isLayer = active === "layer";
   const isFront = active === "front";
@@ -140,22 +174,48 @@ function LabPage() {
   const box = boxes[activeBox];
   const curStack = box.effects;
 
-  // load any saved composition on mount; then autosave every change (shared with the homepage)
+  // load the draft (falling back to the live save) on mount; autosave every
+  // change to the DRAFT only — the homepage is untouched until SAVE
   const loaded = useRef(false);
   useEffect(() => {
-    const c = loadComposition();
+    const live = loadComposition();
+    liveSnap.current = live ? JSON.stringify(snapshotComposition(live.boxes, live.layer, live.frontLayer)) : null;
+    const c = loadDraft() ?? live;
     if (c) {
       setBoxes(c.boxes);
       setLayer(c.layer);
       setFrontLayer(c.frontLayer);
     }
+    setVersions(listVersions());
     loaded.current = true;
   }, []);
   useEffect(() => {
     if (!loaded.current) return;
-    const t = setTimeout(() => saveComposition(boxes, layer, frontLayer), 300);
+    const t = setTimeout(() => {
+      saveDraft(boxes, layer, frontLayer);
+      setDirty(JSON.stringify(snapshotComposition(boxes, layer, frontLayer)) !== liveSnap.current);
+    }, 300);
     return () => clearTimeout(t);
   }, [boxes, layer, frontLayer]);
+
+  const saveLive = () => {
+    saveComposition(boxes, layer, frontLayer);
+    setVersions(pushVersion(boxes, layer, frontLayer));
+    liveSnap.current = JSON.stringify(snapshotComposition(boxes, layer, frontLayer));
+    setDirty(false);
+    setSavedFlash(true);
+    window.setTimeout(() => setSavedFlash(false), 1600);
+  };
+
+  const restoreVersion = (entry: VersionEntry) => {
+    const comp = parseComposition(entry.snap);
+    if (!comp) return alert("That version predates the current baseline and can't be restored.");
+    setBoxes(comp.boxes);
+    setLayer(comp.layer);
+    setFrontLayer(comp.frontLayer);
+    setActive(0);
+    setHistoryOpen(false);
+  };
 
   const addEffect = (type: string) => {
     curStack.unshift(instantiate({ type }));
@@ -205,10 +265,15 @@ function LabPage() {
     reader.readAsText(file);
   };
 
+  const stamp = (t: number) =>
+    new Date(t)
+      .toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+      .toLowerCase();
+
   return (
-    <div className="flex h-screen flex-col bg-[#f1f1f0] text-ink">
+    <div className="flex h-screen flex-col bg-[#e9e9e6] text-ink">
       {/* top bar */}
-      <header className="flex h-13 flex-none items-center gap-4 border-b border-hair bg-paper px-5 py-3">
+      <header className="relative flex h-13 flex-none items-center gap-4 bg-paper px-5 py-3">
         <Link href="/" className="text-sm font-medium tracking-tight transition-opacity hover:opacity-60" title="Back to home">
           Different <span className="text-blue">Thinking</span>
         </Link>
@@ -216,25 +281,53 @@ function LabPage() {
           ← glitch lab
         </Link>
         <div className="flex-1" />
-        <button
-          onClick={() => setRunning((r) => !r)}
-          className="rounded-md border border-hair px-3 py-1.5 text-xs hover:bg-black/5"
-        >
+        <button onClick={() => setRunning((r) => !r)} className={BTN}>
           {running ? "Pause" : "Play"}
         </button>
-        <div className="flex overflow-hidden rounded-lg border border-hair">
+        <div className="flex">
           {(["grid", "landing"] as GlitchMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-3 py-1.5 text-xs capitalize ${
-                mode === m ? "bg-ink text-paper" : "bg-paper text-neutral-600 hover:bg-black/5"
-              }`}
-            >
+            <button key={m} onClick={() => setMode(m)} className={mode === m ? BTN_ON : BTN}>
               {m}
             </button>
           ))}
         </div>
+        <button onClick={() => setHistoryOpen((o) => !o)} className={historyOpen ? BTN_ON : BTN} title="Version history">
+          History
+        </button>
+        <button
+          onClick={saveLive}
+          disabled={!dirty && !savedFlash}
+          className={
+            dirty
+              ? "cursor-pointer bg-blue px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-white hover:bg-ink"
+              : "bg-[#f2f2ef] px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-neutral-400"
+          }
+          title="Publish the draft to the homepage"
+        >
+          {savedFlash ? "saved ✓" : dirty ? "save → live" : "live ✓"}
+        </button>
+        {historyOpen && (
+          <div className="absolute right-5 top-12 z-40 w-[280px] bg-paper p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.16)]">
+            <p className="px-2.5 py-2 font-mono text-[10px] uppercase tracking-wider text-neutral-400">
+              [ version history — live saves ]
+            </p>
+            {versions.length === 0 && (
+              <p className="px-2.5 pb-2.5 font-mono text-[11px] text-neutral-500">no saves yet</p>
+            )}
+            {versions.map((v, i) => (
+              <button
+                key={v.t}
+                onClick={() => restoreVersion(v)}
+                className="flex w-full cursor-pointer items-baseline gap-2 px-2.5 py-2 text-left font-mono text-[11px] text-neutral-700 hover:bg-[#f2f2ef]"
+                title="Load this version into the draft"
+              >
+                <span className="text-neutral-400">v{versions.length - i}</span>
+                <span className="flex-1">{stamp(v.t)}</span>
+                {i === 0 && <span className="text-blue">live</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
@@ -256,10 +349,9 @@ function LabPage() {
         </div>
 
         {/* controls */}
-        <aside className="flex max-h-[52vh] w-full flex-none flex-col border-t border-hair bg-paper lg:max-h-none lg:w-[380px] lg:border-l lg:border-t-0">
-          <div className="relative border-b border-hair p-4">
+        <aside className="flex max-h-[52vh] w-full flex-none flex-col bg-paper lg:max-h-none lg:w-[380px]">
+          <div className="relative p-4 pb-3">
             <div className="flex items-center gap-2">
-              <span className="text-neutral-500">≈</span>
               <h2 className="flex-1 font-mono text-[11px] uppercase tracking-[0.14em]">
                 {isLayer ? "Duplicate layer" : isFront ? "Front boxes layer" : "Effects"}
               </h2>
@@ -268,7 +360,7 @@ function LabPage() {
                   <span className="font-mono text-[11px] text-neutral-400">[{fxCount}]</span>
                   <button
                     onClick={() => setAddOpen((o) => !o)}
-                    className="grid h-6 w-6 place-items-center rounded border border-hair text-[15px] leading-none text-neutral-600 hover:border-ink hover:text-ink"
+                    className="grid h-6 w-6 cursor-pointer place-items-center bg-[#f2f2ef] text-[15px] leading-none text-neutral-600 hover:bg-ink hover:text-paper"
                     title="Add effect"
                   >
                     +
@@ -277,14 +369,14 @@ function LabPage() {
               )}
             </div>
             {addOpen && isBoxTab && (
-              <div className="absolute right-4 top-12 z-30 min-w-[180px] rounded-lg border border-hair bg-paper p-1.5 shadow-[0_10px_34px_rgba(0,0,0,0.14)]">
+              <div className="absolute right-4 top-12 z-30 min-w-[180px] bg-paper p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.16)]">
                 {Object.keys(S).map((type) => (
                   <button
                     key={type}
                     onClick={() => addEffect(type)}
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13px] hover:bg-black/5"
+                    className="flex w-full cursor-pointer items-center gap-2 px-2.5 py-2 text-left font-mono text-[12px] hover:bg-[#f2f2ef]"
                   >
-                    <span className="text-neutral-500">≈</span> {S[type].name}
+                    {S[type].name}
                   </button>
                 ))}
               </div>
@@ -294,10 +386,8 @@ function LabPage() {
                 <button
                   key={i}
                   onClick={() => setActive(i)}
-                  className={`relative h-8 w-8 rounded-md border text-[12px] ${
-                    i === active
-                      ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
-                      : "border-hair text-neutral-500 hover:border-neutral-400"
+                  className={`h-8 w-8 cursor-pointer font-mono text-[12px] ${
+                    i === active ? "bg-ink text-paper" : "bg-[#f2f2ef] text-neutral-500 hover:bg-[#e4e4e1]"
                   }`}
                   title={BOX_NAMES[i]}
                 >
@@ -306,46 +396,42 @@ function LabPage() {
               ))}
               <button
                 onClick={() => setActive("layer")}
-                className={`h-8 rounded-md border px-2.5 font-mono text-[11px] ${
-                  isLayer
-                    ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
-                    : "border-hair text-neutral-500 hover:border-neutral-400"
+                className={`h-8 cursor-pointer px-2.5 font-mono text-[11px] ${
+                  isLayer ? "bg-ink text-paper" : "bg-[#f2f2ef] text-neutral-500 hover:bg-[#e4e4e1]"
                 }`}
                 title="Duplicate (behind) layer"
               >
-                ⧉ Dup
+                Dup
               </button>
               <button
                 onClick={() => setActive("front")}
-                className={`h-8 rounded-md border px-2.5 font-mono text-[11px] ${
-                  isFront
-                    ? "border-ink font-semibold shadow-[inset_0_0_0_1px_var(--ink)]"
-                    : "border-hair text-neutral-500 hover:border-neutral-400"
+                className={`h-8 cursor-pointer px-2.5 font-mono text-[11px] ${
+                  isFront ? "bg-ink text-paper" : "bg-[#f2f2ef] text-neutral-500 hover:bg-[#e4e4e1]"
                 }`}
                 title="Front boxes layer (group slice + pixel-stretch)"
               >
-                ▣ Front
+                Front
               </button>
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2.5">
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-2.5 pb-2.5">
             {/* ===== LAYER TAB: the duplicated layer behind the boxes ===== */}
             {isLayer && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <p className="px-1 font-mono text-[10px] leading-4 text-neutral-500">
                   A duplicate of all boxes, sitting behind them with its own slice + pixel-stretch (offset
                   + dimmed). The whole composition&apos;s glitch reacts to the pointer — &ldquo;Position&rdquo;
                   ties intensity to cursor distance from centre (smooth); &ldquo;Motion&rdquo; spikes on
                   pointer speed + scroll. Reactivity scales the amount.
                 </p>
-                <Card title="Layer">
+                <Card title="Layer" open={!openCards.has("layer:closed")} onToggle={() => toggleCard("layer:closed")}>
                   <Row label="Enabled">
                     <input
                       type="checkbox"
                       checked={layer.enabled}
                       onChange={(e) => { layer.enabled = e.target.checked; commitLayer(); }}
-                      className="accent-blue"
+                      className="accent-ink"
                     />
                   </Row>
                   <Slider label="Opacity" min={0} max={100} step={1} unit="%" value={layer.opacity * 100} onChange={(v) => { layer.opacity = v / 100; commitLayer(); }} />
@@ -354,7 +440,7 @@ function LabPage() {
                     <select
                       value={layer.reactMode}
                       onChange={(e) => { layer.reactMode = e.target.value as "position" | "velocity"; commitLayer(); }}
-                      className="w-full rounded-md border border-hair bg-paper px-2 py-1 text-xs"
+                      className="w-full bg-paper px-2 py-1 text-xs"
                     >
                       <option value="position">Mouse position</option>
                       <option value="velocity">Mouse / scroll motion</option>
@@ -378,19 +464,19 @@ function LabPage() {
 
             {/* ===== FRONT LAYER TAB: group slice + pixel-stretch over the front boxes ===== */}
             {isFront && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 <p className="px-1 font-mono text-[10px] leading-4 text-neutral-500">
                   Runs a single slice-shift (H + V) + pixel-stretch over ALL the front boxes together
                   (on top of each box&apos;s own effects). While enabled, the front boxes composite as one
                   layer, so per-box z-scatter with the duplicate is flattened.
                 </p>
-                <Card title="Front layer">
+                <Card title="Front layer" open={!openCards.has("front:closed")} onToggle={() => toggleCard("front:closed")}>
                   <Row label="Enabled">
                     <input
                       type="checkbox"
                       checked={frontLayer.enabled}
                       onChange={(e) => { frontLayer.enabled = e.target.checked; commitFront(); }}
-                      className="accent-blue"
+                      className="accent-ink"
                     />
                   </Row>
                   <div className="mt-1 font-mono text-[9.5px] uppercase tracking-wider text-neutral-400">Slice shift · H + V</div>
@@ -409,7 +495,7 @@ function LabPage() {
 
             {/* ===== BOX TAB: layout + effect stack ===== */}
             {isBoxTab && (
-              <Card title="Layout & size">
+              <Card title="Layout & size" open={openCards.has("layout")} onToggle={() => toggleCard("layout")}>
                 {(["x", "y", "w", "h"] as const).map((k) => (
                   <Slider
                     key={k}
@@ -428,10 +514,12 @@ function LabPage() {
               </Card>
             )}
 
-            {/* effect cards — drag to reorder, eye to hide, – to remove, + to add */}
+            {/* effect cards — click the name to open/collapse, drag to reorder,
+                eye to hide, – to remove, + (header) to add */}
             {isBoxTab && curStack.map((e, idx) => {
               const def = S[e.type];
               if (!def) return null;
+              const open = openCards.has(e.id ?? -1);
               return (
                 <div
                   key={e.id}
@@ -441,7 +529,7 @@ function LabPage() {
                     reorder(dragIndex.current, idx);
                     dragIndex.current = null;
                   }}
-                  className={`rounded-[10px] border border-hair bg-paper transition-opacity ${e.on ? "" : "opacity-50"}`}
+                  className={`${BLOCK} transition-opacity ${e.on ? "" : "opacity-50"}`}
                 >
                   <div className="flex items-center gap-2 px-2.5 py-2.5">
                     <span
@@ -452,27 +540,33 @@ function LabPage() {
                     >
                       ⋮⋮
                     </span>
-                    <span className="w-3 font-mono text-[10px] text-neutral-400">{idx + 1}</span>
-                    <span className="text-neutral-500">≈</span>
-                    <span className="flex-1 text-[13px] tracking-tight">{def.name}</span>
+                    <button
+                      onClick={() => toggleCard(e.id ?? -1)}
+                      className="flex flex-1 cursor-pointer items-center gap-2 text-left"
+                      title={open ? "Collapse" : "Open"}
+                    >
+                      <span className="w-2 font-mono text-[9px] text-neutral-400">{open ? "▾" : "▸"}</span>
+                      <span className="flex-1 font-mono text-[12px] tracking-tight">{def.name}</span>
+                    </button>
                     <button
                       onClick={() => {
                         e.on = !e.on;
                         commit();
                       }}
                       title={e.on ? "Hide" : "Show"}
-                      className="grid h-6 w-6 place-items-center rounded text-neutral-600 hover:bg-black/5"
+                      className="grid h-6 w-6 cursor-pointer place-items-center text-neutral-600 hover:bg-ink hover:text-paper"
                     >
                       {e.on ? EyeIcon : EyeOffIcon}
                     </button>
                     <button
                       onClick={() => removeEffect(e.id)}
                       title="Remove"
-                      className="grid h-6 w-6 place-items-center rounded font-mono text-[15px] leading-none text-neutral-500 hover:bg-black/5"
+                      className="grid h-6 w-6 cursor-pointer place-items-center font-mono text-[15px] leading-none text-neutral-500 hover:bg-ink hover:text-paper"
                     >
                       –
                     </button>
                   </div>
+                  {open && (
                   <div className="flex flex-col gap-2 px-3.5 pb-3.5">
                   {def.hasGrad && Array.isArray(e.grad) && (
                     <GradientEditor
@@ -499,7 +593,7 @@ function LabPage() {
                               e.params[key] = Number(ev.target.value);
                               commit();
                             }}
-                            className="w-full rounded-md border border-hair bg-paper px-2 py-1 text-xs"
+                            className="w-full bg-paper px-2 py-1 text-xs"
                           >
                             {p.options.map((o, i) => (
                               <option key={i} value={i}>
@@ -519,7 +613,7 @@ function LabPage() {
                               e.params[key] = ev.target.checked;
                               commit();
                             }}
-                            className="accent-blue"
+                            className="accent-ink"
                           />
                         </Row>
                       );
@@ -533,7 +627,7 @@ function LabPage() {
                               e.params[key] = ev.target.value;
                               commit();
                             }}
-                            className="h-6 w-10 rounded border border-hair"
+                            className="h-6 w-10 cursor-pointer bg-transparent"
                           />
                         </Row>
                       );
@@ -556,12 +650,13 @@ function LabPage() {
                     );
                   })}
                   </div>
+                  )}
                 </div>
               );
             })}
           </div>
 
-          <div className="grid grid-cols-3 gap-2 border-t border-hair p-2.5">
+          <div className="grid grid-cols-3 gap-1.5 p-2.5 pt-0">
             <button
               onClick={() => {
                 setBoxes(defaultBoxes());
@@ -569,20 +664,14 @@ function LabPage() {
                 setFrontLayer(defaultFrontLayer());
                 setActive(0);
               }}
-              className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
+              className={`${BTN} px-2 py-2 text-center`}
             >
               Reset all
             </button>
-            <button
-              onClick={() => fileInput.current?.click()}
-              className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
-            >
+            <button onClick={() => fileInput.current?.click()} className={`${BTN} px-2 py-2 text-center`}>
               Import JSON
             </button>
-            <button
-              onClick={exportJson}
-              className="rounded-md border border-ink px-2 py-2 font-mono text-[10.5px] uppercase tracking-wide hover:bg-ink hover:text-paper"
-            >
+            <button onClick={exportJson} className={`${BTN} px-2 py-2 text-center`}>
               Export JSON
             </button>
             <input
@@ -607,26 +696,21 @@ function LabPage() {
 function Card({
   title,
   children,
-  dim,
-  action,
+  open,
+  onToggle,
 }: {
   title: string;
   children: React.ReactNode;
-  dim?: boolean;
-  action?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <div
-      className={`rounded-[10px] border border-hair bg-paper transition-opacity ${
-        dim ? "opacity-50" : ""
-      }`}
-    >
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <span className="text-sm text-neutral-600">≈</span>
-        <span className="flex-1 text-[13.5px] tracking-tight">{title}</span>
-        {action}
-      </div>
-      <div className="flex flex-col gap-2 px-3.5 pb-3.5">{children}</div>
+    <div className={BLOCK}>
+      <button onClick={onToggle} className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-left" title={open ? "Collapse" : "Open"}>
+        <span className="w-2 font-mono text-[9px] text-neutral-400">{open ? "▾" : "▸"}</span>
+        <span className="flex-1 font-mono text-[12px] tracking-tight">{title}</span>
+      </button>
+      {open && <div className="flex flex-col gap-2 px-3.5 pb-3.5">{children}</div>}
     </div>
   );
 }
@@ -668,7 +752,7 @@ function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="accent-ink"
+        className="dt-range"
       />
       <span className="text-right font-mono text-[10.5px] tabular-nums text-neutral-500">
         {fmt}
@@ -689,10 +773,7 @@ function GradientEditor({
   return (
     <div className="mb-1">
       <div className="mb-1 text-[11.5px] text-neutral-700">Gradient</div>
-      <div
-        className="h-5 rounded border border-hair"
-        style={{ background: `linear-gradient(90deg, ${css})` }}
-      />
+      <div className="h-5" style={{ background: `linear-gradient(90deg, ${css})` }} />
       <div className="mt-1.5 flex gap-1.5">
         {grad.map((s, i) => (
           <GradStopColor key={i} stop={s} onChange={onChange} />
@@ -727,7 +808,7 @@ function GradStopColor({ stop, onChange }: { stop: { p: number; c: string }; onC
           setText(e.target.value);
           onChange();
         }}
-        className="h-5 w-6 rounded border border-hair"
+        className="h-5 w-6 cursor-pointer bg-transparent"
       />
       <input
         value={text}
@@ -737,7 +818,7 @@ function GradStopColor({ stop, onChange }: { stop: { p: number; c: string }; onC
           commit(e.target.value);
         }}
         onBlur={() => commit(text)}
-        className="w-[52px] rounded border border-hair bg-transparent px-1 py-0.5 text-center font-mono text-[10px] uppercase text-neutral-700"
+        className="w-[52px] bg-paper px-1 py-0.5 text-center font-mono text-[10px] uppercase text-neutral-700"
       />
     </div>
   );
