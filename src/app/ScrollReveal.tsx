@@ -1,10 +1,13 @@
 "use client";
 
-/* Scroll-into-view reveal for the article columns: a simple whole-paragraph
-   slide on the site's burst ease — one per cell, staggered when several enter
-   together. (The scramble that used to accompany this was cut; the hover
-   scramble in Bugs.tsx still owns link text.) Skipped under reduced-motion. */
+/* Scroll-into-view reveal for the manifesto: PER COLUMN, not per paragraph —
+   cells are grouped by the multicol column they start in and each column
+   slides up together, staggered left to right on the site's burst ease.
+   (On mobile, where the article is a single stack, cells reveal one by one as
+   they enter instead.) Skipped under reduced-motion. */
 import { useEffect } from "react";
+
+const COLUMN_STAGGER = 130;
 
 export default function ScrollReveal() {
   useEffect(() => {
@@ -15,11 +18,15 @@ export default function ScrollReveal() {
       timers.push(t);
     };
 
-    // pre-hide only the columns still below the viewport
-    const pending = Array.from(document.querySelectorAll<HTMLElement>(".article-col")).filter(
-      (el) => el.getBoundingClientRect().top > window.innerHeight * 0.85,
-    );
+    const cells = Array.from(document.querySelectorAll<HTMLElement>(".article-col"));
+    if (!cells.length) return;
+    const container = cells[0].parentElement as HTMLElement;
     const innerOf = (el: HTMLElement) => el.querySelector<HTMLElement>(".article-inner") ?? el;
+    const multicol = cells[0].offsetWidth < container.offsetWidth * 0.9;
+
+    // pre-hide only what's still below the viewport
+    const pending = cells.filter((el) => el.getBoundingClientRect().top > window.innerHeight * 0.85 || multicol);
+    if (!pending.length) return;
     for (const el of pending) {
       const inner = innerOf(el);
       inner.style.transform = "translateY(36px)";
@@ -41,18 +48,34 @@ export default function ScrollReveal() {
       }, delay);
     };
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        let batch = 0;
-        for (const en of entries) {
-          if (!en.isIntersecting) continue;
-          io.unobserve(en.target);
-          reveal(en.target as HTMLElement, batch++ * 90);
-        }
-      },
-      { threshold: 0.15 },
-    );
-    pending.forEach((el) => io.observe(el));
+    let io: IntersectionObserver;
+    if (multicol) {
+      // one trigger for the whole article; each cell's delay = the column it
+      // starts in, so the columns rise left → right
+      const colOf = (el: HTMLElement) => Math.round(el.offsetLeft / Math.max(1, el.offsetWidth));
+      io = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((en) => en.isIntersecting)) return;
+          io.disconnect();
+          for (const el of pending) reveal(el, colOf(el) * COLUMN_STAGGER);
+        },
+        { threshold: 0.05 },
+      );
+      io.observe(container);
+    } else {
+      io = new IntersectionObserver(
+        (entries) => {
+          let batch = 0;
+          for (const en of entries) {
+            if (!en.isIntersecting) continue;
+            io.unobserve(en.target);
+            reveal(en.target as HTMLElement, batch++ * 90);
+          }
+        },
+        { threshold: 0.15 },
+      );
+      pending.forEach((el) => io.observe(el));
+    }
 
     return () => {
       io.disconnect();

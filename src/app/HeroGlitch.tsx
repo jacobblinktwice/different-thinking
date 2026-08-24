@@ -1,25 +1,37 @@
 "use client";
 
-/* Homepage hero: renders the shared <Glitch> using the composition published
-   from /lab. The server copy (/api/composition — shared by ALL visitors) wins;
-   localStorage gives the lab owner's browser an instant paint before the fetch
-   lands, and the baked default covers everything else. Live-updates across tabs
-   via `storage`. Optional `tweaks` (the public play-sliders) scale a LOCAL
-   clone of the composition — nothing is ever written back, so a refresh resets it. */
+/* Homepage hero: renders the shared <Glitch> using the PUBLISHED composition
+   from the server (/api/composition — the single, global store; no local
+   copies). The fetch is kicked off at page load via prefetchLiveComposition(),
+   and the canvas only mounts once it settles, so a stale variation never
+   flashes before the live one. Falls back to the baked default if the server
+   has nothing. Optional `tweaks` (the public play-sliders) scale a LOCAL clone
+   of the composition — nothing is ever written back, so a refresh resets it. */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   Glitch,
   clone,
   defaultComposition,
-  loadComposition,
   parseComposition,
-  STORAGE_KEY,
   type Composition,
   type EffectParams,
   type GlitchMode,
 } from "@/components/glitch";
 
 export type HeroTweaks = { gain: number; slice: number; stretch: number; speed: number }; // 0-100, 50 = neutral
+
+/* one shared fetch for the published composition — call early (Hero mount) so
+   it has settled long before the bug is ever clicked */
+let livePromise: Promise<Composition | null> | null = null;
+export function prefetchLiveComposition(): Promise<Composition | null> {
+  if (!livePromise) {
+    livePromise = fetch("/api/composition")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => (j?.comp ? parseComposition(j.comp) : null))
+      .catch(() => null);
+  }
+  return livePromise;
+}
 
 export default function HeroGlitch({
   className,
@@ -40,41 +52,20 @@ export default function HeroGlitch({
   shown?: boolean;
   tweaks?: HeroTweaks;
 }) {
-  const [comp, setComp] = useState<Composition>(() => defaultComposition());
+  const [comp, setComp] = useState<Composition | null>(null);
 
   useEffect(() => {
-    const saved = loadComposition();
-    if (saved) setComp(saved);
-    // the published (site-wide) composition trumps any local copy
     let dead = false;
-    fetch("/api/composition")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (dead || !j?.comp) return;
-        const p = parseComposition(j.comp);
-        if (p) setComp(p);
-      })
-      .catch(() => {
-        /* offline / no storage — keep local/baked */
-      });
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        try {
-          const p = parseComposition(JSON.parse(e.newValue));
-          if (p) setComp(p);
-        } catch {
-          /* ignore */
-        }
-      }
-    };
-    window.addEventListener("storage", onStorage);
+    prefetchLiveComposition().then((c) => {
+      if (!dead) setComp(c ?? defaultComposition());
+    });
     return () => {
       dead = true;
-      window.removeEventListener("storage", onStorage);
     };
   }, []);
 
   const tweaked = useMemo(() => {
+    if (!comp) return null;
     if (!tweaks || (tweaks.slice === 50 && tweaks.stretch === 50 && tweaks.speed === 50)) return comp;
     const t = clone(comp);
     const fs = tweaks.slice / 50;
@@ -102,6 +93,10 @@ export default function HeroGlitch({
     for (const p of [t.layer.pixstretch, t.frontLayer.pixstretch]) scale(p, "offset", fp);
     return t;
   }, [comp, tweaks]);
+
+  // hold the mount until the published composition has settled — never flash a
+  // different variation first
+  if (!tweaked) return null;
 
   return (
     <Glitch

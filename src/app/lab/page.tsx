@@ -3,10 +3,10 @@
 /* Effect lab — renders the shared <Glitch> component in isolation with live controls.
    Tuning here maps 1:1 onto the same component the homepage uses.
 
-   Persistence: every change autosaves to a DRAFT (refresh-safe); the homepage
-   only updates when SAVE is pressed, which also records a version in the
-   history. UI follows the live site's console language: sharp solid blocks,
-   mono labels, no outlines. */
+   Persistence: the server is the ONLY store (no local copies anywhere).
+   SAVE writes the lab's working state + a version-history entry; PUBLISH
+   pushes it live for every visitor. UI follows the live site's console
+   language: sharp solid blocks, mono labels, no outlines. */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Glitch } from "@/components/glitch";
@@ -16,16 +16,11 @@ import {
   defaultFrontLayer,
   serialize,
   instantiate,
-  saveComposition,
-  loadComposition,
   parseComposition,
-  saveDraft,
-  loadDraft,
   snapshotComposition,
-  listVersions,
-  pushVersion,
   SCHEMA,
   type BoxConfig,
+  type Composition,
   type LayerConfig,
   type FrontLayerConfig,
   type GlitchMode,
@@ -147,11 +142,13 @@ function LabPage() {
   const [frontLayer, setFrontLayer] = useState<FrontLayerConfig>(() => defaultFrontLayer());
   const dragIndex = useRef<number | null>(null);
 
-  // draft/live/save state
-  const [dirty, setDirty] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
+  // save/publish state — the server is the ONLY store (no local copies)
+  const [dirtySaved, setDirtySaved] = useState(false);
+  const [dirtyLive, setDirtyLive] = useState(false);
+  const [flash, setFlash] = useState<"saved" | "published" | null>(null);
   const [versions, setVersions] = useState<VersionEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const savedSnap = useRef<string | null>(null);
   const liveSnap = useRef<string | null>(null);
 
   // collapsed/open state of the individual effect + section cards (by effect id / key)
@@ -174,83 +171,79 @@ function LabPage() {
   const box = boxes[activeBox];
   const curStack = box.effects;
 
-  // load the draft (falling back to the published live composition) on mount;
-  // autosave every change to the DRAFT only — live is untouched until SAVE.
-  // Live + versions come from the server (/api/composition, shared across all
-  // devices); localStorage is only a fallback when the server has nothing.
+  // load the lab's SAVED composition (falling back to live, then the baked
+  // default) on mount. The server is the single source of truth — nothing is
+  // read from or written to this browser.
   const loaded = useRef(false);
   useEffect(() => {
     (async () => {
-      let live: ReturnType<typeof loadComposition> = null;
-      let liveRaw: unknown = null;
+      let comp: Composition | null = null;
       let vers: VersionEntry[] = [];
       try {
         const r = await fetch("/api/composition");
         if (r.ok) {
-          const j = (await r.json()) as { comp?: unknown; versions?: VersionEntry[] };
-          if (j.comp) {
-            live = parseComposition(j.comp);
-            if (live) liveRaw = j.comp;
-          }
+          const j = (await r.json()) as { comp?: unknown; saved?: unknown; versions?: VersionEntry[] };
+          if (j.comp) liveSnap.current = JSON.stringify(j.comp);
+          if (j.saved) savedSnap.current = JSON.stringify(j.saved);
+          comp = (j.saved ? parseComposition(j.saved) : null) ?? (j.comp ? parseComposition(j.comp) : null);
           if (Array.isArray(j.versions)) vers = j.versions;
         }
       } catch {
-        /* offline — fall back to local */
+        /* offline — the baked default stays */
       }
-      if (!live) {
-        live = loadComposition();
-        if (live) liveRaw = snapshotComposition(live.boxes, live.layer, live.frontLayer);
-        if (!vers.length) vers = listVersions();
-      }
-      liveSnap.current = liveRaw ? JSON.stringify(liveRaw) : null;
-      const c = loadDraft() ?? live;
-      if (c) {
-        setBoxes(c.boxes);
-        setLayer(c.layer);
-        setFrontLayer(c.frontLayer);
+      if (comp) {
+        setBoxes(comp.boxes);
+        setLayer(comp.layer);
+        setFrontLayer(comp.frontLayer);
       }
       setVersions(vers);
       loaded.current = true;
-      if (c) {
-        setDirty(JSON.stringify(snapshotComposition(c.boxes, c.layer, c.frontLayer)) !== liveSnap.current);
-      }
+      const cur = comp ?? { boxes: defaultBoxes(), layer: defaultLayer(), frontLayer: defaultFrontLayer() };
+      const s = JSON.stringify(snapshotComposition(cur.boxes, cur.layer, cur.frontLayer));
+      setDirtySaved(s !== savedSnap.current);
+      setDirtyLive(s !== liveSnap.current);
     })();
   }, []);
+  // recompute the dirty flags on every change (debounced) — no local writes
   useEffect(() => {
     if (!loaded.current) return;
     const t = setTimeout(() => {
-      saveDraft(boxes, layer, frontLayer);
-      setDirty(JSON.stringify(snapshotComposition(boxes, layer, frontLayer)) !== liveSnap.current);
+      const s = JSON.stringify(snapshotComposition(boxes, layer, frontLayer));
+      setDirtySaved(s !== savedSnap.current);
+      setDirtyLive(s !== liveSnap.current);
     }, 300);
     return () => clearTimeout(t);
   }, [boxes, layer, frontLayer]);
 
-  const [saving, setSaving] = useState(false);
-  const saveLive = async () => {
-    if (saving) return;
-    setSaving(true);
+  const [busy, setBusy] = useState<"save" | "publish" | null>(null);
+  const persist = async (action: "save" | "publish") => {
+    if (busy) return;
+    setBusy(action);
     const snap = snapshotComposition(boxes, layer, frontLayer);
     try {
       const res = await fetch("/api/composition", {
         method: "PUT",
         headers: { "Content-Type": "application/json", "x-lab-key": LAB_CODE },
-        body: JSON.stringify(snap),
+        body: JSON.stringify({ action, snap }),
       });
       const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; versions?: VersionEntry[] } | null;
       if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
       if (Array.isArray(j.versions)) setVersions(j.versions);
-      else setVersions(pushVersion(boxes, layer, frontLayer));
     } catch (err) {
-      setSaving(false);
-      alert(`Couldn't publish live: ${err instanceof Error ? err.message : err}`);
+      setBusy(null);
+      alert(`Couldn't ${action}: ${err instanceof Error ? err.message : err}`);
       return;
     }
-    saveComposition(boxes, layer, frontLayer); // local mirror = instant homepage paint on this device
-    liveSnap.current = JSON.stringify(snap);
-    setSaving(false);
-    setDirty(false);
-    setSavedFlash(true);
-    window.setTimeout(() => setSavedFlash(false), 1600);
+    const s = JSON.stringify(snap);
+    savedSnap.current = s;
+    setDirtySaved(false);
+    if (action === "publish") {
+      liveSnap.current = s;
+      setDirtyLive(false);
+    }
+    setBusy(null);
+    setFlash(action === "publish" ? "published" : "saved");
+    window.setTimeout(() => setFlash(null), 1600);
   };
 
   const restoreVersion = (entry: VersionEntry) => {
@@ -341,21 +334,33 @@ function LabPage() {
           History
         </button>
         <button
-          onClick={saveLive}
-          disabled={saving || (!dirty && !savedFlash)}
+          onClick={() => persist("save")}
+          disabled={busy !== null || (!dirtySaved && flash !== "saved")}
           className={
-            dirty && !saving
+            dirtySaved && !busy
+              ? "cursor-pointer bg-ink px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-paper hover:bg-blue"
+              : "bg-[#f2f2ef] px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-neutral-400"
+          }
+          title="Save to the lab + version history (not live)"
+        >
+          {busy === "save" ? "saving…" : flash === "saved" ? "saved ✓" : dirtySaved ? "save" : "saved ✓"}
+        </button>
+        <button
+          onClick={() => persist("publish")}
+          disabled={busy !== null || (!dirtyLive && flash !== "published")}
+          className={
+            dirtyLive && !busy
               ? "cursor-pointer bg-blue px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-white hover:bg-ink"
               : "bg-[#f2f2ef] px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-neutral-400"
           }
-          title="Publish the draft to the live site (all visitors)"
+          title="Publish to the live site (all visitors)"
         >
-          {saving ? "saving…" : savedFlash ? "saved ✓" : dirty ? "save → live" : "live ✓"}
+          {busy === "publish" ? "publishing…" : flash === "published" ? "published ✓" : dirtyLive ? "publish" : "live ✓"}
         </button>
         {historyOpen && (
           <div className="absolute right-5 top-12 z-40 w-[280px] bg-paper p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.16)]">
             <p className="px-2.5 py-2 font-mono text-[10px] uppercase tracking-wider text-neutral-400">
-              [ version history — live saves ]
+              [ version history ]
             </p>
             {versions.length === 0 && (
               <p className="px-2.5 pb-2.5 font-mono text-[11px] text-neutral-500">no saves yet</p>
@@ -365,11 +370,11 @@ function LabPage() {
                 key={v.t}
                 onClick={() => restoreVersion(v)}
                 className="flex w-full cursor-pointer items-baseline gap-2 px-2.5 py-2 text-left font-mono text-[11px] text-neutral-700 hover:bg-[#f2f2ef]"
-                title="Load this version into the draft"
+                title="Load this version into the editor"
               >
                 <span className="text-neutral-400">v{versions.length - i}</span>
                 <span className="flex-1">{stamp(v.t)}</span>
-                {i === 0 && <span className="text-blue">live</span>}
+                {v.live && <span className="text-blue">live</span>}
               </button>
             ))}
           </div>

@@ -52,6 +52,9 @@ export class GlitchEngine {
   bg: [number, number, number] = [0.988, 0.988, 0.941];
   /** cap for devicePixelRatio */
   dprCap = 2;
+  /** logical resolution for pixel-based effects (dither cells, noise grain). 900 = the tuned
+      site look; raise for hi-res exports so grain stays fine instead of scaling up chunky. */
+  refRes = REF;
   /** global glitch-intensity multiplier (1 = baseline); driven by pointer/scroll interaction. */
   private gmul = 1;
 
@@ -198,7 +201,8 @@ export class GlitchEngine {
     {
       const ar = res.w / res.h;
       const lpx = this.U(prog, "u_px");
-      if (lpx) gl.uniform2f(lpx, ar >= 1 ? REF : REF * ar, ar >= 1 ? REF / ar : REF);
+      const R = this.refRes;
+      if (lpx) gl.uniform2f(lpx, ar >= 1 ? R : R * ar, ar >= 1 ? R / ar : R);
     }
     if (srcTex) {
       gl.activeTexture(gl.TEXTURE0);

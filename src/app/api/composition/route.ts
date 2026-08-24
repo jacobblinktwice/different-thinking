@@ -15,7 +15,8 @@ import path from "node:path";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const COMP_PATH = "glitch/composition.json";
+const COMP_PATH = "glitch/composition.json"; // the LIVE composition
+const SAVED_PATH = "glitch/saved.json"; // the lab's working save
 const VERS_PATH = "glitch/versions.json";
 const LAB_CODE = "rewired";
 const MAX_VERSIONS = 15;
@@ -70,8 +71,12 @@ async function writeJson(p: string, data: unknown): Promise<void> {
 }
 
 export async function GET() {
-  const [comp, versions] = await Promise.all([readJson(COMP_PATH), readJson(VERS_PATH)]);
-  return NextResponse.json({ comp: comp ?? null, versions: Array.isArray(versions) ? versions : [] });
+  const [comp, saved, versions] = await Promise.all([readJson(COMP_PATH), readJson(SAVED_PATH), readJson(VERS_PATH)]);
+  return NextResponse.json({
+    comp: comp ?? null,
+    saved: saved ?? null,
+    versions: Array.isArray(versions) ? versions : [],
+  });
 }
 
 export async function PUT(req: Request) {
@@ -84,19 +89,24 @@ export async function PUT(req: Request) {
       { status: 503 },
     );
   }
-  let snap: unknown;
+  let body: { action?: string; snap?: unknown };
   try {
-    snap = await req.json();
+    body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "bad json" }, { status: 400 });
   }
+  const action = body.action === "publish" ? "publish" : "save";
+  const snap = body.snap;
   const obj = snap as { v?: number; boxes?: unknown };
   if (!obj || typeof obj.v !== "number" || !Array.isArray(obj.boxes)) {
     return NextResponse.json({ ok: false, error: "bad composition" }, { status: 400 });
   }
   const prev = await readJson(VERS_PATH);
-  const versions = [{ t: Date.now(), snap }, ...(Array.isArray(prev) ? prev : [])].slice(0, MAX_VERSIONS);
-  await writeJson(COMP_PATH, snap);
+  const entry = action === "publish" ? { t: Date.now(), snap, live: true } : { t: Date.now(), snap };
+  const versions = [entry, ...(Array.isArray(prev) ? prev : [])].slice(0, MAX_VERSIONS);
+  // save = the lab's working state + a history entry; publish = live for everyone
+  await writeJson(SAVED_PATH, snap);
+  if (action === "publish") await writeJson(COMP_PATH, snap);
   await writeJson(VERS_PATH, versions);
   return NextResponse.json({ ok: true, versions });
 }

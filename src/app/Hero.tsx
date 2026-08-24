@@ -13,16 +13,11 @@
    haptics (vibrate on toggle + pulses on pointer movement while the glitch is
    live — Android/Chrome; iOS has no vibrate API). */
 import { useEffect, useRef, useState } from "react";
-import HeroGlitch, { type HeroTweaks } from "./HeroGlitch";
+import Link from "next/link";
+import HeroGlitch, { prefetchLiveComposition, type HeroTweaks } from "./HeroGlitch";
 import NavIndex from "./NavIndex";
 
 const OFF_UNMOUNT_MS = 650; // keep the canvas alive through the shrink-out animation (0.6s)
-const LOGO_TEXT = "DifferentThinking";
-const LOGO_MID = (LOGO_TEXT.length - 1) / 2;
-/* logotype effect — swap here:
-   "exposure" = real 205TF Exposure variable font (EXPO axis; licensed trial)
-   "melt"     = free Baskervville + fake-exposure blow-out (stroke+blur+threshold) */
-const LOGO_MODE: "exposure" | "melt" = "exposure";
 
 const buzz = (pattern: number | number[]) => {
   try {
@@ -44,7 +39,7 @@ export default function Hero() {
   const [tweaks, setTweaks] = useState<HeroTweaks>({ gain: 50, slice: 50, stretch: 50, speed: 50 });
   const unmountTimer = useRef<number | undefined>(undefined);
 
-  // boot loader + logotype (Exposure variable-font test)
+  // boot loader + logotype (static SVG wordmark)
   const logoRef = useRef<HTMLHeadingElement>(null); // real logotype, in the hero
   const overlayRef = useRef<HTMLDivElement>(null);
   const [lettersLive, setLettersLive] = useState(false); // logotype reveal, starts mid-exit
@@ -59,7 +54,6 @@ export default function Hero() {
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLParagraphElement>(null);
-  const codeRef = useRef<HTMLDivElement>(null);
 
   const doToggle = () => {
     const next = !on;
@@ -115,97 +109,6 @@ export default function Hero() {
       window.clearTimeout(t1);
       window.clearTimeout(tL);
       window.clearTimeout(t2);
-    };
-  }, []);
-
-  /* fit the logotype to the content width (gutter to gutter) once the font is
-     ready, and again on resize */
-  useEffect(() => {
-    const el = logoRef.current;
-    if (!el) return;
-    const fit = () => {
-      const hero = heroRef.current;
-      if (!hero) return;
-      const gutter = parseFloat(getComputedStyle(el).left) || 0;
-      el.style.fontSize = "100px";
-      const w = el.scrollWidth;
-      if (w > 0) el.style.fontSize = `${(100 * (hero.clientWidth - gutter * 2)) / w}px`;
-    };
-    document.fonts.ready.then(fit);
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, []);
-
-  /* scroll + mouse ↔ logotype, two modes (LOGO_MODE):
-     • "exposure" — the real variable font's EXPO axis: rests at 0, rides scroll
-       up to +100 as the wordmark exits the top, and cursor proximity pulls
-       letters toward −100.
-     • "melt" — fake exposure on a free serif: near the cursor each letter grows a
-       same-colour text-stroke (no advance-width change → no reflow) + blur, and
-       the #dt-melt alpha-threshold filter (applied imperatively only while
-       melting, so rest stays crisp) re-hardens it into flat rounded blobs. */
-  useEffect(() => {
-    const el = logoRef.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const spans = Array.from(el.querySelectorAll("span"));
-    const cur = spans.map(() => 0); // exposure: EXPO axis value
-    const curS = spans.map(() => 0); // melt: stroke px
-    const curB = spans.map(() => 0); // melt: blur px
-    const mouse = { x: -1e5, y: -1e5 };
-    const onMove = (e: PointerEvent) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-    };
-    const onLeave = () => {
-      mouse.x = -1e5;
-      mouse.y = -1e5;
-    };
-    window.addEventListener("pointermove", onMove, { passive: true });
-    window.addEventListener("pointerleave", onLeave);
-    let raf = 0;
-    let last = 0;
-    const tick = (now: number) => {
-      if (!last) last = now;
-      const dt = Math.min((now - last) / 1000, 0.05);
-      last = now;
-      const fx = !onRef.current; // effects active while the glitch is OFF
-      const fs = parseFloat(getComputedStyle(el).fontSize) || 100;
-      const restBottom = window.innerHeight - (parseFloat(getComputedStyle(el).bottom) || 0);
-      const r0 = el.getBoundingClientRect();
-      const prog = Math.min(1, Math.max(0, 1 - r0.bottom / Math.max(1, restBottom)));
-      const k = Math.min(1, 1 - Math.exp(-dt * 10));
-      const dist = (s: Element) => {
-        const r = s.getBoundingClientRect();
-        return Math.hypot(mouse.x - (r.left + r.width / 2), mouse.y - (r.top + r.height / 2));
-      };
-      if (LOGO_MODE === "exposure") {
-        const base = fx ? prog * 100 : 0; // scroll 0 → +100 as it exits the top
-        for (let i = 0; i < spans.length; i++) {
-          const influence = Math.exp(-((dist(spans[i]) / 200) ** 2));
-          const target = fx ? base + (-100 - base) * influence : 0; // cursor → −100
-          cur[i] += (target - cur[i]) * (k * 0.9);
-          spans[i].style.fontVariationSettings = `"EXPO" ${cur[i].toFixed(1)}`;
-        }
-      } else {
-        let maxB = 0;
-        for (let i = 0; i < spans.length; i++) {
-          const inf = fx ? Math.exp(-((dist(spans[i]) / 240) ** 2)) : 0;
-          curS[i] += ((fx ? fs * (0.012 * prog + 0.05 * inf) : 0) - curS[i]) * k;
-          curB[i] += ((fx ? fs * (0.02 * prog + 0.06 * inf) : 0) - curB[i]) * k;
-          if (curB[i] > maxB) maxB = curB[i];
-          spans[i].style.setProperty("-webkit-text-stroke-width", curS[i] > 0.02 ? `${curS[i].toFixed(2)}px` : "0");
-          spans[i].style.filter = curB[i] > 0.05 ? `blur(${curB[i].toFixed(2)}px)` : "";
-        }
-        // threshold melt only while actually blurred — rest = native crisp AA
-        el.style.filter = maxB > 0.4 ? "url(#dt-melt)" : "";
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerleave", onLeave);
     };
   }, []);
 
@@ -290,7 +193,6 @@ export default function Hero() {
       { ref: logoRef, f: -0.06, rate: 6, cur: 0 }, // logotype drifts, laziest
       { ref: titleRef, f: 0.12, rate: 16, cur: 0 }, // title snaps along
       { ref: introRef, f: 0.08, rate: 5, cur: 0 },
-      { ref: codeRef, f: -0.06, rate: 6, cur: 0 }, // codestrip drifts with the logotype, no overlap
     ];
     let raf = 0;
     let last = 0;
@@ -330,19 +232,14 @@ export default function Hero() {
 
   useEffect(() => () => window.clearTimeout(unmountTimer.current), []);
 
+  // warm the published-composition fetch at page load so toggling the bug
+  // never waits on (or flashes before) the live config
+  useEffect(() => {
+    prefetchLiveComposition();
+  }, []);
+
   return (
     <>
-      {/* alpha-threshold "melt" filter for the logotype — hardens per-letter blur
-          into flat solid blobs (no grey halo). */}
-      <svg width="0" height="0" aria-hidden className="absolute">
-        <defs>
-          <filter id="dt-melt" x="-8%" y="-40%" width="116%" height="180%" colorInterpolationFilters="sRGB">
-            <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -5" result="t" />
-            {/* light re-soften of the hard threshold edges (only active during melt) */}
-            <feGaussianBlur in="t" stdDeviation="0.4" />
-          </filter>
-        </defs>
-      </svg>
       <section ref={heroRef} data-bug="hero" className="relative h-svh min-h-[540px] w-full overflow-hidden">
         {canvasMounted && (
           /* ===== GLITCH MOUNT POINT — shared component + saved /lab composition =====
@@ -362,8 +259,8 @@ export default function Hero() {
         {on && !booting && (
           /* public play-sliders — console-styled, right-centre; local only,
              never saved, so a refresh resets everything */
-          <div className="dt-tweaks absolute right-[var(--gutter)] top-1/2 z-[7] hidden -translate-y-1/2 select-none font-mono md:block">
-            <p className="dt-tweak-line t-foot mb-2 text-neutral-500">[ tweak :: local only ]</p>
+          <div className="dt-tweaks absolute right-[var(--gutter)] top-1/2 z-[7] hidden -translate-y-1/2 select-none font-sans text-[8px] tracking-[0.01em] md:block">
+            <p className="dt-tweak-line mb-2 text-[#B2B2B2]">[ TWEAK :: LOCAL ONLY ]</p>
             {(
               [
                 ["intensity", "gain"],
@@ -374,10 +271,10 @@ export default function Hero() {
             ).map(([label, key], i) => (
               <label
                 key={key}
-                className="dt-tweak-line t-foot mb-1.5 flex items-center gap-2 text-ink"
+                className="dt-tweak-line mb-1.5 flex items-center gap-2 text-[#8a8a8a]"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
-                <span className="w-[62px]">{label}</span>
+                <span className="w-[62px] uppercase">{label}</span>
                 <input
                   type="range"
                   min={0}
@@ -386,30 +283,25 @@ export default function Hero() {
                   onChange={(e) => setTweaks((t) => ({ ...t, [key]: +e.target.value }))}
                   className="dt-tweak-range"
                 />
-                <span className="w-[24px] text-right text-neutral-500">{tweaks[key]}</span>
+                <span className="w-[24px] text-right text-[#B2B2B2]">{tweaks[key]}</span>
               </label>
             ))}
           </div>
         )}
-        {/* wordmark — Exposure variable-font TEST replacing the SVG logotype.
-            Pinned to the bottom of the viewport, gutter-aligned, −10% tracking;
-            plain ink when off, difference knock-out over the effect when on.
-            Blend + parallax transform live on this same element (a transformed
-            wrapper would isolate the blend). */}
+        {/* wordmark — static SVG logotype, pinned to the bottom of the viewport,
+            gutter-to-gutter. No blend mode: it sits plain over the glitch too.
+            The parallax transform lives on the h1; the boot rise animates the
+            img inside it, so the two never fight. */}
         <h1
           ref={logoRef}
           data-bug="logotype"
           aria-label="Different Thinking"
-          className={`dt-logotype ${LOGO_MODE === "exposure" ? "dt-logo-exposure" : "dt-logo-melt"} pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] z-[2] whitespace-nowrap ${
+          className={`pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] ${
             lettersLive ? "dt-logo-live" : "invisible"
           }`}
-          style={on ? { color: "#fff", mixBlendMode: "difference" as const } : undefined}
         >
-          {LOGO_TEXT.split("").map((ch, i) => (
-            <span key={i} aria-hidden className="dt-logo-ch" style={{ animationDelay: `${Math.abs(i - LOGO_MID) * 45}ms` }}>
-              {ch}
-            </span>
-          ))}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/dt-logotype.svg" alt="" className="h-auto w-full" draggable={false} />
         </h1>
 
         {/* top chrome, laid out on the 5-column grid */}
@@ -420,11 +312,13 @@ export default function Hero() {
               data-bug="title"
               className="t-title absolute left-0 top-[clamp(20px,4vh,44px)] font-medium tracking-[-0.02em]"
             >
-              Your Bugs are Cool.
+              <Link href="/" className="pointer-events-auto">
+                Your Bugs are Cool.
+              </Link>
             </div>
             <p
               ref={introRef}
-              className="t-body absolute top-[clamp(22px,4.2vh,48px)] hidden text-balance leading-[1.35] tracking-tight md:left-[33.3333%] md:block md:w-[28%] lg:left-[60%] lg:w-[18%]"
+              className="t-body absolute top-[clamp(22px,4.2vh,48px)] hidden text-balance leading-[1.4] tracking-[0] md:left-[33.3333%] md:block md:w-[28%] lg:left-[60%] lg:w-[18%]"
             >
               An AI research lab building products for people who think differently.
             </p>
@@ -444,18 +338,6 @@ export default function Hero() {
                 Click Click
               </span>
             </button>
-            {/* codestrip — one item per column (first three), mid grey, resting at
-                the viewport bottom; parallax matches the logotype so it never
-                overlaps it on scroll */}
-            <div
-              ref={codeRef}
-              data-bug="codestrip"
-              className="t-body absolute inset-x-0 bottom-[clamp(16px,3svh,32px)] font-mono text-neutral-400"
-            >
-              <span className="absolute bottom-0 left-0">{"{reSrch}"}</span>
-              <span className="absolute bottom-0 left-[33.3333%] lg:left-[20%]">; @{"}"}</span>
-              <span className="absolute bottom-0 left-[66.6667%] lg:left-[40%]">&lt;&quot;aiLab&quot;&gt;</span>
-            </div>
           </div>
         </div>
       </section>

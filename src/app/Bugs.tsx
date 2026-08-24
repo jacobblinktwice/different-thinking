@@ -256,7 +256,7 @@ export default function Bugs() {
           }
           if (variant === 1) {
             const src = q('[data-bug="src"]');
-            return src ? swapText(src, '<src: undefined>', 520) : false;
+            return src ? swapText(src, "// SRC: UNDEFINED", 520) : false;
           }
           const mid = qa('[data-bug="codestrip"] span')[1];
           return mid ? swapText(mid, "; @0.30000000000000004}", 520) : false;

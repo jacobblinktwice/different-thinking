@@ -17,7 +17,7 @@
   /* type scale — every piece of typography uses one of these four sizes */
   --text-title: clamp(20px, 1.9vw, 31px); /* "Your Bugs are Cool." */
   --text-subhead: clamp(15px, 1.2vw, 21px); /* codestrip, <src: "Wikipedia"> */
-  --text-body: 13px; /* article, nav labels, captions */
+  --text-body: 12px; /* article, nav labels, captions */
   --text-footnote: 10px; /* [ 01 ] index markers */
 
   /* motion tokens — a deliberate mix (keep in sync with the EASE_* constants in
@@ -108,38 +108,26 @@ nav a:hover,
   text-decoration: none;
 }
 
-/* ===== logotype — two swappable modes (pick via LOGO_MODE in Hero.tsx) =====
-   "exposure": the real 205TF Exposure variable font (EXPO axis, licensed trial).
-   "melt": free Baskervville + a fake-exposure blow-out (stroke+blur re-hardened
-   by the #dt-melt alpha-threshold filter, applied imperatively only on hover). */
-.dt-logotype {
-  line-height: 0.9;
-  font-kerning: none;
-  -webkit-text-stroke-color: currentColor;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
+/* ===== display serif (Exposure) — the large parallax typography that
+   underlays the manifesto columns ===== */
 @font-face {
   font-family: "Exposure";
   src: url("/fonts/ExposureTrialVAR.ttf") format("truetype-variations");
   font-display: block;
 }
-.dt-logo-exposure {
+.dt-display {
   font-family: "Exposure", var(--font-sans);
+  font-size: 96px;
   letter-spacing: -0.1em;
+  line-height: 1;
   font-variation-settings: "EXPO" 0;
+  white-space: nowrap;
 }
-.dt-logo-melt {
-  font-family: "Baskervville", var(--font-sans);
-  letter-spacing: -0.06em;
-}
-.dt-logo-ch {
-  display: inline-block;
-}
+
+/* ===== logotype — static SVG wordmark (rises in as the boot loader clears) ===== */
 @keyframes dt-logo-in {
   from {
-    transform: translateY(0.42em);
+    transform: translateY(46px);
     opacity: 0;
   }
   to {
@@ -148,9 +136,7 @@ nav a:hover,
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  /* letters rise in centre-out (per-span animation-delay set inline); a smooth
-     ease-out draws the rise across the whole duration instead of snapping */
-  .dt-logo-live .dt-logo-ch {
+  .dt-logo-live img {
     animation: dt-logo-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }

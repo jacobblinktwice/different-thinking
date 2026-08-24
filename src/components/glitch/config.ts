@@ -186,7 +186,7 @@ export function saveDraft(boxes: BoxConfig[], layer: LayerConfig, frontLayer: Fr
   }
 }
 
-export type VersionEntry = { t: number; snap: ReturnType<typeof snapshotComposition> };
+export type VersionEntry = { t: number; snap: ReturnType<typeof snapshotComposition>; live?: boolean };
 
 export function listVersions(): VersionEntry[] {
   try {

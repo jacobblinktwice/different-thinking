@@ -24,6 +24,12 @@ const TEMPLATES: (() => string)[] = [
   () => "hyperfocus: engaged",
   () => `checksum ${hex(6)} :: mismatch ignored`,
   () => "thought loop closed (3 passes)",
+  // the brand code dialect, drifting through the telemetry
+  () => 'CONST BUG = "FEATURE";',
+  () => "KEEP_RUNNING = TRUE;",
+  () => "DELETE DEFICIT_MODEL;",
+  () => "TRY { HYPERFOCUS(); }",
+  () => "DEPLOY(MIND);",
 ];
 
 export default function LiveLog() {
@@ -78,7 +84,7 @@ export default function LiveLog() {
     <div
       ref={boxRef}
       aria-hidden
-      className="t-foot pointer-events-none fixed left-[var(--gutter)] top-1/2 z-[6] hidden -translate-y-1/2 select-none font-mono leading-[1.7] text-neutral-400 md:block"
+      className="pointer-events-none fixed left-[var(--gutter)] top-1/2 z-[6] hidden -translate-y-1/2 select-none font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#B2B2B2] md:block"
     />
   );
 }
