@@ -16,27 +16,23 @@
 import { useEffect, useRef, useState } from "react";
 
 /* No condition field: these are different thinkers, not case notes. Most of the
-   old labels were historical guesswork, and speculating about a living person's
-   neurology in public is not something to publish.
+   old labels were historical guesswork, and none of it is ours to assert.
 
-   `died` is optional — someone still alive reads as STILL RUNNING in the
-   specimen rail. `img` overrides the portrait when a page's lead image is not
-   the picture you want. */
+   `died` is required on purpose — this page is historical figures only, so the
+   type refuses a living person rather than leaving it to whoever edits next. */
 type Thinker = {
   name: string;
   wiki: string;
   expLabel: string;
   expWiki: string;
   born: number;
-  died?: number;
+  died: number;
   field: string;
-  img?: string;
 };
 
 const THINKERS: Thinker[] = [
   { name: "Albert Einstein", wiki: "Albert Einstein", expLabel: "THEORY OF RELATIVITY", expWiki: "Theory of relativity", born: 1879, died: 1955, field: "PHYSICS" },
   { name: "Isaac Newton", wiki: "Isaac Newton", expLabel: "PRINCIPIA", expWiki: "Philosophiæ Naturalis Principia Mathematica", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
-  { name: "Steve Jobs", wiki: "Steve Jobs", expLabel: "IPHONE", expWiki: "IPhone", born: 1955, died: 2011, field: "TECHNOLOGY" },
   { name: "Alan Turing", wiki: "Alan Turing", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION" },
   { name: "Thomas Edison", wiki: "Thomas Edison", expLabel: "LIGHT BULB", expWiki: "Incandescent light bulb", born: 1847, died: 1931, field: "INVENTION" },
   { name: "Charles Darwin", wiki: "Charles Darwin", expLabel: "ON THE ORIGIN OF SPECIES", expWiki: "On the Origin of Species", born: 1809, died: 1882, field: "BIOLOGY" },
@@ -52,17 +48,6 @@ const THINKERS: Thinker[] = [
   /* Cavendish published natural philosophy under her own name in the 1660s, when
      women did not, and wrote what is often called the first science fiction. */
   { name: "Margaret Cavendish", wiki: "Margaret Cavendish", expLabel: "THE BLAZING WORLD", expWiki: "The Blazing World", born: 1623, died: 1673, field: "NATURAL PHILOSOPHY" },
-  /* Living, hence no `died`. Her page leads with a 1995 portrait, so `img` points
-     at the photograph of her beside the printed Apollo listings instead. */
-  {
-    name: "Margaret Hamilton",
-    wiki: "Margaret Hamilton (software engineer)",
-    expLabel: "APOLLO GUIDANCE COMPUTER",
-    expWiki: "Apollo Guidance Computer",
-    born: 1936,
-    field: "SOFTWARE ENGINEERING",
-    img: "https://upload.wikimedia.org/wikipedia/commons/d/db/Margaret_Hamilton_-_restoration.jpg",
-  },
 ];
 
 type Summary = { thumb: string | null; original: string | null; extract: string; url: string };
@@ -100,13 +85,9 @@ const checksum = (s: string) => {
 /* the SPECIMEN rail: a long column of separate coded stat fragments about the
    person, written in the brand dialect */
 function specimenBlocks(t: Thinker, idx: number): string[] {
-  const life =
-    t.died === undefined
-      ? `CONST BORN = ${t.born};\nCONST DIED = NULL;\n// STILL RUNNING`
-      : `CONST BORN = ${t.born};\nCONST DIED = ${t.died};\nCONST RUNTIME = ${t.died - t.born}_YEARS;`;
   return [
     `[ SPECIMEN :: ${usnake(t.name)} ]`,
-    `CONST ID = 0x${String(idx + 1).padStart(4, "0")};\n${life}`,
+    `CONST ID = 0x${String(idx + 1).padStart(4, "0")};\nCONST BORN = ${t.born};\nCONST DIED = ${t.died};\nCONST RUNTIME = ${t.died - t.born}_YEARS;`,
     `CONST FIELD = "${t.field}";\nCONST WIRING = "NON_STANDARD"; // NOT A DIAGNOSIS`,
     `CHECK [MIND / TEMPLATE] {\n    RETURN MISMATCH, NOT DISORDER;\n}`,
     `RUN OUTPUT() {\n    RETURN "${usnake(t.expWiki)}";\n}`,
@@ -273,8 +254,7 @@ export default function Thinkers() {
   const bioSettled = !!open && person?.for === open.wiki;
   const bio = bioSettled ? person!.data : null;
   const artefact = !!open && exp?.for === open.expWiki ? exp!.data : null;
-  /* an explicit img wins over whatever the page happens to lead with */
-  const portrait = open?.img ?? bio?.original ?? null;
+  const portrait = bio?.original ?? null;
 
   // open a dossier: load the person + their breakthrough
   useEffect(() => {
@@ -342,10 +322,10 @@ export default function Thinkers() {
             title={`${t.name} // ${t.field}`}
             className="group relative mr-3 aspect-square cursor-pointer overflow-hidden bg-[#ececea]"
           >
-            {(t.img ?? thumbs[t.wiki]) && (
+            {thumbs[t.wiki] && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={t.img ?? thumbs[t.wiki]}
+                src={thumbs[t.wiki]}
                 alt={t.name}
                 draggable={false}
                 className="h-full w-full object-cover grayscale transition-transform duration-300 ease-[var(--ease-snap)] group-hover:scale-[1.03]"
