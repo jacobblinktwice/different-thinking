@@ -7,7 +7,7 @@ export default function Footer() {
       {/* content on the grid: cols 4-5 */}
       <div className="relative z-[1] grid min-h-svh grid-cols-1 px-[var(--gutter)] py-[clamp(48px,10vh,110px)] md:grid-cols-5">
         <div className="flex flex-col md:col-span-2 md:col-start-4">
-          <p className="t-body leading-[1.4] tracking-[0] text-ink">What&apos;s your cool bug?</p>
+          <p className="t-body leading-[1.4] tracking-[0] text-ink">Say Hello</p>
           <a
             href="mailto:info@differentthinking.ai"
             className="mt-4 w-fit font-sans text-[clamp(22px,2.8vw,44px)] leading-[1.1] tracking-[-0.02em] text-ink"

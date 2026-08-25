@@ -16,7 +16,7 @@ const DIRECT = [
   { name: "Jack Bleakley", role: "Co-Founder and Chief Design Officer", email: "jack@differentthinking.ai" },
 ];
 
-/* Contact — the footer's question taken as the page: Exposure headline, the
+/* Contact — the footer's line taken as the page: Exposure headline, the
    intro (code note in column 1, copy in 2-3), the draggable dialect block that
    composes the mail, then the direct lines and what to expect back. */
 export default function ContactPage() {
@@ -28,9 +28,9 @@ export default function ContactPage() {
       <header className="relative z-[1] px-[var(--gutter)] pt-[clamp(20px,4vh,44px)]">
         <PageChrome />
 
-        {/* headline — the footer's question, at page scale */}
+        {/* headline — the footer's line, at page scale */}
         <h1 className="mt-[clamp(48px,9vh,110px)] max-w-[16ch] text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(44px,8.9vw,128px)] leading-[1.02] tracking-[-0.1em]">
-          What&apos;s your cool bug?
+          Say Hello
         </h1>
 
         {/* intro: code note in column 1, the copy across 2-3 */}
