@@ -31,7 +31,7 @@ export default function Footer() {
 
           {/* build credit — deliberately louder than the copyright above it */}
           <p className="t-body mt-4 leading-[1.4] tracking-[0] text-ink">
-            WEBSITE BY{" "}
+            DESIGNED BY{" "}
             <a
               href="https://www.blinktwice.studio/"
               target="_blank"
