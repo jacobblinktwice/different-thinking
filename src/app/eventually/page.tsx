@@ -27,7 +27,7 @@ export default function EventuallyPage() {
             <h1 className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(34px,3.4vw,54px)] leading-[1] tracking-[-0.06em]">
               Eventually
             </h1>
-            <p className="t-body mt-10 leading-[1.4] tracking-[0] text-[#6E6E6E] md:pr-8">
+            <p className="mt-10 text-[20px] leading-[1.4] tracking-[0] text-ink md:pr-8">
               Eventually is a product for different thinkers that begins with the one thing your mind does better
               than anything else. A unique ability quiz uncovers it, and from there Eve, your neurodiversity coach,
               helps you build your life around it. Short sessions, a clear end, and one next step she helps you make
