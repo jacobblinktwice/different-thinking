@@ -10,10 +10,7 @@
    silhouette. */
 import { useEffect, useRef } from "react";
 
-const W = 320;
-const H = 384;
-
-function drawSilhouette(ctx: CanvasRenderingContext2D) {
+function drawSilhouette(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.fillStyle = "#d8d8d4";
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = "#3c3c3a";
@@ -29,10 +26,24 @@ function drawSilhouette(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(W * 0.16, H * 0.86, W * 0.68, H * 0.14);
 }
 
-export default function PixelPortrait({ src, alt }: { src?: string; alt?: string }) {
+/* `width`/`height` are the canvas buffer in pixels — pass the source photo's own
+   dimensions to keep the portrait at its native ratio. */
+export default function PixelPortrait({
+  src,
+  alt,
+  width = 320,
+  height = 384,
+}: {
+  src?: string;
+  alt?: string;
+  width?: number;
+  height?: number;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    const W = width;
+    const H = height;
     const canvas = ref.current;
     if (!canvas) return;
     canvas.width = W;
@@ -57,7 +68,7 @@ export default function PixelPortrait({ src, alt }: { src?: string; alt?: string
       };
       img.src = src;
     } else {
-      drawSilhouette(bctx);
+      drawSilhouette(bctx, W, H);
       ready = true;
     }
 
@@ -100,7 +111,7 @@ export default function PixelPortrait({ src, alt }: { src?: string; alt?: string
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [src]);
+  }, [src, width, height]);
 
   return (
     <canvas

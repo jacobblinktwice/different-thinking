@@ -125,11 +125,12 @@ function DragWin({ box, zTop, onClose }: { box: Win; zTop: React.MutableRefObjec
   return (
     <div
       ref={ref}
-      className={`pointer-events-auto relative mb-6 w-full cursor-grab touch-none select-none bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] md:absolute md:mb-0 md:w-[var(--bw)] ${
+      className={`pointer-events-auto relative mb-6 w-full cursor-grab touch-none select-none bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] md:absolute md:left-[var(--bl)] md:top-[var(--bt)] md:mb-0 md:w-[var(--bw)] ${
         box.spawned ? "max-md:hidden" : ""
       }`}
-      /* left/top only take effect in the md+ absolute layout */
-      style={{ left: box.left, top: box.top, zIndex: box.z, "--bw": box.w } as React.CSSProperties}
+      /* left/top are applied only from md+ — a relatively-positioned element
+         honours them too, which would shove the stacked mobile layout sideways */
+      style={{ zIndex: box.z, "--bl": box.left, "--bt": box.top, "--bw": box.w } as React.CSSProperties}
       onPointerDown={(e) => {
         if ((e.target as HTMLElement).closest("[data-close]")) return;
         if (getComputedStyle(e.currentTarget).position !== "absolute") return; // scattered layout only

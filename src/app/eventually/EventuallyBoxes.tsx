@@ -73,9 +73,11 @@ export default function EventuallyBoxes() {
           <div
             key={b.name}
             data-dragbox
-            className="relative mb-6 w-full cursor-grab touch-none select-none bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] md:absolute md:mb-0 md:w-[var(--bw)]"
-            /* left/top only take effect in the md+ absolute layout */
-            style={{ left: b.left, top: b.top, "--bw": b.w } as React.CSSProperties}
+            className="relative mb-6 w-full cursor-grab touch-none select-none bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] md:absolute md:left-[var(--bl)] md:top-[var(--bt)] md:mb-0 md:w-[var(--bw)]"
+            /* left/top are applied only from md+ — a relatively-positioned
+               element honours them too, which would shove the stacked mobile
+               layout sideways */
+            style={{ "--bl": b.left, "--bt": b.top, "--bw": b.w } as React.CSSProperties}
           >
             <div className="flex items-center justify-between px-3 py-2">
               <span className="font-sans text-[8px] tracking-[0.01em] text-[#6E6E6E]">{b.name}</span>
