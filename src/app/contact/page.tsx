@@ -37,10 +37,8 @@ export default function ContactPage() {
         <div className="mt-[clamp(32px,6vh,72px)] grid grid-cols-1 gap-y-8 md:grid-cols-3 lg:grid-cols-5">
           <CodeNote snippet="deploy" className="md:pr-8" />
           <p className="text-[20px] leading-[1.4] tracking-[0] text-ink md:col-span-2 md:pr-8 lg:col-span-2">
-            There is no queue here and no ticket number. One address, read by the people building the products. Tell us
-            what your mind does well, where the template keeps throwing errors, or which bug you&apos;d like us to
-            design around next. If you&apos;re neurodivergent and want to be in the room while we build, that is the
-            most useful message you can send us.
+            Tell us how your unique mind works, what you&apos;d like us to build next, or if you&apos;re a different
+            thinker and want to join our expanding team. We&apos;d love to hear from you.
           </p>
         </div>
       </header>

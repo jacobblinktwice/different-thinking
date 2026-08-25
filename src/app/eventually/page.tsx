@@ -10,8 +10,8 @@ export const metadata = {
 };
 
 /* Eventually — the first product's page: chrome up top, the Exposure title,
-   intro copy (placeholder) + the credits in the brand dialect, the orb
-   marquee, then the centre stack of draggable artefact windows. */
+   the product intro + the credits in the brand dialect, the orb marquee, then
+   the centre stack of draggable artefact windows. */
 export default function EventuallyPage() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
@@ -27,14 +27,11 @@ export default function EventuallyPage() {
             <h1 className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(34px,3.4vw,54px)] leading-[1] tracking-[-0.06em]">
               Eventually
             </h1>
-            {/* placeholder copy until the product intro lands */}
             <p className="t-body mt-10 leading-[1.4] tracking-[0] text-[#6E6E6E] md:pr-8">
-              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the
-              industry&apos;s standard dummy text ever since 1966, when designers at Letraset and James Mosley, the
-              librarian at St Bride Printing Library in London, took a 1914 Cicero translation and Lorem Ipsum is
-              simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry&apos;s
-              standard dummy text ever since 1966, when designers at Letraset and James Mosley, the librarian at St
-              Bride Printing Library in London, took a 1914 Cicero translation and
+              Eventually is a product for different thinkers that begins with the one thing your mind does better
+              than anything else. A unique ability quiz uncovers it, and from there Eve, your neurodiversity coach,
+              helps you build your life around it. Short sessions, a clear end, and one next step she helps you make
+              yourself. She&apos;ll push back when it matters. Eventually starts now.
             </p>
           </div>
           {/* credits, in the brand dialect */}
