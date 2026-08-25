@@ -58,7 +58,9 @@ export default function ContactPage() {
 
       {/* direct lines: the general address at scale, the founders in the dialect,
           and what comes back — one per column band */}
-      <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)] pb-[clamp(48px,8vh,110px)]">
+      {/* no bottom padding: the footer runs straight on from here, and its own
+          top padding is all the separation this needs */}
+      <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)]">
         <div className="grid grid-cols-1 gap-y-12 md:grid-cols-3 lg:grid-cols-5">
           <div className="md:col-span-2 lg:col-span-2 lg:pr-8">
             <p className="t-body leading-[1.4] tracking-[0] text-ink">Or just write to us directly.</p>
