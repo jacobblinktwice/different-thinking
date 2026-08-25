@@ -120,10 +120,10 @@ a:not(:has(img, svg)):hover,
   text-decoration: none;
 }
 
-/* ===== terminal caret for the rewriting heading =====
-   A block cursor that snaps on and off — steps(1) rather than a fade, so it
-   reads as a terminal rather than a pulse. Sized in em so it tracks whatever
-   font-size the heading is at. */
+/* ===== text caret for the rewriting heading =====
+   A thin insertion bar that snaps on and off — steps(1) rather than a fade, so
+   it reads as a cursor rather than a pulse. Sized in em so it tracks whatever
+   font-size the heading is at, with a floor so it never thins to nothing. */
 @keyframes dt-caret {
   0%,
   49% {
@@ -136,9 +136,9 @@ a:not(:has(img, svg)):hover,
 }
 .dt-caret {
   display: inline-block;
-  width: 0.32em;
+  width: max(1.5px, 0.035em);
   height: 0.62em;
-  margin-left: 0.06em;
+  margin-left: 0.08em;
   background-color: currentColor;
   animation: dt-caret 1.06s steps(1, end) infinite;
 }

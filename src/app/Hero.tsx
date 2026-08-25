@@ -348,7 +348,7 @@ export default function Hero() {
           data-bug="logotype"
           data-no-slice
           aria-label="Different Thinking"
-          className={`pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] ${
+          className={`pointer-events-none absolute bottom-[clamp(32px,5.5svh,62px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] ${
             lettersLive ? "dt-logo-live" : "invisible"
           }`}
         >

@@ -198,11 +198,30 @@ export default function Thinkers() {
     setPerson(null);
     setExp(null);
     const rand = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
-    setWpos([
-      { left: rand(16, 38), top: rand(6, 30) },
-      { left: rand(28, 48), top: rand(12, 40) },
-      { left: rand(46, 68), top: rand(38, 60) },
-    ]);
+    /* Three bands across the full width rather than a cluster mid-screen: the
+       narrow portrait far left, the wide info panel centre and low, the
+       breakthrough far right and high. Windows are ~26vw / ~44vw / ~24vw, so
+       the bands are placed to keep each one on screen and let the stagger,
+       not the horizontal position, do the overlapping.
+
+       Below lg there is no room for three abreast, so they cascade from the
+       left instead, in the OS-pile language used elsewhere. */
+    const spread = window.innerWidth >= 1024;
+    setWpos(
+      spread
+        ? [
+            { left: rand(3, 10), top: rand(14, 26) },
+            /* the info panel is the tall one — its top is capped so its footer
+               links stay inside the overlay, which clips rather than scrolls */
+            { left: rand(25, 33), top: rand(26, 34) },
+            { left: rand(66, 74), top: rand(6, 16) },
+          ]
+        : [
+            { left: rand(2, 6), top: rand(8, 16) },
+            { left: rand(5, 9), top: rand(30, 40) },
+            { left: rand(8, 12), top: rand(58, 68) },
+          ],
+    );
     setZs([1, 2, 3]);
     fetchSummary(open.wiki).then((s) => !dead && setPerson(s));
     fetchSummary(open.expWiki).then((s) => !dead && setExp(s));
