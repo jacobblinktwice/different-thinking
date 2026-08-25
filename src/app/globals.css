@@ -3,10 +3,10 @@
 :root {
   /* Different Thinking palette (light "paper" theme) */
   --paper: #fcfcfc;
-  --ink: #0a0a0a;
+  --ink: #000000;
   --blue: #0022ff;
-  --hair: rgba(10, 10, 10, 0.12);
-  --guide: rgba(10, 10, 10, 0.07); /* the 6 vertical column lines */
+  --hair: rgba(0, 0, 0, 0.12);
+  --guide: rgba(0, 0, 0, 0.07); /* the 6 vertical column lines */
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -291,7 +291,7 @@ a:not(:has(img, svg)):hover,
   height: 2px;
   cursor: pointer;
   appearance: none;
-  background: rgba(10, 10, 10, 0.25);
+  background: rgba(0, 0, 0, 0.25);
   accent-color: var(--ink);
 }
 .dt-tweak-range::-webkit-slider-thumb {
@@ -314,7 +314,7 @@ a:not(:has(img, svg)):hover,
   height: 2px;
   cursor: pointer;
   appearance: none;
-  background: rgba(10, 10, 10, 0.22);
+  background: rgba(0, 0, 0, 0.22);
   accent-color: var(--ink);
 }
 .dt-range::-webkit-slider-thumb {
@@ -362,7 +362,7 @@ a:not(:has(img, svg)):hover,
   position: absolute;
   top: 0;
   height: 100%;
-  border-left: 1px solid rgba(10, 10, 10, 0.25);
+  border-left: 1px solid rgba(0, 0, 0, 0.25);
   padding-left: 3px;
   line-height: 17px;
 }
@@ -370,7 +370,7 @@ a:not(:has(img, svg)):hover,
   position: absolute;
   left: 0;
   width: 100%;
-  border-top: 1px solid rgba(10, 10, 10, 0.25);
+  border-top: 1px solid rgba(0, 0, 0, 0.25);
   padding: 2px 0 0 2px;
 }
 /* mouse position indicators — blue line + live coordinate on each axis */
@@ -484,6 +484,6 @@ a:not(:has(img, svg)):hover,
   inset: 0;
   z-index: 5;
   pointer-events: none;
-  background: linear-gradient(112deg, rgba(255, 255, 255, 0.5) 38%, rgba(10, 10, 10, 0.08) 38.15%);
+  background: linear-gradient(112deg, rgba(255, 255, 255, 0.5) 38%, rgba(0, 0, 0, 0.08) 38.15%);
   mix-blend-mode: hard-light;
 }

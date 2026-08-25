@@ -10,7 +10,6 @@ import NavIndex from "./NavIndex";
 import Rulers from "./Rulers";
 import ScrollReveal from "./ScrollReveal";
 import SliceShift from "./SliceShift";
-import SmoothScroll from "./SmoothScroll";
 import TextFx from "./TextFx";
 import PageGuides from "./PageGuides";
 
@@ -53,7 +52,6 @@ const COLUMNS: string[] = [
 export default function Home() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
-      <SmoothScroll />
       <Bugs />
       <TextFx />
       <SliceShift />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import LinkScramble from "./LinkScramble";
+import SmoothScroll from "./SmoothScroll";
 
 const neueMontreal = localFont({
   src: "../fonts/NeueMontreal-Regular.otf",
@@ -24,7 +25,8 @@ export default function RootLayout({
     <html lang="en" className={`${neueMontreal.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         {children}
-        {/* hover scramble on every link, on every page */}
+        {/* site-wide: smooth scrolling and the link hover scramble */}
+        <SmoothScroll />
         <LinkScramble />
       </body>
     </html>

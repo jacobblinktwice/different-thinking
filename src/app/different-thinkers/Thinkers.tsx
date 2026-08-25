@@ -76,19 +76,29 @@ function specimenBlocks(t: Thinker, idx: number): string[] {
   ];
 }
 
-/* canvas slice-shift treatment of the portrait — a random glitch every open */
+/* canvas slice-shift treatment of the portrait — a random glitch every open.
+   The canvas is sized (which clears it) the moment src changes, so a slow or
+   failed portrait shows an empty frame rather than the last person's face, and
+   a load that finishes after src moved on is dropped.
+
+   crossOrigin stays: Wikimedia serves the CORS header, and keeping the canvas
+   origin-clean means the slice passes can read it back. A load that fails now
+   leaves a cleared frame rather than the previous portrait. */
 function GlitchedPortrait({ src }: { src: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
+    const W = (canvas.width = 640);
+    const H = (canvas.height = 760);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, W, H);
+    let dead = false;
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const W = (canvas.width = 640);
-      const H = (canvas.height = 760);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+      if (dead) return; // a newer portrait won the race
       // cover-fit the portrait
       const s = Math.max(W / img.width, H / img.height);
       const dw = img.width * s;
@@ -118,8 +128,28 @@ function GlitchedPortrait({ src }: { src: string }) {
       }
     };
     img.src = src;
+    return () => {
+      dead = true;
+    };
   }, [src]);
   return <canvas ref={ref} className="block h-auto w-full" />;
+}
+
+/* Wikipedia sometimes hands back an image URL that will not load. Fall back to
+   the placeholder block instead of leaving the window empty. */
+function ArtefactImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className="aspect-[4/3] w-full bg-[#ececea]" />;
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={src}
+      alt={alt}
+      draggable={false}
+      onError={() => setFailed(true)}
+      className="block h-auto w-full"
+    />
+  );
 }
 
 /* one draggable dossier window (drag anywhere; z-raise on grab) */
@@ -167,8 +197,14 @@ function DragWindow({
 export default function Thinkers() {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<Thinker | null>(null);
-  const [person, setPerson] = useState<Summary | null>(null);
-  const [exp, setExp] = useState<Summary | null>(null);
+  /* Tagged with the title each result was fetched for. The reset used to happen
+     in the open effect, which runs after paint — so opening a dossier rendered
+     one frame with the new name and the PREVIOUS person's portrait, and if the
+     new image was slow or failed to load it stayed there. Comparing the tag
+     against what is open means stale data can never render under the wrong
+     name, whatever the effect timing. */
+  const [person, setPerson] = useState<{ for: string; data: Summary | null } | null>(null);
+  const [exp, setExp] = useState<{ for: string; data: Summary | null } | null>(null);
   const [zs, setZs] = useState([1, 2, 3]);
   const zTop = useRef(3);
   // window positions, re-randomised within the viewport on every open
@@ -190,6 +226,13 @@ export default function Thinkers() {
       dead = true;
     };
   }, []);
+
+  /* only treat a fetch result as this dossier's if it was fetched for it.
+     `*Settled` distinguishes "still loading" from "Wikipedia returned nothing",
+     which previously both read as a permanent "loading :: …". */
+  const bioSettled = !!open && person?.for === open.wiki;
+  const bio = bioSettled ? person!.data : null;
+  const artefact = !!open && exp?.for === open.expWiki ? exp!.data : null;
 
   // open a dossier: load the person + their breakthrough
   useEffect(() => {
@@ -223,8 +266,10 @@ export default function Thinkers() {
           ],
     );
     setZs([1, 2, 3]);
-    fetchSummary(open.wiki).then((s) => !dead && setPerson(s));
-    fetchSummary(open.expWiki).then((s) => !dead && setExp(s));
+    const wiki = open.wiki;
+    const expWiki = open.expWiki;
+    fetchSummary(wiki).then((s) => !dead && setPerson({ for: wiki, data: s }));
+    fetchSummary(expWiki).then((s) => !dead && setExp({ for: expWiki, data: s }));
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
     window.addEventListener("keydown", onKey);
     document.documentElement.style.overflow = "hidden";
@@ -268,7 +313,8 @@ export default function Thinkers() {
         ))}
       </div>
 
-      {/* dossier overlay */}
+      {/* dossier overlay — bio/artefact only count when they belong to whoever
+          is open, so nothing from the last dossier can leak into this one */}
       {open && (
         <div key={open.wiki} className="fixed inset-0 z-[70] overflow-hidden bg-[#e9e9e6]">
           <button
@@ -296,8 +342,8 @@ export default function Thinkers() {
             onFront={() => front(0)}
             style={{ left: `${wpos[0].left}%`, top: `${wpos[0].top}%`, width: "clamp(240px,26vw,400px)" }}
           >
-            {person?.original ? (
-              <GlitchedPortrait src={person.original} />
+            {bio?.original ? (
+              <GlitchedPortrait src={bio.original} />
             ) : (
               <div className="aspect-[64/76] w-full bg-[#ececea]" />
             )}
@@ -315,16 +361,16 @@ export default function Thinkers() {
                 {open.name} <span className="font-normal">{"//"}</span> {open.cond}
               </h2>
               <p className="mt-8 max-w-[58ch] font-sans text-[clamp(15px,1.4vw,22px)] leading-[1.4] tracking-[0] text-ink">
-                {person ? person.extract : "loading :: …"}
+                {bio ? bio.extract : bioSettled ? 'err :: no record returned' : "loading :: …"}
               </p>
               <div className="mt-auto flex gap-10 pt-10 font-sans text-[8px] tracking-[0.01em] text-[#6E6E6E]">
-                {person && (
-                  <a href={person.url} target="_blank" rel="noreferrer" className="underline hover:text-ink">
+                {bio && (
+                  <a href={bio.url} target="_blank" rel="noreferrer" className="underline hover:text-ink">
                     SRC(&quot;WIKIPEDIA&quot;);
                   </a>
                 )}
-                {exp && (
-                  <a href={exp.url} target="_blank" rel="noreferrer" className="underline hover:text-ink">
+                {artefact && (
+                  <a href={artefact.url} target="_blank" rel="noreferrer" className="underline hover:text-ink">
                     EXP(&quot;{usnake(open.expLabel)}&quot;);
                   </a>
                 )}
@@ -339,9 +385,8 @@ export default function Thinkers() {
             onFront={() => front(2)}
             style={{ left: `${wpos[2].left}%`, top: `${wpos[2].top}%`, width: "clamp(220px,24vw,380px)" }}
           >
-            {exp?.original ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={exp.original} alt={open.expLabel} draggable={false} className="block h-auto w-full" />
+            {artefact?.original ? (
+              <ArtefactImage key={artefact.original} src={artefact.original} alt={open.expLabel} />
             ) : (
               <div className="aspect-[4/3] w-full bg-[#ececea]" />
             )}

@@ -187,7 +187,7 @@ export default function Bugs() {
           );
           if (!el || el.dataset.dtInv) return false;
           el.dataset.dtInv = "1";
-          el.style.background = "#0a0a0a";
+          el.style.background = "#000000";
           el.style.color = "#fcfcfc";
           later(() => {
             el.style.background = "";
