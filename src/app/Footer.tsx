@@ -1,21 +1,9 @@
-/* Footer: the FULL glitch composition as a static image (the user's 4k square
-   export, web-optimised) filling the left half. Right content sits ON the
-   5-column grid — everything aligns to the 4th column line. */
+/* Footer: content on the 5-column grid — everything aligns to the 4th
+   column line. */
 
 export default function Footer() {
   return (
     <footer id="contact" className="relative min-h-svh w-full overflow-hidden">
-      {/* full composition export, left half */}
-      <div className="absolute inset-y-0 left-0 hidden w-[58%] md:block">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/footer-glitch.jpg"
-          alt=""
-          draggable={false}
-          className="absolute inset-0 h-full w-full object-contain object-left"
-        />
-      </div>
-
       {/* content on the grid: cols 4-5 */}
       <div className="relative z-[1] grid min-h-svh grid-cols-1 px-[var(--gutter)] py-[clamp(48px,10vh,110px)] md:grid-cols-5">
         <div className="flex flex-col md:col-span-2 md:col-start-4">

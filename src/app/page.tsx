@@ -9,7 +9,9 @@ import LiveLog from "./LiveLog";
 import NavIndex from "./NavIndex";
 import Rulers from "./Rulers";
 import ScrollReveal from "./ScrollReveal";
+import SliceShift from "./SliceShift";
 import SmoothScroll from "./SmoothScroll";
+import TextFx from "./TextFx";
 
 /* Homepage — built to match Figma node 210:4 (Alex Branding / Home Page):
    editorial layout on a 5-column grid (6 hairline guides running the full page),
@@ -52,6 +54,8 @@ export default function Home() {
     <main className="relative flex flex-1 flex-col bg-white text-ink">
       <SmoothScroll />
       <Bugs />
+      <TextFx />
+      <SliceShift />
       <DataTexture />
       <LiveLog />
       <Rulers />
@@ -61,7 +65,7 @@ export default function Home() {
           5 columns on desktop (lg), 3 on tablet (md), gutter lines only on mobile */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-[var(--gutter)] right-[var(--gutter)] z-[1]"
+        className="pointer-events-none absolute inset-y-0 left-[var(--gutter)] right-[var(--gutter)] z-0"
       >
         {[0, 100].map((p) => (
           <span key={p} className="absolute inset-y-0 w-px bg-[var(--guide)]" style={{ left: `${p}%` }} />
@@ -126,7 +130,7 @@ export default function Home() {
       </section>
 
       {/* ===================== MEDIA (16:9 placeholder, gutter to gutter) ===================== */}
-      <section className="relative px-[var(--gutter)] pb-[clamp(40px,5vw,72px)]">
+      <section className="relative z-[1] px-[var(--gutter)] pb-[clamp(40px,5vw,72px)]">
         <div className="relative aspect-video w-full bg-[#ececea]">
           <span className="absolute bottom-3 left-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
             [ PLACEHOLDER :: 16x9 ]

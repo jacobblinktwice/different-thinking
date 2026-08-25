@@ -1,101 +1,169 @@
 "use client";
 
 /* Three draggable image "windows" scattered on the grid (finder-style: filename
-   header + close button, image below). Drag anywhere on a window to move it;
-   pointerdown brings it to the front; × closes it. Images are placeholders
-   until the real assets land. Scattered layout on md+; stacked and static on
-   mobile (drag needs room). */
-import { useEffect, useRef } from "react";
+   header + close button, image below), plus a large [ Click ] text button
+   sitting BEHIND them that spawns endless new popups — spam it and they
+   cascade diagonally like a glitchy pile of OS dialogs. Drag anywhere on a
+   window to move it; pointerdown brings it to the front; ✕ closes it.
+   Scattered layout on md+; the base three stack statically on mobile. */
+import { useRef, useState } from "react";
 
-const BOXES: { name: string; left: string; top: string; w: string; ratio: string }[] = [
-  { name: "the-activator.jpg", left: "2%", top: "4%", w: "clamp(280px,36vw,540px)", ratio: "5 / 6" },
-  { name: "OOH_final_final.png", left: "52%", top: "16%", w: "clamp(260px,34vw,500px)", ratio: "3 / 4" },
-  { name: "arvo-keychain-ebd6337534b054fbe8.png", left: "14%", top: "56%", w: "clamp(220px,28vw,420px)", ratio: "2 / 3" },
+type Win = {
+  id: number;
+  name: string;
+  left: string;
+  top: string;
+  w: string;
+  ratio: string;
+  label: string;
+  z: number;
+  spawned?: boolean;
+};
+
+const BASE: Omit<Win, "z">[] = [
+  { id: 0, name: "the-activator.jpg", left: "2%", top: "4%", w: "clamp(280px,36vw,540px)", ratio: "5 / 6", label: "IMG_01" },
+  { id: 1, name: "OOH_final_final.png", left: "52%", top: "16%", w: "clamp(260px,34vw,500px)", ratio: "3 / 4", label: "IMG_02" },
+  { id: 2, name: "arvo-keychain-ebd6337534b054fbe8.png", left: "14%", top: "56%", w: "clamp(220px,28vw,420px)", ratio: "2 / 3", label: "IMG_03" },
 ];
 
+/* glitchy OS-pile filenames for spawned popups */
+const SPAWN_NAMES = [
+  (n: number) => `untitled(${n}).png`,
+  (n: number) => `err_0x${(n * 2654435761 % 0xfff).toString(16).toUpperCase().padStart(3, "0")}.tmp`,
+  (n: number) => `bug_report_${String(n).padStart(3, "0")}.txt`,
+  (n: number) => `final_final_v${n}.psd`,
+  (n: number) => `new_folder(${n})`,
+  (n: number) => `crash_dump_${String(n).padStart(2, "0")}.log`,
+  (n: number) => `DO_NOT_OPEN(${n}).zip`,
+  (n: number) => `asset_export_${n}.jpg`,
+];
+const SPAWN_W = [220, 260, 300, 200, 340];
+const SPAWN_RATIOS = ["4 / 5", "1 / 1", "3 / 4", "16 / 10", "2 / 3"];
+
 export default function DragBoxes() {
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const zTop = useRef(10);
+  const count = useRef(0);
+  const [wins, setWins] = useState<Win[]>(() => BASE.map((b, i) => ({ ...b, z: i + 1 })));
 
-  useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const boxes = Array.from(wrap.querySelectorAll<HTMLElement>("[data-dragbox]"));
-    let zTop = 10;
-    const cleanups: (() => void)[] = [];
-
-    for (const box of boxes) {
-      const pos = { x: 0, y: 0 };
-      let start: { px: number; py: number; x: number; y: number } | null = null;
-
-      const onDown = (e: PointerEvent) => {
-        if ((e.target as HTMLElement).closest("[data-close]")) return;
-        // only drag in the scattered (md+) layout
-        if (getComputedStyle(box).position !== "absolute") return;
-        start = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y };
-        box.style.zIndex = String(++zTop);
-        box.setPointerCapture(e.pointerId);
-        box.style.cursor = "grabbing";
-        e.preventDefault();
-      };
-      const onMove = (e: PointerEvent) => {
-        if (!start) return;
-        pos.x = start.x + (e.clientX - start.px);
-        pos.y = start.y + (e.clientY - start.py);
-        box.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0)`;
-      };
-      const onUp = () => {
-        start = null;
-        box.style.cursor = "";
-      };
-      box.addEventListener("pointerdown", onDown);
-      box.addEventListener("pointermove", onMove);
-      box.addEventListener("pointerup", onUp);
-      box.addEventListener("pointercancel", onUp);
-      cleanups.push(() => {
-        box.removeEventListener("pointerdown", onDown);
-        box.removeEventListener("pointermove", onMove);
-        box.removeEventListener("pointerup", onUp);
-        box.removeEventListener("pointercancel", onUp);
-      });
-    }
-    return () => cleanups.forEach((fn) => fn());
-  }, []);
+  const spawn = () => {
+    const n = ++count.current;
+    const i = n - 1;
+    // Windows-dialog cascade: each popup steps down-right from the last,
+    // wrapping so the pile keeps building; a little jitter keeps it glitchy
+    const left = 16 + ((i * 4.2) % 52) + Math.random() * 3;
+    const top = 6 + ((i * 5.5) % 62) + Math.random() * 3;
+    setWins((w) => [
+      ...w,
+      {
+        id: 100 + n,
+        name: SPAWN_NAMES[i % SPAWN_NAMES.length](n),
+        left: `${left.toFixed(1)}%`,
+        top: `${top.toFixed(1)}%`,
+        w: `${SPAWN_W[i % SPAWN_W.length]}px`,
+        ratio: SPAWN_RATIOS[i % SPAWN_RATIOS.length],
+        label: `POPUP_${String(n).padStart(2, "0")}`,
+        z: ++zTop.current,
+        spawned: true,
+      },
+    ]);
+  };
 
   return (
-    <section className="relative mx-[var(--gutter)] mb-[clamp(40px,5vw,72px)] md:h-[150vh]">
-      <div ref={wrapRef} className="relative h-full">
-        {BOXES.map((b, i) => (
-          <div
-            key={b.name}
-            data-dragbox
-            className="relative mb-6 w-full cursor-grab touch-none select-none bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] md:absolute md:mb-0 md:w-[var(--bw)]"
-            /* left/top only take effect in the md+ absolute layout */
-            style={{ left: b.left, top: b.top, "--bw": b.w } as React.CSSProperties}
-          >
-            {/* window chrome: filename + close */}
-            <div className="flex items-center justify-between px-3 py-2">
-              <span className="font-sans text-[8px] tracking-[0.01em] text-[#6E6E6E]">{b.name}</span>
-              <button
-                type="button"
-                data-close
-                aria-label={`Close ${b.name}`}
-                onClick={(e) => {
-                  (e.currentTarget.closest("[data-dragbox]") as HTMLElement).style.display = "none";
-                }}
-                className="cursor-pointer px-1 text-[11px] leading-none text-[#6E6E6E] hover:text-ink"
-              >
-                ✕
-              </button>
-            </div>
-            {/* image placeholder until the real assets land */}
-            <div className="relative w-full bg-[#ececea]" style={{ aspectRatio: b.ratio }}>
-              <span className="absolute bottom-3 left-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
-                [ PLACEHOLDER :: IMG_0{i + 1} ]
-              </span>
-            </div>
-          </div>
+    <section className="relative z-[1] mx-[var(--gutter)] mb-[clamp(40px,5vw,72px)] md:h-[150vh]">
+      {/* long code-dialect fragments down the 4th column — pure texture, the
+          windows drag right over them */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 left-[60%] top-0 z-0 hidden w-[18%] select-none flex-col justify-between gap-8 md:flex"
+      >
+        {[
+          "TRY {\n  HYPERFOCUS();\n} CATCH (HOURS) {\n  RETURN BREAKTHROUGHS;\n}",
+          'IF (MIND !== TEMPLATE) {\n  // NOT A BROKEN BRAIN\n  THROW "THE SYSTEM, NOT THE BRAIN";\n}',
+          "REFUSE({\n  GUILT_MECHANICS: NULL,\n  BROKEN_STREAKS: NULL,\n  SHAME: NULL,\n});",
+          "WHILE (DEBUGGING_YOURSELF) {\n  // YOUR BEST YEARS ON THE WRONG BUG\n  BREAK;\n}\nSHIP_SOMETHING();",
+          "CONST GROUP = [SCANNER,\n  OBSESSIVE, DREAMER];\n// RAN UNEXPECTED_BEHAVIOUR\n// SURVIVED TOGETHER",
+        ].map((t, i) => (
+          <pre key={i} className="font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#B2B2B2]">
+            {t}
+          </pre>
+        ))}
+      </div>
+
+      {/* the spawner — large text button centred ON TOP of the windows */}
+      <div className="pointer-events-none absolute inset-0 z-[500] hidden items-center justify-center md:flex">
+        <button
+          type="button"
+          onClick={spawn}
+          className="pointer-events-auto cursor-pointer [font-family:Exposure,var(--font-sans)] text-[clamp(56px,7.5vw,128px)] leading-none tracking-[-0.1em] text-ink transition-colors duration-150 ease-[var(--ease-snap)] hover:text-blue active:scale-[0.98]"
+          title="Spawn a popup"
+        >
+          [ Click ]
+        </button>
+      </div>
+
+      <div className="pointer-events-none relative z-[1] h-full">
+        {wins.map((b) => (
+          <DragWin key={b.id} box={b} zTop={zTop} onClose={() => setWins((w) => w.filter((x) => x.id !== b.id))} />
         ))}
       </div>
     </section>
+  );
+}
+
+function DragWin({ box, zTop, onClose }: { box: Win; zTop: React.MutableRefObject<number>; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const pos = useRef({ x: 0, y: 0 });
+  const start = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
+
+  return (
+    <div
+      ref={ref}
+      className={`pointer-events-auto relative mb-6 w-full cursor-grab touch-none select-none bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] md:absolute md:mb-0 md:w-[var(--bw)] ${
+        box.spawned ? "max-md:hidden" : ""
+      }`}
+      /* left/top only take effect in the md+ absolute layout */
+      style={{ left: box.left, top: box.top, zIndex: box.z, "--bw": box.w } as React.CSSProperties}
+      onPointerDown={(e) => {
+        if ((e.target as HTMLElement).closest("[data-close]")) return;
+        if (getComputedStyle(e.currentTarget).position !== "absolute") return; // scattered layout only
+        start.current = { px: e.clientX, py: e.clientY, x: pos.current.x, y: pos.current.y };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.currentTarget.style.zIndex = String(++zTop.current);
+        e.currentTarget.style.cursor = "grabbing";
+        e.preventDefault();
+      }}
+      onPointerMove={(e) => {
+        if (!start.current || !ref.current) return;
+        pos.current.x = start.current.x + (e.clientX - start.current.px);
+        pos.current.y = start.current.y + (e.clientY - start.current.py);
+        ref.current.style.transform = `translate3d(${pos.current.x}px, ${pos.current.y}px, 0)`;
+      }}
+      onPointerUp={(e) => {
+        start.current = null;
+        e.currentTarget.style.cursor = "";
+      }}
+      onPointerCancel={(e) => {
+        start.current = null;
+        e.currentTarget.style.cursor = "";
+      }}
+    >
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="font-sans text-[8px] tracking-[0.01em] text-[#6E6E6E]">{box.name}</span>
+        <button
+          type="button"
+          data-close
+          aria-label={`Close ${box.name}`}
+          onClick={onClose}
+          className="cursor-pointer px-1 text-[11px] leading-none text-[#6E6E6E] hover:text-ink"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="relative w-full bg-[#ececea]" style={{ aspectRatio: box.ratio }}>
+        <span className="absolute bottom-3 left-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
+          [ PLACEHOLDER :: {box.label} ]
+        </span>
+      </div>
+    </div>
   );
 }

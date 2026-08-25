@@ -37,6 +37,8 @@ export default function Hero() {
   const [booting, setBooting] = useState(true);
   // public play-sliders (glitch mode only): local variations, reset on refresh
   const [tweaks, setTweaks] = useState<HeroTweaks>({ gain: 50, slice: 50, stretch: 50, speed: 50 });
+  // viewport slice-shift filter — hidden by default, local-only opt-in
+  const [sliceFx, setSliceFx] = useState(false);
   const unmountTimer = useRef<number | undefined>(undefined);
 
   // boot loader + logotype (static SVG wordmark)
@@ -62,9 +64,9 @@ export default function Hero() {
       new CustomEvent("dt-log", { detail: next ? "glitch :: ON — page infected" : "glitch :: OFF — patched" }),
     );
     setOn(next);
-    setBurst((b) => b + 1);
     window.clearTimeout(unmountTimer.current);
     if (next) {
+      setBurst((b) => b + 1); // intensity spike on power-ON only — the close stays calm
       setCanvasMounted(true);
       setIntro((i) => i + 1); // self-moving sweep that hands off to the mouse
     } else {
@@ -78,13 +80,25 @@ export default function Hero() {
      style — .dt-boot-out in CSS); the logotype letters start rising mid-exit */
   useEffect(() => {
     const overlay = overlayRef.current;
-    if (!overlay || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem("dt-booted") === "1";
+    } catch {
+      /* storage unavailable */
+    }
+    if (!overlay || seen || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setBooting(false);
       setLettersLive(true);
       return;
     }
+    try {
+      sessionStorage.setItem("dt-booted", "1"); // the boot plays once per session
+    } catch {
+      /* noop */
+    }
     let tL: number | undefined;
     let t2: number | undefined;
+    const cellTimers: number[] = [];
     // loading readout: eased fill across the hold, completing just before exit
     const start = performance.now();
     const prog = window.setInterval(() => {
@@ -93,11 +107,20 @@ export default function Hero() {
       const t = Math.min(1, (performance.now() - start) / 950);
       const e = 1 - (1 - t) ** 2;
       const blocks = Math.round(e * 12);
-      el.textContent = `[${"▓".repeat(blocks)}${"░".repeat(12 - blocks)}] ${Math.floor(e * 100)}%`;
+      el.textContent = `LOADING = [${"▓".repeat(blocks)}${"░".repeat(12 - blocks)}] ${Math.floor(e * 100)}%;`;
     }, 50);
     const t1 = window.setTimeout(() => {
       window.clearInterval(prog);
-      if (bootProgRef.current) bootProgRef.current.textContent = "[▓▓▓▓▓▓▓▓▓▓▓▓] 100%";
+      if (bootProgRef.current) bootProgRef.current.textContent = "LOADING = [▓▓▓▓▓▓▓▓▓▓▓▓] 100%;";
+      // pixel dissolve, GSAP-style: each cell snaps to opacity 0 at a random
+      // moment across ~0.5s — inline styles, so a re-render can't replay it
+      overlay.querySelectorAll<HTMLElement>(".dt-boot-cell").forEach((c) => {
+        cellTimers.push(
+          window.setTimeout(() => {
+            c.style.opacity = "0";
+          }, 80 + Math.random() * 500),
+        );
+      });
       overlay.classList.add("dt-boot-out");
       // bug/warning lift 0-720ms, THEN the bg reveal blooms (600-1350ms);
       // letters start rising as the reveal opens, overlay unmounts once it's done
@@ -109,6 +132,7 @@ export default function Hero() {
       window.clearTimeout(t1);
       window.clearTimeout(tL);
       window.clearTimeout(t2);
+      cellTimers.forEach((t) => window.clearTimeout(t));
     };
   }, []);
 
@@ -286,6 +310,20 @@ export default function Hero() {
                 <span className="w-[24px] text-right text-[#B2B2B2]">{tweaks[key]}</span>
               </label>
             ))}
+            {/* viewport slice-shift filter (SliceShift.tsx) — off by default */}
+            <label className="dt-tweak-line mt-2 flex cursor-pointer items-center gap-2 text-[#8a8a8a]" style={{ animationDelay: "240ms" }}>
+              <span className="w-[62px] uppercase">slice fx</span>
+              <input
+                type="checkbox"
+                checked={sliceFx}
+                onChange={(e) => {
+                  setSliceFx(e.target.checked);
+                  document.documentElement.dataset.dtSlice = e.target.checked ? "1" : "0";
+                }}
+                className="accent-ink"
+              />
+              <span className="flex-1 text-right text-[#B2B2B2]">{sliceFx ? "ON" : "OFF"}</span>
+            </label>
           </div>
         )}
         {/* wordmark — static SVG logotype, pinned to the bottom of the viewport,
@@ -349,20 +387,25 @@ export default function Hero() {
           ref={overlayRef}
           className="pointer-events-none fixed inset-0 z-[80] flex flex-col items-center justify-center"
         >
-          {/* solid, still paper background — clears via a circular reveal from
-              the centre-bottom on exit */}
-          <div aria-hidden className="dt-boot-bg absolute inset-0" />
-          <div className="dt-boot-inner relative flex flex-col items-center">
-            <BugMark className="h-[clamp(72px,10vh,110px)] w-auto text-paper" />
-            <div className="mt-10 text-center font-mono text-[12px] leading-relaxed">
-              <p className="text-paper">[ ! ] PHOTOSENSITIVITY WARNING</p>
-              <p className="mt-1.5 text-neutral-500">this site contains flashing imagery and strobe effects</p>
-              {/* loading readout — fills through the hold so the dark screen
-                  reads as working, not stuck */}
-              <p ref={bootProgRef} className="mt-8 text-paper">
-                [░░░░░░░░░░░░] 0%
-              </p>
-            </div>
+          {/* the dark background is a 14x7 grid of ink cells that snap out in a
+              fully RANDOM order across ~0.5s (GSAP pixel-transition style) —
+              per-cell delays are randomised in the boot effect */}
+          <div aria-hidden className="absolute inset-0 grid grid-cols-14 grid-rows-7">
+            {Array.from({ length: 98 }, (_, i) => (
+              <span key={i} className="dt-boot-cell" />
+            ))}
+          </div>
+          <div className="dt-boot-inner absolute bottom-[clamp(24px,5vh,56px)] left-[var(--gutter)] text-left font-sans text-[8px] leading-[1.7] tracking-[0.01em]">
+            <p className="whitespace-pre text-neutral-500">
+              {"RUN DIFFERENT_THINKING();\nCONST BUG = \"FEATURE\";\n// LOGGED AS SYMPTOMS\n// RAN AS FEATURES"}
+            </p>
+            <p className="mt-6 whitespace-pre text-paper">{"[ ! ] PHOTOSENSITIVITY_WARNING"}</p>
+            <p className="whitespace-pre text-neutral-500">{"// THIS SITE CONTAINS FLASHING IMAGERY AND STROBE EFFECTS"}</p>
+            {/* loading readout — fills through the hold so the dark screen
+                reads as working, not stuck */}
+            <p ref={bootProgRef} className="mt-6 whitespace-pre text-paper">
+              {"LOADING = [░░░░░░░░░░░░] 0%;"}
+            </p>
           </div>
         </div>
       )}

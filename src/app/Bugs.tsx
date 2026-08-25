@@ -304,7 +304,7 @@ export default function Bugs() {
       return false;
     };
     const runRandom = () => {
-      const on = !!q("section canvas"); // glitch open = the page is infected
+      const on = q("button[aria-pressed]")?.getAttribute("aria-pressed") === "true"; // infection = the toggle, not the canvas
       const pool = episodes.filter((e) => !muted.has(e.id) && (!e.onOnly || on));
       fireOne(pool);
       // while open: much denser cadence, sometimes a rapid second hit

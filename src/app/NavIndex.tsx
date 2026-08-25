@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 const NAV: [string, string, string][] = [
-  ["01", "About", "/#about"],
+  ["01", "About", "/about"],
   ["02", "Different Thinkers", "/different-thinkers"],
-  ["03", "Eventually", "/#eventually"],
+  ["03", "Eventually", "/eventually"],
   ["04", "Contact", "/#contact"],
 ];
 

@@ -68,7 +68,9 @@ export default function Rulers() {
     let on = false;
     const tick = () => {
       if (frame++ % 10 === 0) {
-        const next = !!document.querySelector("section canvas");
+        // keyed on the toggle (not canvas presence) so the rulers leave the
+        // moment the bug is switched off, not after the canvas unmounts
+        const next = document.querySelector("button[aria-pressed]")?.getAttribute("aria-pressed") === "true";
         if (next !== on) {
           on = next;
           x.classList.toggle("dt-ruler-on", on);

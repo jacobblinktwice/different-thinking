@@ -428,7 +428,8 @@ export class GlitchEngine {
     // touches, incl. the echo/front group passes). Follows the SAME easing as the
     // movement (EASE_APPEAR, un-staggered) so distortion unwinds in step with it.
     const trans = appear >= 1 ? 0 : 1 - ease(EASE_APPEAR, Math.min(1, Math.max(0, appear)));
-    this.gmul = (glitchMul == null ? 1 : glitchMul) * (1 + trans * 2);
+    // boost only on the way IN — the close stays calm (no flare/flicker)
+    this.gmul = (glitchMul == null ? 1 : glitchMul) * (appearIn ? 1 + trans * 2 : 1);
 
     const drawBox = (i: number, target: WebGLFramebuffer | null) => {
       const s = progressOf(i);

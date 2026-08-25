@@ -83,6 +83,14 @@ nav:has(a:hover) span {
 #about:has(.wl:hover) .article-col {
   color: #b6b6b6;
 }
+/* the big display serif underlaying the columns fades too, so the hovered
+   link never fights the type crossing behind it */
+.dt-display {
+  transition: opacity 200ms var(--ease-snap);
+}
+#about:has(.wl:hover) .dt-display {
+  opacity: 0.12;
+}
 
 /* multi-shade highlight sweep on the hovered link itself (word-block reference):
    grey → ink → blue, snapping between shades, holding blue while hovered */
@@ -124,6 +132,37 @@ nav a:hover,
   white-space: nowrap;
 }
 
+/* ===== page transition — a simple fade on every route change (template.tsx) ===== */
+@keyframes dt-page-in {
+  from {
+    opacity: 0;
+  }
+}
+.dt-page-enter {
+  animation: dt-page-in 0.4s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dt-page-enter {
+    animation: none;
+  }
+}
+
+/* ===== orb marquee (Eventually) — endless horizontal loop; the track holds
+   two copies of the orb row, so −50% wraps seamlessly ===== */
+@keyframes dt-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.dt-marquee {
+  animation: dt-marquee 36s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dt-marquee {
+    animation: none;
+  }
+}
+
 /* ===== logotype — static SVG wordmark (rises in as the boot loader clears) ===== */
 @keyframes dt-logo-in {
   from {
@@ -142,28 +181,14 @@ nav a:hover,
 }
 
 /* ===== boot loader exit =====
-   The background stays still and solid; only the bug + warning move (upward, on
-   the hesitate-then-rocket curve). The paper clears via a soft-edged circular
-   reveal blooming from the centre-bottom — Google-Pixel power-animation style —
-   done as an animated radial mask (registered custom property = the hole radius,
-   as a % of the gradient extent from bottom-centre to the top corners). */
-@property --dt-holer {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 0%;
-}
-.dt-boot-bg {
-  background: var(--ink); /* dark loader — contrast against the paper homepage */
-}
-@keyframes dt-boot-hole {
-  to {
-    --dt-holer: 135%;
-  }
-}
-@keyframes dt-boot-bgfade {
-  to {
-    opacity: 0;
-  }
+   The dark background is a coarse grid of ink cells; on exit they vanish in
+   hard steps in a shuffled order — a smooth boxy pixel-glitch dissolve (the
+   per-cell delay comes from --d, set inline in a deterministic shuffle). The
+   warning text lifts out while the dissolve runs. */
+.dt-boot-cell {
+  background: var(--ink);
+  /* overdraw 1px so grid rounding never shows hairline seams */
+  box-shadow: 0 0 0 1px var(--ink);
 }
 @keyframes dt-boot-inner-out {
   to {
@@ -171,21 +196,8 @@ nav a:hover,
     opacity: 0;
   }
 }
-.dt-boot-out .dt-boot-bg {
-  /* hole radius leads, 16% feathered edge trails — fully solid at --dt-holer 0 */
-  mask-image: radial-gradient(circle at 50% 100%, transparent calc(var(--dt-holer) - 16%), #000 var(--dt-holer));
-  -webkit-mask-image: radial-gradient(
-    circle at 50% 100%,
-    transparent calc(var(--dt-holer) - 16%),
-    #000 var(--dt-holer)
-  );
-  /* the bg holds solid until the bug/warning have flown out (their exit runs
-     0-700ms), THEN the reveal blooms; the plain fade doubles as the fallback
-     where @property isn't supported */
-  animation:
-    dt-boot-hole 0.75s cubic-bezier(0.33, 1, 0.68, 1) 600ms both,
-    dt-boot-bgfade 0.28s ease 1030ms both;
-}
+/* the cells snap out via JS-staggered inline opacity (GSAP pixel-transition
+   style) — no CSS animation, so nothing can ever replay them */
 .dt-boot-out .dt-boot-inner {
   animation: dt-boot-inner-out 0.72s cubic-bezier(0.5, 0, 0.75, 0.4) both;
 }
