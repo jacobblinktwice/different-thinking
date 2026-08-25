@@ -15,7 +15,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import HeroGlitch, { prefetchLiveComposition, type HeroTweaks } from "./HeroGlitch";
-import NavIndex from "./NavIndex";
 
 const OFF_UNMOUNT_MS = 650; // keep the canvas alive through the shrink-out animation (0.6s)
 
@@ -374,7 +373,6 @@ export default function Hero() {
             >
               An AI research lab building products for people who think differently.
             </p>
-            <NavIndex className="pointer-events-auto absolute right-0 top-[clamp(20px,4vh,44px)] md:left-[66.6667%] md:right-auto lg:left-[80%]" />
             <button
               ref={bugRef}
               type="button"

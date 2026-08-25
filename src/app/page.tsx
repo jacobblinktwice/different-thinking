@@ -7,10 +7,10 @@ import Hero from "./Hero";
 import HomeReel from "./HomeReel";
 import HoverImages from "./HoverImages";
 import LiveLog from "./LiveLog";
-import NavIndex from "./NavIndex";
 import Rulers from "./Rulers";
 import ScrollReveal from "./ScrollReveal";
 import SliceShift from "./SliceShift";
+import StickyNav from "./StickyNav";
 import TextFx from "./TextFx";
 import PageGuides from "./PageGuides";
 
@@ -53,6 +53,7 @@ const COLUMNS: string[] = [
 export default function Home() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
+      <StickyNav />
       <Bugs />
       <TextFx />
       <SliceShift />
@@ -88,21 +89,9 @@ export default function Home() {
               </div>
             ))}
           </div>
-          {/* nav sidebar in the fifth column (repeats in the article, per Figma).
-              The grid item stretches to the article's full height; the inner
-              wrapper sticks while the columns scroll past. */}
-          <div className="hidden lg:block">
-            <div className="sticky top-[clamp(40px,5vw,72px)]">
-              <NavIndex />
-            </div>
-          </div>
         </div>
         <div data-bug="src" className="mt-16 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
           {"// SRC: MANIFESTO.MD"}
-        </div>
-        {/* tablet/mobile: the repeated menu sits after the paragraphs + src line */}
-        <div className="mt-16 lg:hidden">
-          <NavIndex />
         </div>
       </section>
 

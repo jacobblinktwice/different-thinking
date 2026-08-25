@@ -14,8 +14,9 @@ import { useEffect } from "react";
 const GLYPHS = "x#/\\<>+=~kzrtoe01";
 const POOL_SELECTORS = [
   '[data-bug="title"] a',
-  "section nav a",
-  "#about nav a",
+  // the nav is fixed under <main> now, not inside the hero section or the
+  // article, so both of the old selectors matched nothing
+  "nav a",
   'footer a[href^="mailto:"]',
   "footer p",
   "footer pre",
