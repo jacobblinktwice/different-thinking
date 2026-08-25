@@ -20,6 +20,9 @@
 # production
 /build
 
+# 4K renders written by the temporary /api/save-export dev route
+/exports
+
 # misc
 .DS_Store
 *.pem

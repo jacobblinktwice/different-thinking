@@ -4,7 +4,7 @@ const NAV: [string, string, string][] = [
   ["01", "About", "/about"],
   ["02", "Different Thinkers", "/different-thinkers"],
   ["03", "Eventually", "/eventually"],
-  ["04", "Contact", "/#contact"],
+  ["04", "Contact", "/contact"],
 ];
 
 export default function NavIndex({ className = "" }: { className?: string }) {

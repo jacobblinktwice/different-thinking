@@ -108,8 +108,11 @@ nav:has(a:hover) span {
     color: #fff;
   }
 }
+/* .dt-cmd = a line of the code dialect acting as a control (SEND(); on the
+   contact page) — same sweep, so a command reads like the other links */
 nav a:hover,
-#about .wl:hover {
+#about .wl:hover,
+.dt-cmd:hover {
   animation: dt-highlight 0.34s steps(1, end) both;
   padding: 0.08em 0.18em;
   margin: -0.08em -0.18em;

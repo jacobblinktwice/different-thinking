@@ -29,7 +29,7 @@ const TEAM = [
   },
   {
     name: "Jack Bleakley",
-    role: "Co-Founder and Chief Designer Officer",
+    role: "Co-Founder and Chief Design Officer",
     email: "jack@differentthinking.ai",
     photo: "/images/about/jack-bleakley.png",
     w: 536,
