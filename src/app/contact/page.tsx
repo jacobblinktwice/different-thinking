@@ -89,7 +89,8 @@ export default function ContactPage() {
         <div className="mt-16 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">{"// SRC: CONTACT.MD"}</div>
       </section>
 
-      <Footer />
+      {/* the page already opens with the address and the composer */}
+      <Footer showAddress={false} />
     </main>
   );
 }
