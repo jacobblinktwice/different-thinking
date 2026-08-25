@@ -15,8 +15,10 @@ export const metadata = {
 };
 
 /* `w`/`h` are the source photo's pixel dimensions; `left`/`top`/`width` place the
-   portrait window on md+. Both sit to the right of the credits column and stagger
-   diagonally, so neither runs off an edge or covers the text. */
+   portrait window on md+. Both share one width and start at near-matching
+   heights, so they pixelate and resolve together as you scroll past — the
+   effect is driven by each canvas's position in the viewport. They sit side by
+   side to the right of the credits column, clear of it and of each other. */
 const TEAM = [
   {
     name: "David Lyria",
@@ -25,9 +27,9 @@ const TEAM = [
     photo: "/images/about/david-lyria.webp",
     w: 1076,
     h: 1136,
-    left: "62%",
-    top: "34%",
-    width: "clamp(240px,23vw,420px)",
+    left: "66%",
+    top: "9%",
+    width: "clamp(230px,22vw,360px)",
   },
   {
     name: "Jack Bleakley",
@@ -36,9 +38,9 @@ const TEAM = [
     photo: "/images/about/jack-bleakley.webp",
     w: 536,
     h: 558,
-    left: "40%",
-    top: "2%",
-    width: "clamp(230px,21vw,400px)",
+    left: "38%",
+    top: "6%",
+    width: "clamp(230px,22vw,360px)",
   },
 ];
 
@@ -57,7 +59,7 @@ export default function AboutPage() {
         <PageChrome />
 
         {/* headline */}
-        <h1 className="mt-[clamp(48px,9vh,110px)] max-w-[16ch] text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(44px,8.9vw,128px)] leading-[1.02] tracking-[-0.1em]">
+        <h1 className="mt-[clamp(48px,9vh,110px)] max-w-[16ch] text-balance text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(44px,8.9vw,128px)] leading-[1.02] tracking-[-0.1em]">
           A research lab made for minds that don&apos;t run the default
         </h1>
 
@@ -75,7 +77,7 @@ export default function AboutPage() {
         {/* team — the portraits are draggable windows scattered across the grid;
             the credits stack in column 2, under the intro copy. Names stay plain
             and legible; role and email are set in the code dialect. */}
-        <div className="relative mt-[clamp(56px,10vh,130px)] grid grid-cols-1 md:h-[100vh] md:min-h-[620px] md:grid-cols-3 lg:grid-cols-5">
+        <div className="relative mt-[clamp(56px,10vh,130px)] grid grid-cols-1 md:h-[clamp(480px,50vh,540px)] md:grid-cols-3 lg:grid-cols-5">
           <div className="md:col-start-2 md:pr-8 lg:col-start-2">
             {TEAM.map((t, i) => (
               <div key={t.name} className={i > 0 ? "mt-[clamp(72px,12vh,160px)]" : ""}>
@@ -98,7 +100,7 @@ export default function AboutPage() {
         {/* research: the heading rewrites its second word, code note beneath.
             64px flat on md+; a clamp below that so the longest word cannot
             overflow a phone viewport. */}
-        <div className="mt-[clamp(64px,12vh,160px)]">
+        <div className="mt-[clamp(48px,8vh,110px)]">
           <RewriteHeading className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(38px,9.6vw,64px)] leading-[1.08] tracking-[-0.08em] md:text-[64px]" />
           <CodeNote snippet="oneInFive" className="mt-[clamp(24px,4vh,48px)]" />
         </div>

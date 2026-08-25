@@ -10,6 +10,9 @@
    silhouette. */
 import { useEffect, useRef } from "react";
 
+/* blocks across the portrait at full pixelation, whatever the source size */
+const BLOCKS = 24;
+
 function drawSilhouette(ctx: CanvasRenderingContext2D, W: number, H: number) {
   ctx.fillStyle = "#d8d8d4";
   ctx.fillRect(0, 0, W, H);
@@ -83,8 +86,12 @@ export default function PixelPortrait({
          scroll rather than 0.55, so the blocks hold on noticeably longer while
          still resolving well before the portrait leaves the screen. */
       const t = reduced ? 1 : Math.min(1, Math.max(0, (vh * 1.05 - r.top) / (vh * 0.8)));
-      // pixel size 24 → 1, stepped so the resolve reads as discrete jumps
-      const px = Math.max(1, Math.round(24 * (1 - t) ** 1.6));
+      /* Block COUNT is fixed, not block size: a flat 24px block spans a quarter
+         as much of a 1076px source as of a 536px one, so two portraits shot at
+         different resolutions pixelated to visibly different coarseness.
+         Scaling the block to the buffer makes them match. Stepped, so the
+         resolve reads as discrete jumps. */
+      const px = Math.max(1, Math.round((W / BLOCKS) * (1 - t) ** 1.6));
       if (px === lastPx) return;
       lastPx = px;
       const w = Math.max(1, Math.round(W / px));
