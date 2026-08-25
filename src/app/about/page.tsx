@@ -15,8 +15,8 @@ export const metadata = {
 };
 
 /* `w`/`h` are the source photo's pixel dimensions; `left`/`top`/`width` place the
-   portrait window on md+. David's bleeds off the left edge like the mock — that
-   overflows to the left of the document, which never adds a scrollbar. */
+   portrait window on md+. Both sit to the right of the credits column and stagger
+   diagonally, so neither runs off an edge or covers the text. */
 const TEAM = [
   {
     name: "David Lyria",
@@ -25,8 +25,8 @@ const TEAM = [
     photo: "/images/about/david-lyria.webp",
     w: 1076,
     h: 1136,
-    left: "-8%",
-    top: "22%",
+    left: "62%",
+    top: "34%",
     width: "clamp(240px,23vw,420px)",
   },
   {
@@ -36,7 +36,7 @@ const TEAM = [
     photo: "/images/about/jack-bleakley.webp",
     w: 536,
     h: 558,
-    left: "56%",
+    left: "40%",
     top: "2%",
     width: "clamp(230px,21vw,400px)",
   },

@@ -78,8 +78,11 @@ export default function PixelPortrait({
       if (!ready) return;
       const r = canvas.getBoundingClientRect();
       const vh = window.innerHeight;
-      // progress: 0 as the portrait enters from below → 1 a bit before centre
-      const t = reduced ? 1 : Math.min(1, Math.max(0, (vh * 0.92 - r.top) / (vh * 0.55)));
+      /* progress: 0 while the portrait is still below the fold → 1 by the time
+         it reaches the upper third. Starts earlier and runs over 0.8vh of
+         scroll rather than 0.55, so the blocks hold on noticeably longer while
+         still resolving well before the portrait leaves the screen. */
+      const t = reduced ? 1 : Math.min(1, Math.max(0, (vh * 1.05 - r.top) / (vh * 0.8)));
       // pixel size 24 → 1, stepped so the resolve reads as discrete jumps
       const px = Math.max(1, Math.round(24 * (1 - t) ** 1.6));
       if (px === lastPx) return;

@@ -31,14 +31,14 @@ export default function Footer() {
 
           {/* build credit */}
           <p className="mt-4 font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#B2B2B2]">
-            Website by{" "}
+            WEBSITE BY{" "}
             <a
               href="https://www.blinktwice.studio/"
               target="_blank"
               rel="noreferrer"
               className="underline hover:text-ink"
             >
-              BlinkTwice
+              BLINKTWICE
             </a>
           </p>
         </div>
