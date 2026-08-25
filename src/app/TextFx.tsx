@@ -62,7 +62,7 @@ export default function TextFx() {
 
     const rnd = (a: number, b: number) => a + Math.random() * (b - a);
     const glyph = () => GLYPHS[(Math.random() * GLYPHS.length) | 0];
-    const isOn = () => document.querySelector("button[aria-pressed]")?.getAttribute("aria-pressed") === "true";
+    const isOn = () => document.documentElement.dataset.dtGlitch === "1";
 
     /* the three treatments — each mutates textContent on an interval and
        always ends by restoring the mount snapshot */
@@ -127,8 +127,14 @@ export default function TextFx() {
       const it = free[(Math.random() * free.length) | 0];
       const fi = (Math.random() * EFFECTS.length) | 0;
       it.busy = true;
+      // claim the element in the DOM too, so the hover scramble in Bugs.tsx
+      // leaves it alone rather than snapshotting mid-effect text as "clean"
+      it.el.dataset.dtFx = "1";
       window.dispatchEvent(new CustomEvent("dt-log", { detail: `fx :: ${NAMES[fi]}()` }));
-      EFFECTS[fi](it, () => (it.busy = false));
+      EFFECTS[fi](it, () => {
+        it.busy = false;
+        delete it.el.dataset.dtFx;
+      });
     };
 
     // cadence: dense while the infection is on — often two at once, plus an

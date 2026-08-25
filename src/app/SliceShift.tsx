@@ -7,6 +7,14 @@
    layout, so usability is untouched. Fixed overlays (rulers, console, hover
    imagery) are siblings of the sections, so they stay crisp.
 
+   On with the glitch by default (Hero seeds documentElement.dataset.dtSlice
+   from its own state); the lab panel's "slice fx" switch turns it off.
+
+   Anything marked [data-no-slice] stays crisp — the hero wordmark, so the
+   logotype never tears. A CSS filter cannot be cancelled on a descendant, so
+   a section holding one is filtered child by child instead, skipping the
+   branch that contains it.
+
    Light: the filter is only attached while the glitch is on, and the only
    ongoing work is a seed re-roll every ~800ms (repaint, no layout, no rAF).
    Skipped under reduced-motion. */
@@ -27,16 +35,35 @@ export default function SliceShift() {
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const targets = () => Array.from(document.querySelectorAll<HTMLElement>("main section, main footer"));
+    const FILTER = "url(#dt-slice)";
+    /* The elements the filter actually goes on. Normally one per section, but a
+       section containing an opted-out element is filtered child by child so
+       that element's branch can be skipped. */
+    const units = () => {
+      const out: HTMLElement[] = [];
+      for (const sec of document.querySelectorAll<HTMLElement>("main section, main footer")) {
+        const keep = sec.querySelector("[data-no-slice]");
+        if (!keep) {
+          out.push(sec);
+          continue;
+        }
+        for (const child of Array.from(sec.children)) {
+          if (child instanceof HTMLElement && !child.contains(keep)) out.push(child);
+        }
+      }
+      return out;
+    };
+
     let applied = false;
     let seedTimer: number | undefined;
 
-    const apply = (on: boolean) => {
+    /* Re-applied every tick rather than only on change: the hero's canvas mounts
+       and unmounts with the toggle, and a child that appears later would
+       otherwise never pick the filter up. Writing the same value back is free. */
+    const sync = (on: boolean) => {
+      for (const el of units()) el.style.filter = on ? FILTER : "";
       if (on === applied) return;
       applied = on;
-      targets().forEach((el) => {
-        el.style.filter = on ? "url(#dt-slice)" : "";
-      });
       window.clearInterval(seedTimer);
       if (on) {
         seedTimer = window.setInterval(() => {
@@ -46,18 +73,16 @@ export default function SliceShift() {
     };
 
     const poll = window.setInterval(() => {
-      // hidden by default: needs the glitch ON and the local tweak-panel
-      // toggle enabled (documentElement.dataset.dtSlice, set by Hero)
-      const on =
-        document.querySelector("button[aria-pressed]")?.getAttribute("aria-pressed") === "true" &&
-        document.documentElement.dataset.dtSlice === "1";
-      apply(on);
+      // needs the glitch ON, and the slice switch not turned off in the panel
+      const root = document.documentElement.dataset;
+      const on = root.dtGlitch === "1" && root.dtSlice !== "0";
+      sync(on);
     }, 250);
 
     return () => {
       window.clearInterval(poll);
       window.clearInterval(seedTimer);
-      targets().forEach((el) => (el.style.filter = ""));
+      units().forEach((el) => (el.style.filter = ""));
     };
   }, []);
 

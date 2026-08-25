@@ -70,7 +70,7 @@ export default function Rulers() {
       if (frame++ % 10 === 0) {
         // keyed on the toggle (not canvas presence) so the rulers leave the
         // moment the bug is switched off, not after the canvas unmounts
-        const next = document.querySelector("button[aria-pressed]")?.getAttribute("aria-pressed") === "true";
+        const next = document.documentElement.dataset.dtGlitch === "1";
         if (next !== on) {
           on = next;
           x.classList.toggle("dt-ruler-on", on);

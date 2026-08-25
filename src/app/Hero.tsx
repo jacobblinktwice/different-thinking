@@ -34,14 +34,27 @@ export default function Hero() {
   useEffect(() => {
     onRef.current = on;
   }, [on]);
+  /* The ambient layers (Bugs, TextFx, SliceShift, DataTexture, Rulers) are
+     siblings of the hero, so they read the glitch state off the root rather
+     than take a prop. They used to sniff for `button[aria-pressed]`, which any
+     future toggle on the page would have hijacked. */
+  useEffect(() => {
+    document.documentElement.dataset.dtGlitch = on ? "1" : "0";
+  }, [on]);
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);
   const [booting, setBooting] = useState(true);
   // public play-sliders (glitch mode only): local variations, reset on refresh
   const [tweaks, setTweaks] = useState<HeroTweaks>({ gain: 50, slice: 50, stretch: 50, speed: 50 });
-  // viewport slice-shift filter — hidden by default, local-only opt-in
-  const [sliceFx, setSliceFx] = useState(false);
+  // viewport slice-shift filter — on with the glitch, switchable off in the panel
+  const [sliceFx, setSliceFx] = useState(true);
+  /* SliceShift reads this off the root rather than taking a prop, since it sits
+     outside the hero. Driven from state so the default holds without the panel
+     ever being opened. */
+  useEffect(() => {
+    document.documentElement.dataset.dtSlice = sliceFx ? "1" : "0";
+  }, [sliceFx]);
   const unmountTimer = useRef<number | undefined>(undefined);
 
   // boot loader + logotype (static SVG wordmark)
@@ -313,16 +326,13 @@ export default function Hero() {
                 <span className="w-[24px] text-right text-[#B2B2B2]">{tweaks[key]}</span>
               </label>
             ))}
-            {/* viewport slice-shift filter (SliceShift.tsx) — off by default */}
+            {/* viewport slice-shift filter (SliceShift.tsx) — on by default */}
             <label className="dt-tweak-line mt-2 flex cursor-pointer items-center gap-2 text-[#8a8a8a]" style={{ animationDelay: "240ms" }}>
               <span className="w-[62px] uppercase">slice fx</span>
               <input
                 type="checkbox"
                 checked={sliceFx}
-                onChange={(e) => {
-                  setSliceFx(e.target.checked);
-                  document.documentElement.dataset.dtSlice = e.target.checked ? "1" : "0";
-                }}
+                onChange={(e) => setSliceFx(e.target.checked)}
                 className="accent-ink"
               />
               <span className="flex-1 text-right text-[#B2B2B2]">{sliceFx ? "ON" : "OFF"}</span>
@@ -336,6 +346,7 @@ export default function Hero() {
         <h1
           ref={logoRef}
           data-bug="logotype"
+          data-no-slice
           aria-label="Different Thinking"
           className={`pointer-events-none absolute bottom-[clamp(52px,9svh,96px)] left-[var(--gutter)] right-[var(--gutter)] z-[2] ${
             lettersLive ? "dt-logo-live" : "invisible"

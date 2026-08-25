@@ -5,7 +5,7 @@
    that's what keeps it feeling art-directed instead of broken. While the glitch is
    OPEN the page is "infected": cadence jumps to ~1.6-4.8s, episodes sometimes
    double-fire, and the onOnly episodes (rgb-split, selection-invert) join the
-   rotation. Also here: text links scramble briefly on hover. Ambient (not
+   rotation. Also here: every text link scrambles briefly on hover. Ambient (not
    scheduled): the missing_texture.png tile (static, in page.tsx).
 
    Review API (browser console):
@@ -39,7 +39,10 @@ export default function Bugs() {
     /* replace a few characters, twice, then restore */
     const scramble = (el: HTMLElement, dur: number): boolean => {
       const orig = el.textContent || "";
-      if (el.dataset.dtOrig !== undefined || orig.trim().length < 4) return false;
+      // dtFx = TextFx is mid-effect on this element, so textContent is not the
+      // clean text and must not be snapshotted as if it were
+      if (el.dataset.dtOrig !== undefined || el.dataset.dtFx !== undefined) return false;
+      if (orig.trim().length < 4) return false;
       el.dataset.dtOrig = orig;
       const pass = () => {
         const chars = orig.split("");
@@ -273,10 +276,12 @@ export default function Bugs() {
       },
     ];
 
-    // hover interaction: text links scramble briefly when the cursor lands on them
+    /* hover interaction: any text link scrambles briefly when the cursor lands
+       on it. Text-only links, since scramble writes textContent and would
+       otherwise wipe out an anchor's child elements for good. */
     const onHover = (e: Event) => {
-      const a = (e.target as HTMLElement | null)?.closest?.("nav a, .article-col .wl") as HTMLElement | null;
-      if (a) scramble(a, 240);
+      const a = (e.target as HTMLElement | null)?.closest?.("a") as HTMLElement | null;
+      if (a && a.children.length === 0) scramble(a, 240);
     };
     document.addEventListener("mouseover", onHover, { passive: true });
 
@@ -304,7 +309,7 @@ export default function Bugs() {
       return false;
     };
     const runRandom = () => {
-      const on = q("button[aria-pressed]")?.getAttribute("aria-pressed") === "true"; // infection = the toggle, not the canvas
+      const on = document.documentElement.dataset.dtGlitch === "1"; // infection = the toggle, not the canvas
       const pool = episodes.filter((e) => !muted.has(e.id) && (!e.onOnly || on));
       fireOne(pool);
       // while open: much denser cadence, sometimes a rapid second hit

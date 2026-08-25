@@ -62,7 +62,7 @@ export default function DataTexture() {
       // Keyed on the toggle state (not canvas presence) so the OUT starts the
       // moment the glitch is switched off, not after the canvas unmounts.
       if (frame++ % 5 === 0) {
-        const on = document.querySelector("button[aria-pressed]")?.getAttribute("aria-pressed") === "true";
+        const on = document.documentElement.dataset.dtGlitch === "1";
         for (let i = 0; i < els.length; i++) els[i].classList.toggle("dt-tex-on", on);
       }
       const y = Math.min(window.scrollY, window.innerHeight * 1.5);
