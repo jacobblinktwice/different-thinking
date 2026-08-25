@@ -1,8 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import NavIndex from "../NavIndex";
 import Footer from "../Footer";
 import BugOutline from "../BugOutline";
+import CodeNote from "../CodeNote";
 import PixelPortrait from "./PixelPortrait";
+import RewriteHeading from "./RewriteHeading";
 
 export const metadata = {
   title: "About — Different Thinking",
@@ -10,13 +13,14 @@ export const metadata = {
 };
 
 const TEAM = [
-  { name: "David Lyria", role: "Co-Founder and CEO", email: "david@differentthinking.ai" },
-  { name: "Jack Bleakley", role: "Co-Founder and Chief Designer Officer", email: "jack@differentthinking.ai" },
+  { name: "David Lyria", role: "Co-Founder and CEO", email: "david@differentthinking.ai", photo: "/images/about/david-lyria.png" },
+  { name: "Jack Bleakley", role: "Co-Founder and Chief Designer Officer", email: "jack@differentthinking.ai", photo: "/images/about/jack-bleakley.png" },
 ];
 
 /* About — Exposure headline, intro columns, pixel-reveal team portraits,
-   research/product columns, a full-width media placeholder, the trails, the
-   large-scale bug OUTLINE, and the closing line. */
+   research/product columns (the first heading rewrites its second word), the
+   full-width campaign environment, the trails, the large-scale bug OUTLINE, and
+   the closing line. Code-dialect notes sit in the empty column-1 space. */
 export default function AboutPage() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
@@ -63,10 +67,13 @@ export default function AboutPage() {
 
         {/* intro columns */}
         <div className="mt-[clamp(32px,6vh,72px)] grid grid-cols-1 gap-y-8 md:grid-cols-3 lg:grid-cols-5">
-          <p className="t-body leading-[1.4] tracking-[0] text-[#6E6E6E] md:pr-8">
-            In software, a bug is an unplanned behaviour you hunt down and remove. For a century the world has filed
-            neurodivergent minds the same way.
-          </p>
+          <div className="md:pr-8">
+            <p className="t-body leading-[1.4] tracking-[0] text-[#6E6E6E]">
+              In software, a bug is an unplanned behaviour you hunt down and remove. For a century the world has filed
+              neurodivergent minds the same way.
+            </p>
+            <CodeNote snippet="bugIsFeature" className="mt-[clamp(24px,4vh,48px)]" />
+          </div>
           <p className="t-body leading-[1.4] tracking-[0] text-[#6E6E6E] md:col-span-2 md:pr-8 lg:col-span-2">
             Different Thinking exists to end the waste of neurodiverse potential. Somewhere between 15 and 20 percent
             of people are neurodivergent. That&apos;s who we are designing for. We build products designed around
@@ -79,7 +86,7 @@ export default function AboutPage() {
         <div className="mt-[clamp(56px,10vh,130px)] grid grid-cols-1 gap-y-12 md:grid-cols-3 lg:grid-cols-5">
           {TEAM.map((t, i) => (
             <div key={t.name} className={`md:pr-8 ${i === 1 ? "md:col-start-3 lg:col-start-4" : "md:col-start-1 lg:col-start-2"}`}>
-              <PixelPortrait />
+              <PixelPortrait src={t.photo} alt={t.name} />
               <p className="t-body mt-4 leading-[1.4] tracking-[0] text-ink">{t.name}</p>
               <p className="t-body leading-[1.4] tracking-[0] text-[#6E6E6E]">{t.role}</p>
               <a
@@ -96,14 +103,15 @@ export default function AboutPage() {
             the big single words overflow their column like the mock, and the
             copy drops one header line so it sits beside the second word */}
         <div className="mt-[clamp(64px,12vh,160px)] grid grid-cols-1 gap-y-12 md:grid-cols-3 lg:grid-cols-5 lg:gap-y-0">
-          <h2 className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(28px,3.3vw,64px)] leading-[1.08] tracking-[-0.06em] md:col-start-1 lg:col-start-1">
-            Neurological Research
-          </h2>
+          <div className="md:col-start-1 lg:col-start-1">
+            <RewriteHeading className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(28px,3.3vw,64px)] leading-[1.08] tracking-[-0.08em]" />
+            <CodeNote snippet="oneInFive" className="mt-[clamp(24px,4vh,48px)]" />
+          </div>
           <p className="t-body leading-[1.4] tracking-[0] text-[#6E6E6E] md:col-start-2 md:pr-8 lg:col-start-2 lg:pt-[clamp(28px,3.3vw,64px)]">
             Different Thinking exists to end the waste of neurodiverse potential. Somewhere between 15 and 20 percent
             of people are neurodivergent. That&apos;s who we are designing for.
           </p>
-          <h2 className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(28px,3.3vw,64px)] leading-[1.08] tracking-[-0.06em] md:col-start-1 lg:col-start-3">
+          <h2 className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(28px,3.3vw,64px)] leading-[1.08] tracking-[-0.08em] md:col-start-1 lg:col-start-3">
             {/* non-breaking hyphen: the word overflows its column in one piece */}
             Neuro&#8209;atypical Products
           </h2>
@@ -114,12 +122,16 @@ export default function AboutPage() {
         </div>
       </header>
 
-      {/* full-width media placeholder */}
+      {/* full-width campaign environment (16:9, the asset's native ratio) */}
       <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)]">
-        <div className="relative aspect-[16/7] w-full bg-[#ececea]">
-          <span className="absolute bottom-3 left-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
-            [ PLACEHOLDER :: CAMPAIGN_ENV ]
-          </span>
+        <div className="relative aspect-video w-full overflow-hidden bg-[#ececea]">
+          <Image
+            src="/images/about/campaign-env.png"
+            alt="Different Thinking posters running as digital OOH in a transit concourse"
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
         </div>
       </section>
 

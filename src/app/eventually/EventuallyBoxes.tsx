@@ -1,17 +1,22 @@
 "use client";
 
-/* Eventually — the centre stack of draggable artefact windows (placeholders
-   until the campaign assets land). Same window language as the homepage:
-   filename header + ✕, drag anywhere, grab raises. Scattered down a tall
-   centre band on md+; stacked and static on mobile. */
+/* Eventually — the centre stack of draggable artefact windows carrying the
+   campaign assets. Same window language as the homepage: filename header + ✕,
+   drag anywhere, grab raises. Scattered down a tall centre band on md+;
+   stacked and static on mobile.
+
+   `name` is the window chrome's filename (part of the design language) and is
+   deliberately not the asset path. `ratio` matches each source's native aspect
+   so object-cover never crops. */
+import Image from "next/image";
 import { useEffect, useRef } from "react";
 
-const BOXES: { name: string; left: string; top: string; w: string; ratio: string }[] = [
-  { name: "eventually-campaign-hero.png", left: "6%", top: "0%", w: "clamp(300px,38vw,600px)", ratio: "4 / 5" },
-  { name: "eventually-mark.svg", left: "32%", top: "26%", w: "clamp(240px,27vw,440px)", ratio: "1 / 1" },
-  { name: "eventually-ooh-poster.png", left: "62%", top: "32%", w: "clamp(240px,26vw,420px)", ratio: "3 / 4" },
-  { name: "eventually-app-preview.png", left: "10%", top: "50%", w: "clamp(200px,21vw,340px)", ratio: "2 / 3" },
-  { name: "eve-packaging.png", left: "38%", top: "66%", w: "clamp(220px,24vw,400px)", ratio: "4 / 5" },
+const BOXES: { name: string; left: string; top: string; w: string; ratio: string; src: string; alt: string }[] = [
+  { name: "eventually-campaign-hero.png", left: "6%", top: "0%", w: "clamp(300px,38vw,600px)", ratio: "2565 / 3132", src: "/images/eventually/hero.png", alt: "Eventually campaign hero — phone held up showing the app" },
+  { name: "eventually-mark.svg", left: "32%", top: "26%", w: "clamp(240px,27vw,440px)", ratio: "3085 / 3265", src: "/images/eventually/mark.png", alt: "The Eventually dot mark" },
+  { name: "eventually-ooh-poster.png", left: "62%", top: "32%", w: "clamp(240px,26vw,420px)", ratio: "1537 / 2551", src: "/images/eventually/poster.png", alt: "Eventually poster — Unlock Your Neurodiverse Potential" },
+  { name: "eventually-app-preview.png", left: "10%", top: "50%", w: "clamp(200px,21vw,340px)", ratio: "1488 / 2175", src: "/images/eventually/app-scans.png", alt: "Eventually app screen showing friends' voice scans" },
+  { name: "eve-packaging.png", left: "38%", top: "66%", w: "clamp(220px,24vw,400px)", ratio: "1464 / 2151", src: "/images/eventually/packaging.png", alt: "The eve keychain in its packaging" },
 ];
 
 export default function EventuallyBoxes() {
@@ -86,10 +91,16 @@ export default function EventuallyBoxes() {
                 ✕
               </button>
             </div>
-            <div className="relative w-full bg-[#ececea]" style={{ aspectRatio: b.ratio }}>
-              <span className="absolute bottom-3 left-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
-                [ PLACEHOLDER :: IMG_0{i + 1} ]
-              </span>
+            <div className="relative w-full overflow-hidden bg-[#ececea]" style={{ aspectRatio: b.ratio }}>
+              <Image
+                src={b.src}
+                alt={b.alt}
+                fill
+                draggable={false}
+                priority={i === 0}
+                sizes="(max-width: 768px) 100vw, 38vw"
+                className="select-none object-cover"
+              />
             </div>
           </div>
         ))}

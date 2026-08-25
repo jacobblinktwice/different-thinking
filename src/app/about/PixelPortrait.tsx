@@ -5,8 +5,9 @@
    pixel size shrinks with scroll progress (24px blocks → sharp). Redraws only
    on scroll ticks while near the viewport — no persistent loop.
 
-   Until the real team photos land, the source is a procedurally-drawn
-   head-and-shoulders silhouette; pass `src` to use a photo instead. */
+   `src` is the portrait photo, cover-fitted into the 5:6 canvas. Without one
+   the source falls back to a procedurally-drawn head-and-shoulders
+   silhouette. */
 import { useEffect, useRef } from "react";
 
 const W = 320;
@@ -28,7 +29,7 @@ function drawSilhouette(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(W * 0.16, H * 0.86, W * 0.68, H * 0.14);
 }
 
-export default function PixelPortrait({ src }: { src?: string }) {
+export default function PixelPortrait({ src, alt }: { src?: string; alt?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -101,5 +102,14 @@ export default function PixelPortrait({ src }: { src?: string }) {
     };
   }, [src]);
 
-  return <canvas ref={ref} className="block h-auto w-full" style={{ imageRendering: "pixelated" }} />;
+  return (
+    <canvas
+      ref={ref}
+      role="img"
+      aria-label={alt ? `Portrait of ${alt}` : undefined}
+      aria-hidden={alt ? undefined : true}
+      className="block h-auto w-full"
+      style={{ imageRendering: "pixelated" }}
+    />
+  );
 }
