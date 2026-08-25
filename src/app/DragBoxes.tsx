@@ -28,9 +28,9 @@ type Win = {
    deliberately not the asset path. `ratio` matches each source's native aspect
    so object-cover never crops. */
 const BASE: Omit<Win, "z">[] = [
-  { id: 0, name: "the-activator.jpg", left: "2%", top: "4%", w: "clamp(280px,36vw,540px)", ratio: "489 / 577", label: "IMG_01", src: "/images/home/activator.png", alt: "The activator — soft teal orb form" },
-  { id: 1, name: "OOH_final_final.png", left: "52%", top: "16%", w: "clamp(260px,34vw,500px)", ratio: "463 / 576", label: "IMG_02", src: "/images/home/ooh-poster.png", alt: "Eventually poster pasted on a concrete wall" },
-  { id: 2, name: "arvo-keychain-ebd6337534b054fbe8.png", left: "14%", top: "56%", w: "clamp(220px,28vw,420px)", ratio: "392 / 576", label: "IMG_03", src: "/images/home/keychain.png", alt: "Hand holding the Eventually keychain" },
+  { id: 0, name: "the-activator.jpg", left: "2%", top: "4%", w: "clamp(280px,36vw,540px)", ratio: "1467 / 1731", label: "IMG_01", src: "/images/home/activator.png", alt: "The activator — soft teal orb form" },
+  { id: 1, name: "OOH_final_final.png", left: "52%", top: "16%", w: "clamp(260px,34vw,500px)", ratio: "1389 / 1728", label: "IMG_02", src: "/images/home/ooh-poster.png", alt: "Eventually poster pasted on a concrete wall" },
+  { id: 2, name: "arvo-keychain-ebd6337534b054fbe8.png", left: "14%", top: "56%", w: "clamp(220px,28vw,420px)", ratio: "1176 / 1728", label: "IMG_03", src: "/images/home/keychain.png", alt: "Hand holding the Eventually keychain" },
 ];
 
 /* glitchy OS-pile filenames for spawned popups */

@@ -1,12 +1,14 @@
 "use client";
 
 /* "Neurodiverse Research" — the second word is rewritten on a loop: GSAP
-   backspaces it a character at a time, then types the next one in. The word
+   backspaces it a character at a time, then types the next one in, with a
+   blinking block caret sitting at the insertion point throughout. The word
    always sits on its own line (forced break + a zero-width space holding the
    line box open) so nothing below shifts while the word is mid-delete.
 
    The timeline only runs while the heading is on screen, and holds on the first
-   word entirely under prefers-reduced-motion. */
+   word entirely under prefers-reduced-motion (the caret stops blinking too —
+   see .dt-caret in globals.css). */
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 
@@ -73,6 +75,7 @@ export default function RewriteHeading({ className = "" }: { className?: string 
       Neurodiverse
       <span className="block whitespace-nowrap">
         <span ref={wordRef}>{WORDS[0]}</span>
+        <span aria-hidden className="dt-caret" />
         {/* zero-width space: keeps the line box open at zero characters */}
         &#8203;
       </span>

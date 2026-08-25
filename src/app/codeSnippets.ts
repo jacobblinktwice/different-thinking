@@ -25,6 +25,14 @@ export const SNIPPETS = {
   baseline: "CONST BASELINE = YOUR_OWN;\n// NOT A NEUROTYPICAL IDEAL",
   deficitModel: "DELETE DEFICIT_MODEL;\n// KEPT: THE MINDS",
 
+  /* the trails (About) — the dots trail further each line, as before */
+  followTrails:
+    "FOLLOW(THE_TRAILS)...\n" +
+    "FOLLOW(THE_TRAILS).......\n" +
+    "FOLLOW(THE_TRAILS)..............\n" +
+    "FOLLOW(THE_TRAILS).....................\n" +
+    "FOLLOW(THE_TRAILS).............................",
+
   /* the mission */
   oneInFive: "CONST MINDS = 1 / 5;\n// FILED UNDER BUGS FOR A CENTURY",
   findNameBuild: "FIND(HOW_YOUR_MIND_CREATES_VALUE);\nNAME(IT);\nBUILD(A_LIFE_AROUND_IT);",

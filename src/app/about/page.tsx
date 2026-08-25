@@ -155,25 +155,24 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* the trails */}
+      {/* the trails, in the dialect */}
       <section className="relative z-[1] mt-[clamp(48px,8vh,100px)] px-[var(--gutter)]">
-        {["...", ".......", "..............", ".....................", "............................."].map((dots, i) => (
-          <p key={i} className="t-body leading-[1.7] tracking-[0] text-ink">
-            Follow the trails{dots}
-          </p>
-        ))}
+        <CodeNote snippet="followTrails" />
       </section>
 
-      {/* large-scale bug outline */}
-      <section aria-hidden className="relative z-[1] mt-[clamp(40px,6vh,80px)] px-[var(--gutter)]">
-        <BugOutline className="h-auto w-full text-ink" />
-      </section>
-
-      {/* closing line */}
-      <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)] pb-[clamp(40px,6vh,80px)]">
+      {/* closing line — sits above the outline, which now closes the page */}
+      <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)]">
         <p className="text-ink [font-family:Exposure,var(--font-sans)] text-[96px] leading-[1] tracking-[-0.1em]">
           Your Bugs are Cool.
         </p>
+      </section>
+
+      {/* large-scale bug outline */}
+      <section
+        aria-hidden
+        className="relative z-[1] mt-[clamp(40px,6vh,80px)] px-[var(--gutter)] pb-[clamp(40px,6vh,80px)]"
+      >
+        <BugOutline className="h-auto w-full text-ink" />
       </section>
 
       <Footer />

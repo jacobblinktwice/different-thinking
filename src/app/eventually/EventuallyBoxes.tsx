@@ -13,9 +13,9 @@ import { useEffect, useRef } from "react";
 
 const BOXES: { name: string; left: string; top: string; w: string; ratio: string; src: string; alt: string }[] = [
   { name: "eventually-campaign-hero.png", left: "6%", top: "0%", w: "clamp(300px,38vw,600px)", ratio: "2565 / 3132", src: "/images/eventually/hero.png", alt: "Eventually campaign hero — phone held up showing the app" },
-  { name: "eventually-mark.svg", left: "32%", top: "26%", w: "clamp(240px,27vw,440px)", ratio: "3085 / 3265", src: "/images/eventually/mark.png", alt: "The Eventually dot mark" },
-  { name: "eventually-ooh-poster.png", left: "62%", top: "32%", w: "clamp(240px,26vw,420px)", ratio: "1537 / 2551", src: "/images/eventually/poster.png", alt: "Eventually poster — Unlock Your Neurodiverse Potential" },
-  { name: "eventually-app-preview.png", left: "10%", top: "50%", w: "clamp(200px,21vw,340px)", ratio: "1488 / 2175", src: "/images/eventually/app-scans.png", alt: "Eventually app screen showing friends' voice scans" },
+  { name: "eventually-mark.svg", left: "32%", top: "26%", w: "clamp(240px,27vw,440px)", ratio: "1827 / 1935", src: "/images/eventually/mark.png", alt: "The Eventually dot mark" },
+  { name: "eventually-ooh-poster.png", left: "62%", top: "32%", w: "clamp(240px,26vw,420px)", ratio: "1530 / 2536", src: "/images/eventually/poster.png", alt: "Eventually poster — Unlock Your Neurodiverse Potential" },
+  { name: "eventually-app-preview.png", left: "10%", top: "50%", w: "clamp(200px,21vw,340px)", ratio: "1464 / 2151", src: "/images/eventually/app-scans.png", alt: "Eventually app screen showing friends' voice scans" },
   { name: "eve-packaging.png", left: "38%", top: "66%", w: "clamp(220px,24vw,400px)", ratio: "1464 / 2151", src: "/images/eventually/packaging.png", alt: "The eve keychain in its packaging" },
 ];
 

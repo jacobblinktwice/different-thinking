@@ -119,6 +119,35 @@ nav a:hover,
   text-decoration: none;
 }
 
+/* ===== terminal caret for the rewriting heading =====
+   A block cursor that snaps on and off — steps(1) rather than a fade, so it
+   reads as a terminal rather than a pulse. Sized in em so it tracks whatever
+   font-size the heading is at. */
+@keyframes dt-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+.dt-caret {
+  display: inline-block;
+  width: 0.32em;
+  height: 0.62em;
+  margin-left: 0.06em;
+  background-color: currentColor;
+  animation: dt-caret 1.06s steps(1, end) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* holds solid instead of blinking — still marks the insertion point */
+  .dt-caret {
+    animation: none;
+  }
+}
+
 /* ===== display serif (Exposure) — the large parallax typography that
    underlays the manifesto columns ===== */
 @font-face {
