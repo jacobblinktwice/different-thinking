@@ -16,7 +16,7 @@ const DIRECT = [
 ];
 
 /* Contact — the footer's question taken as the page: Exposure headline, the
-   intro (code note in column 1, copy in 2-3), the editable dialect block that
+   intro (code note in column 1, copy in 2-3), the draggable dialect block that
    composes the mail, then the direct lines and what to expect back. */
 export default function ContactPage() {
   return (
@@ -90,7 +90,7 @@ export default function ContactPage() {
 
       {/* direct lines: the general address at scale, the founders in the dialect,
           and what comes back — one per column band */}
-      <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)]">
+      <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)] pb-[clamp(48px,8vh,110px)]">
         <div className="grid grid-cols-1 gap-y-12 md:grid-cols-3 lg:grid-cols-5">
           <div className="md:col-span-2 lg:col-span-2 lg:pr-8">
             <p className="t-body leading-[1.4] tracking-[0] text-ink">Or just write to us directly.</p>
@@ -129,13 +129,6 @@ export default function ContactPage() {
         </div>
 
         <div className="mt-16 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">{"// SRC: CONTACT.MD"}</div>
-      </section>
-
-      {/* closing line, same scale as the headline */}
-      <section className="relative z-[1] mt-[clamp(48px,8vh,110px)] px-[var(--gutter)] pb-[clamp(40px,6vh,80px)]">
-        <p className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(44px,8.9vw,128px)] leading-[1] tracking-[-0.1em]">
-          We&apos;re working as intended.
-        </p>
       </section>
 
       <Footer />

@@ -7,13 +7,14 @@
    parallax) so the layer drifts against the text above it. Desktop only. */
 import { useEffect, useRef } from "react";
 
-/* super-subtle drift: a few px of separation across a full scroll, nothing more */
+/* the layer drifts a couple of hundred px against the columns across the
+   article, so the overlap keeps rearranging as you read */
 const FRAGMENTS: { text: string; left: string; top: string; f: number; rate: number }[] = [
-  { text: "For all kinds", left: "8%", top: "10%", f: -0.015, rate: 6 },
-  { text: "with", left: "16%", top: "40%", f: -0.03, rate: 6 },
-  { text: "of people", left: "44%", top: "28%", f: -0.02, rate: 6 },
-  { text: "all kinds", left: "40%", top: "58%", f: -0.035, rate: 6 },
-  { text: "of minds", left: "58%", top: "80%", f: -0.025, rate: 6 },
+  { text: "For all kinds", left: "8%", top: "10%", f: -0.045, rate: 6 },
+  { text: "with", left: "16%", top: "40%", f: -0.09, rate: 6 },
+  { text: "of people", left: "44%", top: "28%", f: -0.06, rate: 6 },
+  { text: "all kinds", left: "40%", top: "58%", f: -0.105, rate: 6 },
+  { text: "of minds", left: "58%", top: "80%", f: -0.075, rate: 6 },
 ];
 
 export default function ArticleType() {

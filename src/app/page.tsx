@@ -104,7 +104,7 @@ export default function Home() {
                  across columns so the four columns balance to equal height. */
               <div
                 key={i}
-                className="article-col t-body leading-[1.4] tracking-[0] text-[#6E6E6E] md:pr-8 [&_.wl]:underline [&_.wl]:decoration-[#6E6E6E]"
+                className="article-col t-body leading-[1.4] tracking-[0] text-[#8E8E8E] md:pr-8 [&_.wl]:underline [&_.wl]:decoration-[#8E8E8E]"
               >
                 {/* inner wrapper = the reveal target */}
                 <div className="article-inner" dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }} />
@@ -121,7 +121,7 @@ export default function Home() {
           </div>
         </div>
         <div data-bug="src" className="mt-16 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
-          // SRC: MANIFESTO.MD
+          {"// SRC: MANIFESTO.MD"}
         </div>
         {/* tablet/mobile: the repeated menu sits after the paragraphs + src line */}
         <div className="mt-16 lg:hidden">

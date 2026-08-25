@@ -45,7 +45,6 @@ const SPAWN_NAMES = [
   (n: number) => `asset_export_${n}.jpg`,
 ];
 const SPAWN_W = [220, 260, 300, 200, 340];
-const SPAWN_RATIOS = ["4 / 5", "1 / 1", "3 / 4", "16 / 10", "2 / 3"];
 
 export default function DragBoxes() {
   const zTop = useRef(10);
@@ -55,6 +54,9 @@ export default function DragBoxes() {
   const spawn = () => {
     const n = ++count.current;
     const i = n - 1;
+    // popups are the section's own three artefacts coming back round, each at
+    // its native ratio so the pile never crops them
+    const art = BASE[i % BASE.length];
     // Windows-dialog cascade: each popup steps down-right from the last,
     // wrapping so the pile keeps building; a little jitter keeps it glitchy
     const left = 16 + ((i * 4.2) % 52) + Math.random() * 3;
@@ -67,8 +69,10 @@ export default function DragBoxes() {
         left: `${left.toFixed(1)}%`,
         top: `${top.toFixed(1)}%`,
         w: `${SPAWN_W[i % SPAWN_W.length]}px`,
-        ratio: SPAWN_RATIOS[i % SPAWN_RATIOS.length],
+        ratio: art.ratio,
         label: `POPUP_${String(n).padStart(2, "0")}`,
+        src: art.src,
+        alt: art.alt,
         z: ++zTop.current,
         spawned: true,
       },

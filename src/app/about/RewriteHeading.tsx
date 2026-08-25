@@ -1,6 +1,6 @@
 "use client";
 
-/* "Neurological Research" — the second word is rewritten on a loop: GSAP
+/* "Neurodiverse Research" — the second word is rewritten on a loop: GSAP
    backspaces it a character at a time, then types the next one in. The word
    always sits on its own line (forced break + a zero-width space holding the
    line box open) so nothing below shifts while the word is mid-delete.
@@ -70,7 +70,7 @@ export default function RewriteHeading({ className = "" }: { className?: string 
 
   return (
     <h2 ref={hostRef} className={className}>
-      Neurological
+      Neurodiverse
       <span className="block whitespace-nowrap">
         <span ref={wordRef}>{WORDS[0]}</span>
         {/* zero-width space: keeps the line box open at zero characters */}

@@ -7,8 +7,9 @@
    press it.
 
    Panel chrome is the site's window language (bg-paper + the soft drop shadow +
-   the filename header), but it doesn't drag: the draggable windows are
-   artefacts to be thrown around, and this one is being typed into.
+   the filename header), and it drags by that header only — grabbing the body
+   would fight selecting and editing the text inside it. Dragging moves the
+   panel by transform, so it keeps its place in the grid.
 
    The dialect is ALL CAPS; the visitor's own words are the one thing on the
    page that isn't. That's deliberate twice over — it reads as the human
@@ -29,6 +30,9 @@ export default function ComposeMail({ className = "" }: { className?: string }) 
   const [msg, setMsg] = useState("");
   const [note, setNote] = useState(IDLE);
   const msgRef = useRef<HTMLTextAreaElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const pos = useRef({ x: 0, y: 0 });
+  const drag = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
 
   const send = () => {
     if (!msg.trim()) {
@@ -53,9 +57,31 @@ export default function ComposeMail({ className = "" }: { className?: string }) 
   };
 
   return (
-    <div className={`bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] ${className}`}>
-      {/* window header, same as the artefact windows */}
-      <div className="flex items-center justify-between px-3 py-2">
+    <div ref={panelRef} className={`relative bg-paper shadow-[0_10px_44px_rgba(0,0,0,0.08)] ${className}`}>
+      {/* window header, same as the artefact windows — and the drag handle */}
+      <div
+        className="flex cursor-grab touch-none select-none items-center justify-between px-3 py-2"
+        onPointerDown={(e) => {
+          drag.current = { px: e.clientX, py: e.clientY, x: pos.current.x, y: pos.current.y };
+          e.currentTarget.setPointerCapture(e.pointerId);
+          e.currentTarget.style.cursor = "grabbing";
+          e.preventDefault();
+        }}
+        onPointerMove={(e) => {
+          if (!drag.current || !panelRef.current) return;
+          pos.current.x = drag.current.x + (e.clientX - drag.current.px);
+          pos.current.y = drag.current.y + (e.clientY - drag.current.py);
+          panelRef.current.style.transform = `translate3d(${pos.current.x}px, ${pos.current.y}px, 0)`;
+        }}
+        onPointerUp={(e) => {
+          drag.current = null;
+          e.currentTarget.style.cursor = "";
+        }}
+        onPointerCancel={(e) => {
+          drag.current = null;
+          e.currentTarget.style.cursor = "";
+        }}
+      >
         <span className="font-sans text-[8px] tracking-[0.01em] text-[#6E6E6E]">compose.mail</span>
         <span className="font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">{"// LOCAL_DRAFT"}</span>
       </div>

@@ -166,12 +166,12 @@ export default function AboutPage() {
 
       {/* large-scale bug outline */}
       <section aria-hidden className="relative z-[1] mt-[clamp(40px,6vh,80px)] px-[var(--gutter)]">
-        <BugOutline className="mx-auto h-auto w-[min(92%,980px)] text-ink" />
+        <BugOutline className="h-auto w-full text-ink" />
       </section>
 
       {/* closing line */}
       <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)] pb-[clamp(40px,6vh,80px)]">
-        <p className="text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(44px,8.9vw,128px)] leading-[1] tracking-[-0.1em]">
+        <p className="text-ink [font-family:Exposure,var(--font-sans)] text-[96px] leading-[1] tracking-[-0.1em]">
           Your Bugs are Cool.
         </p>
       </section>
