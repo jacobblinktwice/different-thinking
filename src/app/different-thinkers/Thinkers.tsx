@@ -19,7 +19,12 @@ import { useEffect, useRef, useState } from "react";
    old labels were historical guesswork, and none of it is ours to assert.
 
    `died` is required on purpose — this page is historical figures only, so the
-   type refuses a living person rather than leaving it to whoever edits next. */
+   type refuses a living person rather than leaving it to whoever edits next.
+
+   `img` overrides the portrait. A page's lead image is usually right, but not
+   always: Turing's is a 1951 studio shot that is a third white backdrop, and
+   Cavendish's is a 388px engraving. Both sat pale and washed out against the
+   rest of the grid, so both point elsewhere. */
 type Thinker = {
   name: string;
   wiki: string;
@@ -28,13 +33,14 @@ type Thinker = {
   born: number;
   died: number;
   field: string;
+  img?: string;
 };
 
 const THINKERS: Thinker[] = [
   { name: "Albert Einstein", wiki: "Albert Einstein", expLabel: "THEORY OF RELATIVITY", expWiki: "Theory of relativity", born: 1879, died: 1955, field: "PHYSICS" },
   { name: "Isaac Newton", wiki: "Isaac Newton", expLabel: "PRINCIPIA", expWiki: "Philosophiæ Naturalis Principia Mathematica", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
   { name: "Steve Jobs", wiki: "Steve Jobs", expLabel: "IPHONE", expWiki: "IPhone (1st generation)", born: 1955, died: 2011, field: "TECHNOLOGY" },
-  { name: "Alan Turing", wiki: "Alan Turing", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION" },
+  { name: "Alan Turing", wiki: "Alan Turing", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION", img: "https://upload.wikimedia.org/wikipedia/commons/a/a1/Alan_Turing_Aged_16.jpg" },
   { name: "Thomas Edison", wiki: "Thomas Edison", expLabel: "LIGHT BULB", expWiki: "Incandescent light bulb", born: 1847, died: 1931, field: "INVENTION" },
   { name: "Charles Darwin", wiki: "Charles Darwin", expLabel: "ON THE ORIGIN OF SPECIES", expWiki: "On the Origin of Species", born: 1809, died: 1882, field: "BIOLOGY" },
   { name: "Emily Dickinson", wiki: "Emily Dickinson", expLabel: "HOPE IS THE THING WITH FEATHERS", expWiki: "Hope is the thing with feathers", born: 1830, died: 1886, field: "POETRY" },
@@ -47,7 +53,7 @@ const THINKERS: Thinker[] = [
   { name: "Leonardo da Vinci", wiki: "Leonardo da Vinci", expLabel: "MONA LISA", expWiki: "Mona Lisa", born: 1452, died: 1519, field: "ART / ENGINEERING" },
   /* Cavendish published natural philosophy under her own name in the 1660s, when
      women did not, and wrote what is often called the first science fiction. */
-  { name: "Margaret Cavendish", wiki: "Margaret Cavendish", expLabel: "THE BLAZING WORLD", expWiki: "The Blazing World", born: 1623, died: 1673, field: "NATURAL PHILOSOPHY" },
+  { name: "Margaret Cavendish", wiki: "Margaret Cavendish", expLabel: "THE BLAZING WORLD", expWiki: "The Blazing World", born: 1623, died: 1673, field: "NATURAL PHILOSOPHY", img: "https://upload.wikimedia.org/wikipedia/commons/d/d7/Margaret_Newcastle_1668_Grounds_frontis.jpg" },
 ];
 
 type Summary = { thumb: string | null; original: string | null; extract: string; url: string };
@@ -254,7 +260,7 @@ export default function Thinkers() {
   const bioSettled = !!open && person?.for === open.wiki;
   const bio = bioSettled ? person!.data : null;
   const artefact = !!open && exp?.for === open.expWiki ? exp!.data : null;
-  const portrait = bio?.original ?? null;
+  const portrait = open?.img ?? bio?.original ?? null;
 
   // open a dossier: load the person + their breakthrough
   useEffect(() => {
@@ -322,10 +328,10 @@ export default function Thinkers() {
             title={`${t.name} // ${t.field}`}
             className="group relative mr-3 aspect-square cursor-pointer overflow-hidden bg-[#ececea]"
           >
-            {thumbs[t.wiki] && (
+            {(t.img ?? thumbs[t.wiki]) && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={thumbs[t.wiki]}
+                src={t.img ?? thumbs[t.wiki]}
                 alt={t.name}
                 draggable={false}
                 className="h-full w-full object-cover grayscale transition-transform duration-300 ease-[var(--ease-snap)] group-hover:scale-[1.03]"
