@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Different Thinking
 
-## Getting Started
-
-First, run the development server:
+Marketing site for Different Thinking — Next.js (App Router) + Tailwind v4, with a
+WebGL glitch engine driving the hero and a small internal lab for authoring its
+compositions.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm run build    # production build
+npm run lint     # eslint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `LAB_KEY` | yes, to publish | Access code for `/lab`. Gates the write side of `/api/composition`. |
+| `BLOB_READ_WRITE_TOKEN` *or* `BLOB_STORE_ID` | production | Vercel Blob storage for the live glitch composition. Without one, `/api/composition` falls back to files under `.data/` in local dev, and refuses to write on Vercel. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local` for local work. **`LAB_KEY` must be set in the
+Vercel project** — the composition API fails closed without it, so `/lab` cannot
+publish. It is deliberately not baked into the bundle: it used to be a constant
+shared with the client, which shipped the secret to every visitor.
 
-## Learn More
+## Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Notes |
+| --- | --- |
+| `/` | Home — hero glitch (bug icon toggles it), manifesto, artefact windows |
+| `/about` | Team, research heading, campaign environment |
+| `/eventually` | First product |
+| `/different-thinkers` | Dossiers, sourced live from Wikipedia |
+| `/contact` | `compose.mail` panel — builds a `mailto:`, no endpoint |
+| `/lab` | Internal, access-code gated. Authors and publishes the glitch composition |
+| `/export4k` | Internal. Renders compositions to 4K stills |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Layout conventions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Pages share `PageGuides` (the six column hairlines), `PageChrome` (wordmark, strap,
+nav), `Credits` and `DragWindow` (the window language: chrome bar, drag, stacking).
+The brand code dialect lives in `codeSnippets.ts`, rendered through `CodeNote` —
+its rules are in `Misc/brand-code-snippets.md` on the shared drive.
 
-## Deploy on Vercel
+Imagery is WebP under `public/images/{home,about,eventually}`. Each window's
+`ratio` is its source's native aspect, so `object-cover` never crops; update it if
+you re-export at a different size.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/api/save-export` is development-only and 404s in production.
+- `exports/` is generated output and gitignored.

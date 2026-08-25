@@ -54,15 +54,13 @@ export function Glitch({
 }: GlitchProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GlitchEngine | null>(null);
-  const gainRef = useRef(1);
-  gainRef.current = gain ?? 1;
+  const gainRef = useRef(gain ?? 1);
   const burstRef = useRef(0); // 1 → 0 decaying spike, multiplies the global intensity
   const burstSeen = useRef(burst);
   const introTRef = useRef(Infinity); // seconds since the intro sweep started
   const introSeen = useRef(intro);
   const shownRef = useRef(shown ?? true);
   const appearRef = useRef(shown === undefined ? 1 : 0); // linear 0..1, eased per box in the engine
-  shownRef.current = shown ?? true;
 
   // live refs so the rAF loop always reads current props without re-initialising GL
   const cfgRef = useRef<BoxConfig[]>(config ?? defaultBoxes());
@@ -70,11 +68,20 @@ export function Glitch({
   const frontRef = useRef<FrontLayerConfig | null>(frontLayer === undefined ? defaultFrontLayer() : frontLayer);
   const modeRef = useRef<GlitchMode>(mode);
   const runRef = useRef<boolean>(running);
-  if (config) cfgRef.current = config;
-  if (layer !== undefined) layerRef.current = layer;
-  if (frontLayer !== undefined) frontRef.current = frontLayer;
-  modeRef.current = mode;
-  runRef.current = running;
+
+  /* Carry prop changes into those refs from an effect rather than during render,
+     which React 19 disallows. Each ref is already seeded with the first render's
+     value above, so this only forwards later changes — at most one frame behind,
+     which is invisible against a continuously animating canvas. */
+  useEffect(() => {
+    gainRef.current = gain ?? 1;
+    shownRef.current = shown ?? true;
+    if (config) cfgRef.current = config;
+    if (layer !== undefined) layerRef.current = layer;
+    if (frontLayer !== undefined) frontRef.current = frontLayer;
+    modeRef.current = mode;
+    runRef.current = running;
+  }, [gain, shown, config, layer, frontLayer, mode, running]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

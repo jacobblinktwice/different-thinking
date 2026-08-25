@@ -30,7 +30,10 @@ const buzz = (pattern: number | number[]) => {
 export default function Hero() {
   const [on, setOn] = useState(false);
   const onRef = useRef(false); // live glitch state for the rAF logotype loop
-  onRef.current = on;
+  // synced from an effect, not during render — see Glitch.tsx for the same pattern
+  useEffect(() => {
+    onRef.current = on;
+  }, [on]);
   const [canvasMounted, setCanvasMounted] = useState(false);
   const [burst, setBurst] = useState(0);
   const [intro, setIntro] = useState(0);

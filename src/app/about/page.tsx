@@ -1,11 +1,13 @@
 import Image from "next/image";
-import Link from "next/link";
-import NavIndex from "../NavIndex";
 import Footer from "../Footer";
 import BugOutline from "../BugOutline";
 import CodeNote from "../CodeNote";
+import PixelPortrait from "./PixelPortrait";
 import RewriteHeading from "./RewriteHeading";
-import TeamWindow from "./TeamWindow";
+import DragWindow from "../DragWindow";
+import PageGuides from "../PageGuides";
+import PageChrome from "../PageChrome";
+import Credits from "../Credits";
 
 export const metadata = {
   title: "About — Different Thinking",
@@ -20,7 +22,7 @@ const TEAM = [
     name: "David Lyria",
     role: "Co-Founder and CEO",
     email: "david@differentthinking.ai",
-    photo: "/images/about/david-lyria.png",
+    photo: "/images/about/david-lyria.webp",
     w: 538,
     h: 538,
     left: "-8%",
@@ -31,7 +33,7 @@ const TEAM = [
     name: "Jack Bleakley",
     role: "Co-Founder and Chief Design Officer",
     email: "jack@differentthinking.ai",
-    photo: "/images/about/jack-bleakley.png",
+    photo: "/images/about/jack-bleakley.webp",
     w: 536,
     h: 558,
     left: "56%",
@@ -43,45 +45,16 @@ const TEAM = [
 /* About — Exposure headline, the intro (code note in column 1, copy in 2-3),
    draggable pixel-reveal team portraits with their credits stacked in column 2,
    the rewriting research heading, the full-width campaign environment, the
-   trails, the large-scale bug OUTLINE, and the closing line. */
+   trails in the dialect, the closing line, and the large-scale bug OUTLINE
+   closing the page. */
 export default function AboutPage() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
-      {/* vertical guides, same tiers as the homepage */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-[var(--gutter)] right-[var(--gutter)] z-0"
-      >
-        {[0, 100].map((p) => (
-          <span key={p} className="absolute inset-y-0 w-px bg-[var(--guide)]" style={{ left: `${p}%` }} />
-        ))}
-        {[33.3333, 66.6667].map((p) => (
-          <span
-            key={p}
-            className="absolute inset-y-0 hidden w-px bg-[var(--guide)] md:block lg:hidden"
-            style={{ left: `${p}%` }}
-          />
-        ))}
-        {[20, 40, 60, 80].map((p) => (
-          <span
-            key={p}
-            className="absolute inset-y-0 hidden w-px bg-[var(--guide)] lg:block"
-            style={{ left: `${p}%` }}
-          />
-        ))}
-      </div>
+      <PageGuides />
 
       {/* page chrome */}
       <header className="relative z-[1] px-[var(--gutter)] pt-[clamp(20px,4vh,44px)]">
-        <div className="grid grid-cols-1 gap-y-6 md:grid-cols-3 lg:grid-cols-5">
-          <Link href="/" className="t-title w-fit font-medium tracking-[-0.02em]">
-            Your Bugs are Cool.
-          </Link>
-          <p className="t-body hidden text-balance leading-[1.4] tracking-[0] md:col-start-2 md:block lg:col-start-4">
-            An AI research lab building products for people who think differently.
-          </p>
-          <NavIndex className="max-md:hidden md:col-start-3 lg:col-start-5" />
-        </div>
+        <PageChrome />
 
         {/* headline */}
         <h1 className="mt-[clamp(48px,9vh,110px)] max-w-[16ch] text-ink [font-family:Exposure,var(--font-sans)] text-[clamp(44px,8.9vw,128px)] leading-[1.02] tracking-[-0.1em]">
@@ -107,27 +80,16 @@ export default function AboutPage() {
             {TEAM.map((t, i) => (
               <div key={t.name} className={i > 0 ? "mt-[clamp(72px,12vh,160px)]" : ""}>
                 {/* absolute on md+, so it lands on the scatter rather than here */}
-                <TeamWindow
-                  label={t.photo.split("/").pop()!.replace(".png", "")}
-                  photo={t.photo}
-                  alt={t.name}
-                  w={t.w}
-                  h={t.h}
+                <DragWindow
+                  label={t.photo.split("/").pop()!.replace(".webp", "")}
+                  closable
                   left={t.left}
                   top={t.top}
                   width={t.width}
-                />
-                <p className="t-body leading-[1.4] tracking-[0] text-ink">{t.name}</p>
-                <div className="mt-2 font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#6E6E6E]">
-                  <p>{`CONST ROLE = "${t.role.toUpperCase()}";`}</p>
-                  <p>
-                    {'MAIL("'}
-                    <a href={`mailto:${t.email}`} className="underline hover:text-ink">
-                      {t.email.toUpperCase()}
-                    </a>
-                    {'");'}
-                  </p>
-                </div>
+                >
+                  <PixelPortrait src={t.photo} alt={t.name} width={t.w} height={t.h} />
+                </DragWindow>
+                <Credits name={t.name} role={t.role} email={t.email} />
               </div>
             ))}
           </div>
@@ -146,7 +108,7 @@ export default function AboutPage() {
       <section className="relative z-[1] mt-[clamp(56px,10vh,130px)] px-[var(--gutter)]">
         <div className="relative aspect-video w-full overflow-hidden bg-[#ececea]">
           <Image
-            src="/images/about/campaign-env.png"
+            src="/images/about/campaign-env.webp"
             alt="Different Thinking posters running as digital OOH in a transit concourse"
             fill
             sizes="100vw"

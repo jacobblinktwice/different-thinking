@@ -1,8 +1,8 @@
-import Link from "next/link";
-import NavIndex from "../NavIndex";
 import Footer from "../Footer";
 import OrbMarquee from "./OrbMarquee";
 import EventuallyBoxes from "./EventuallyBoxes";
+import PageGuides from "../PageGuides";
+import PageChrome from "../PageChrome";
 
 export const metadata = {
   title: "Eventually — Different Thinking",
@@ -15,42 +15,11 @@ export const metadata = {
 export default function EventuallyPage() {
   return (
     <main className="relative flex flex-1 flex-col bg-white text-ink">
-      {/* vertical guides, same tiers as the homepage */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-[var(--gutter)] right-[var(--gutter)] z-[1]"
-      >
-        {[0, 100].map((p) => (
-          <span key={p} className="absolute inset-y-0 w-px bg-[var(--guide)]" style={{ left: `${p}%` }} />
-        ))}
-        {[33.3333, 66.6667].map((p) => (
-          <span
-            key={p}
-            className="absolute inset-y-0 hidden w-px bg-[var(--guide)] md:block lg:hidden"
-            style={{ left: `${p}%` }}
-          />
-        ))}
-        {[20, 40, 60, 80].map((p) => (
-          <span
-            key={p}
-            className="absolute inset-y-0 hidden w-px bg-[var(--guide)] lg:block"
-            style={{ left: `${p}%` }}
-          />
-        ))}
-      </div>
+      <PageGuides z="z-[1]" />
 
       {/* page chrome */}
       <header className="relative z-[2] px-[var(--gutter)] pt-[clamp(20px,4vh,44px)]">
-        <div className="grid grid-cols-1 gap-y-6 md:grid-cols-3 lg:grid-cols-5">
-          <Link href="/" className="t-title w-fit font-medium tracking-[-0.02em]">
-            Your Bugs are Cool.
-          </Link>
-          <p className="t-body hidden text-balance leading-[1.4] tracking-[0] md:col-start-2 md:block lg:col-start-4">
-            An AI research lab building products for people who think differently.
-          </p>
-          {/* max-md:hidden keeps NavIndex's own grid display intact on md+ */}
-          <NavIndex className="max-md:hidden md:col-start-3 lg:col-start-5" />
-        </div>
+        <PageChrome />
 
         {/* title + intro + credits on the grid */}
         <div className="mt-[clamp(48px,9vh,110px)] grid grid-cols-1 gap-y-8 md:grid-cols-3 lg:grid-cols-5">

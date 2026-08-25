@@ -9,6 +9,7 @@
    mode (private/public, tried in that order). Local dev falls back to plain
    files under .data/ (gitignored). */
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -18,8 +19,21 @@ export const dynamic = "force-dynamic";
 const COMP_PATH = "glitch/composition.json"; // the LIVE composition
 const SAVED_PATH = "glitch/saved.json"; // the lab's working save
 const VERS_PATH = "glitch/versions.json";
-const LAB_CODE = "rewired";
 const MAX_VERSIONS = 15;
+
+/* The write key lives in the environment, never in the bundle. It used to be a
+   constant shared with lab/page.tsx — a "use client" file — which shipped the
+   secret to every visitor, so anyone could read it out of the JS and publish a
+   composition live. Fails closed when LAB_KEY is unset: no key, no writes. */
+function authorised(req: Request): boolean {
+  const expected = process.env.LAB_KEY;
+  const got = req.headers.get("x-lab-key");
+  if (!expected || !got) return false;
+  const a = Buffer.from(got);
+  const b = Buffer.from(expected);
+  // timingSafeEqual demands equal lengths; comparing them first leaks only length
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 const hasBlob = () => !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 const localFile = (p: string) => path.join(process.cwd(), ".data", p.replace("/", "_"));
@@ -79,8 +93,16 @@ export async function GET() {
   });
 }
 
+/* Verify a key without writing anything, so the lab's unlock gate can check the
+   code it was given without the secret ever reaching the client. */
+export async function POST(req: Request) {
+  return authorised(req)
+    ? NextResponse.json({ ok: true })
+    : NextResponse.json({ ok: false, error: "denied" }, { status: 401 });
+}
+
 export async function PUT(req: Request) {
-  if (req.headers.get("x-lab-key") !== LAB_CODE) {
+  if (!authorised(req)) {
     return NextResponse.json({ ok: false, error: "denied" }, { status: 401 });
   }
   if (!hasBlob() && process.env.VERCEL) {

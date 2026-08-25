@@ -66,34 +66,48 @@ const EyeOffIcon = (
   </svg>
 );
 
-/* The lab is not linked publicly and sits behind a lightweight access code
-   (session-scoped — a fresh browser session asks again). */
-const LAB_CODE = "rewired";
-const LAB_KEY = "dt-lab-key";
+/* The lab is not linked publicly and sits behind an access code held in
+   LAB_KEY on the server. The code is never compiled into this bundle — the
+   typed value is checked by the API and then kept for the session so the
+   publish calls can present it. */
+const LAB_STORE = "dt-lab-key";
 
 export default function LabGate() {
-  const [unlocked, setUnlocked] = useState(false);
+  const [key, setKey] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [denied, setDenied] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     try {
-      if (sessionStorage.getItem(LAB_KEY) === "1") setUnlocked(true);
+      const saved = sessionStorage.getItem(LAB_STORE);
+      if (saved) setKey(saved);
     } catch {
       /* storage unavailable */
     }
   }, []);
 
-  if (unlocked) return <LabPage />;
+  if (key) return <LabPage labKey={key} />;
 
-  const submit = () => {
-    if (text.trim().toLowerCase() === LAB_CODE) {
+  const submit = async () => {
+    const candidate = text.trim();
+    if (!candidate || checking) return;
+    setChecking(true);
+    let ok = false;
+    try {
+      const res = await fetch("/api/composition", { method: "POST", headers: { "x-lab-key": candidate } });
+      ok = res.ok;
+    } catch {
+      ok = false; // offline or route unreachable — treat as denied
+    }
+    setChecking(false);
+    if (ok) {
       try {
-        sessionStorage.setItem(LAB_KEY, "1");
+        sessionStorage.setItem(LAB_STORE, candidate);
       } catch {
         /* storage unavailable */
       }
-      setUnlocked(true);
+      setKey(candidate);
     } else {
       setDenied(true);
       setText("");
@@ -112,10 +126,17 @@ export default function LabGate() {
           spellCheck={false}
           autoComplete="off"
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void submit();
+          }}
           className="w-40 border-b border-neutral-600 bg-transparent px-1 py-0.5 text-paper outline-none focus:border-paper"
         />
-        <button type="button" onClick={submit} className="cursor-pointer px-2 py-0.5 text-neutral-400 hover:text-paper">
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={checking}
+          className="cursor-pointer px-2 py-0.5 text-neutral-400 hover:text-paper disabled:opacity-50"
+        >
           [ enter ]
         </button>
       </div>
@@ -132,7 +153,7 @@ const BTN =
   "cursor-pointer bg-[#f2f2ef] px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-neutral-600 hover:bg-ink hover:text-paper";
 const BTN_ON = "cursor-pointer bg-ink px-3 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-paper";
 
-function LabPage() {
+function LabPage({ labKey }: { labKey: string }) {
   const [boxes, setBoxes] = useState<BoxConfig[]>(() => defaultBoxes());
   const [active, setActive] = useState<number | "layer" | "front">(0);
   const [mode, setMode] = useState<GlitchMode>("grid");
@@ -223,7 +244,7 @@ function LabPage() {
     try {
       const res = await fetch("/api/composition", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-lab-key": LAB_CODE },
+        headers: { "Content-Type": "application/json", "x-lab-key": labKey },
         body: JSON.stringify({ action, snap }),
       });
       const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; versions?: VersionEntry[] } | null;
