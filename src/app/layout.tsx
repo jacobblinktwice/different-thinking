@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import LinkScramble from "./LinkScramble";
 
 const neueMontreal = localFont({
   src: "../fonts/NeueMontreal-Regular.otf",
@@ -21,7 +22,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${neueMontreal.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/* hover scramble on every link, on every page */}
+        <LinkScramble />
+      </body>
     </html>
   );
 }

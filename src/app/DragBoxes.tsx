@@ -102,7 +102,9 @@ export default function DragBoxes() {
         <button
           type="button"
           onClick={spawn}
-          className="pointer-events-auto cursor-pointer [font-family:Exposure,var(--font-sans)] text-[clamp(56px,7.5vw,128px)] leading-none tracking-[-0.1em] text-ink transition-colors duration-150 ease-[var(--ease-snap)] hover:text-blue active:scale-[0.98]"
+          /* dt-cmd opts it into the global link sweep; the sweep ends on blue
+             so the old hover:text-blue would be fighting it */
+          className="dt-cmd pointer-events-auto cursor-pointer [font-family:Exposure,var(--font-sans)] text-[clamp(56px,7.5vw,128px)] leading-none tracking-[-0.1em] text-ink active:scale-[0.98]"
           title="Spawn a popup"
         >
           [ Click ]

@@ -5,7 +5,7 @@
    that's what keeps it feeling art-directed instead of broken. While the glitch is
    OPEN the page is "infected": cadence jumps to ~1.6-4.8s, episodes sometimes
    double-fire, and the onOnly episodes (rgb-split, selection-invert) join the
-   rotation. Also here: every text link scrambles briefly on hover. Ambient (not
+   rotation. The link hover scramble lives in LinkScramble (site-wide). Ambient (not
    scheduled): the missing_texture.png tile (static, in page.tsx).
 
    Review API (browser console):
@@ -20,8 +20,8 @@
    into the transform it writes every frame. And never touch `filter` on the
    logotype: React owns it for the difference-blend swap. */
 import { useEffect } from "react";
+import { scrambleText } from "./scramble";
 
-const GLYPHS = "▓░█<>/\\#@%&$?";
 
 export default function Bugs() {
   useEffect(() => {
@@ -36,31 +36,7 @@ export default function Bugs() {
     const qa = (sel: string) => Array.from(document.querySelectorAll<HTMLElement>(sel));
     const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
-    /* replace a few characters, twice, then restore */
-    const scramble = (el: HTMLElement, dur: number): boolean => {
-      const orig = el.textContent || "";
-      // dtFx = TextFx is mid-effect on this element, so textContent is not the
-      // clean text and must not be snapshotted as if it were
-      if (el.dataset.dtOrig !== undefined || el.dataset.dtFx !== undefined) return false;
-      if (orig.trim().length < 4) return false;
-      el.dataset.dtOrig = orig;
-      const pass = () => {
-        const chars = orig.split("");
-        const n = 2 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < n; i++) {
-          const idx = Math.floor(Math.random() * chars.length);
-          if (chars[idx] !== " ") chars[idx] = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
-        }
-        el.textContent = chars.join("");
-      };
-      pass();
-      later(pass, dur * 0.45);
-      later(() => {
-        el.textContent = orig;
-        delete el.dataset.dtOrig;
-      }, dur);
-      return true;
-    };
+    const scramble = (el: HTMLElement, dur: number) => scrambleText(el, dur, later);
 
     /* swap full text, then restore */
     const swapText = (el: HTMLElement, txt: string, dur: number): boolean => {
@@ -276,14 +252,6 @@ export default function Bugs() {
       },
     ];
 
-    /* hover interaction: any text link scrambles briefly when the cursor lands
-       on it. Text-only links, since scramble writes textContent and would
-       otherwise wipe out an anchor's child elements for good. */
-    const onHover = (e: Event) => {
-      const a = (e.target as HTMLElement | null)?.closest?.("a") as HTMLElement | null;
-      if (a && a.children.length === 0) scramble(a, 240);
-    };
-    document.addEventListener("mouseover", onHover, { passive: true });
 
     const muted = new Set<string>();
     const runById = (id: string) => {
@@ -328,8 +296,7 @@ export default function Bugs() {
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
-      document.removeEventListener("mouseover", onHover);
-      delete (window as unknown as { dtBugs?: DtBugs }).dtBugs;
+        delete (window as unknown as { dtBugs?: DtBugs }).dtBugs;
     };
   }, []);
   return null;

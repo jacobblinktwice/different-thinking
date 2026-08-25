@@ -115,8 +115,13 @@ nav:has(a:hover) span {
 a:not(:has(img, svg)):hover,
 .dt-cmd:hover {
   animation: dt-highlight 0.34s steps(1, end) both;
-  padding: 0.08em 0.18em;
-  margin: -0.08em -0.18em;
+  /* inline axis only. The band needs to start before the glyphs and end after
+     them, and padding + equal negative margin keeps the text advance identical
+     so nothing around it reflows. Touching the block axis is what moved things:
+     `margin` as a shorthand overwrote every mt-* utility on a link — the footer
+     address jumped 19px up on hover — and vertical padding changed its height. */
+  padding-inline: 0.18em;
+  margin-inline: -0.18em;
   text-decoration: none;
 }
 
