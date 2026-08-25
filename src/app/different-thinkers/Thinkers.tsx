@@ -33,6 +33,7 @@ type Thinker = {
 const THINKERS: Thinker[] = [
   { name: "Albert Einstein", wiki: "Albert Einstein", expLabel: "THEORY OF RELATIVITY", expWiki: "Theory of relativity", born: 1879, died: 1955, field: "PHYSICS" },
   { name: "Isaac Newton", wiki: "Isaac Newton", expLabel: "PRINCIPIA", expWiki: "Philosophiæ Naturalis Principia Mathematica", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
+  { name: "Steve Jobs", wiki: "Steve Jobs", expLabel: "IPHONE", expWiki: "IPhone (1st generation)", born: 1955, died: 2011, field: "TECHNOLOGY" },
   { name: "Alan Turing", wiki: "Alan Turing", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION" },
   { name: "Thomas Edison", wiki: "Thomas Edison", expLabel: "LIGHT BULB", expWiki: "Incandescent light bulb", born: 1847, died: 1931, field: "INVENTION" },
   { name: "Charles Darwin", wiki: "Charles Darwin", expLabel: "ON THE ORIGIN OF SPECIES", expWiki: "On the Origin of Species", born: 1809, died: 1882, field: "BIOLOGY" },
@@ -40,7 +41,6 @@ const THINKERS: Thinker[] = [
   { name: "Hans Christian Andersen", wiki: "Hans Christian Andersen", expLabel: "FAIRY TALES", expWiki: "Fairy tale", born: 1805, died: 1875, field: "LITERATURE" },
   { name: "Wolfgang Amadeus Mozart", wiki: "Wolfgang Amadeus Mozart", expLabel: "THE MAGIC FLUTE", expWiki: "The Magic Flute", born: 1756, died: 1791, field: "MUSIC" },
   { name: "Andy Warhol", wiki: "Andy Warhol", expLabel: "CAMPBELL'S SOUP CANS", expWiki: "Campbell's Soup Cans", born: 1928, died: 1987, field: "ART" },
-  { name: "Thomas Jefferson", wiki: "Thomas Jefferson", expLabel: "DECLARATION OF INDEPENDENCE", expWiki: "United States Declaration of Independence", born: 1743, died: 1826, field: "STATECRAFT" },
   { name: "Octavia E. Butler", wiki: "Octavia E. Butler", expLabel: "KINDRED", expWiki: "Kindred (novel)", born: 1947, died: 2006, field: "SPECULATIVE FICTION" },
   { name: "Agatha Christie", wiki: "Agatha Christie", expLabel: "MURDER ON THE ORIENT EXPRESS", expWiki: "Murder on the Orient Express", born: 1890, died: 1976, field: "CRIME FICTION" },
   { name: "Nikola Tesla", wiki: "Nikola Tesla", expLabel: "ALTERNATING CURRENT", expWiki: "Alternating current", born: 1856, died: 1943, field: "ELECTRICITY" },
