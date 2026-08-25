@@ -1,5 +1,5 @@
 /* Footer: content on the 5-column grid — everything aligns to the 4th
-   column line. */
+   column line. Closes with the copyright in the dialect and the build credit. */
 
 export default function Footer() {
   return (
@@ -28,6 +28,19 @@ export default function Footer() {
           <pre className="mt-[clamp(32px,6vh,64px)] font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#B2B2B2]">
             {"©2026\nDIFFERENT_THINKING({\n    // ALL RIGHTS RESERVED;\n})"}
           </pre>
+
+          {/* build credit */}
+          <p className="mt-4 font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#B2B2B2]">
+            Website by{" "}
+            <a
+              href="https://www.blinktwice.studio/"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-ink"
+            >
+              BlinkTwice
+            </a>
+          </p>
         </div>
       </div>
     </footer>
