@@ -1,7 +1,14 @@
 "use client";
 
 /* Different Thinkers — a 5-column grid of great neurodivergent minds (portraits
-   pulled live from Wikipedia, greyscaled). Clicking a portrait opens a dossier
+   pulled live from Wikipedia, greyscaled).
+
+   Every `wiki` and `expWiki` must be a page the summary API returns an image
+   for, or the window renders an empty placeholder — "Poetry" and "Newton's law
+   of universal gravitation" both did, which is what left two dossiers short of
+   an artefact. Prefer a page whose lead image is the work itself: several poem
+   pages lead with a portrait of the poet, which puts the same face in two
+   windows. Check both before adding a title. Clicking a portrait opens a dossier
    overlay of three draggable windows: a glitched render of the person (canvas
    slice-shift treatment of their portrait), an info window (name // condition,
    the Wikipedia extract, SRC/EXP links in the code dialect), and an image of
@@ -12,18 +19,18 @@ type Thinker = { name: string; wiki: string; cond: string; expLabel: string; exp
 
 const THINKERS: Thinker[] = [
   { name: "Albert Einstein", wiki: "Albert Einstein", cond: "[suspected] autism", expLabel: "THEORY OF RELATIVITY", expWiki: "Theory of relativity", born: 1879, died: 1955, field: "PHYSICS" },
-  { name: "Isaac Newton", wiki: "Isaac Newton", cond: "[suspected] autism", expLabel: "UNIVERSAL GRAVITATION", expWiki: "Newton's law of universal gravitation", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
+  { name: "Isaac Newton", wiki: "Isaac Newton", cond: "[suspected] autism", expLabel: "PRINCIPIA", expWiki: "Philosophiæ Naturalis Principia Mathematica", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
   { name: "Steve Jobs", wiki: "Steve Jobs", cond: "[suspected] dyslexia", expLabel: "IPHONE", expWiki: "IPhone", born: 1955, died: 2011, field: "TECHNOLOGY" },
   { name: "Alan Turing", wiki: "Alan Turing", cond: "[suspected] autism", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION" },
   { name: "Thomas Edison", wiki: "Thomas Edison", cond: "[suspected] adhd", expLabel: "LIGHT BULB", expWiki: "Incandescent light bulb", born: 1847, died: 1931, field: "INVENTION" },
   { name: "Charles Darwin", wiki: "Charles Darwin", cond: "[suspected] ocd", expLabel: "ON THE ORIGIN OF SPECIES", expWiki: "On the Origin of Species", born: 1809, died: 1882, field: "BIOLOGY" },
-  { name: "Emily Dickinson", wiki: "Emily Dickinson", cond: "[suspected] autism", expLabel: "POETRY", expWiki: "Poetry", born: 1830, died: 1886, field: "POETRY" },
+  { name: "Emily Dickinson", wiki: "Emily Dickinson", cond: "[suspected] autism", expLabel: "HOPE IS THE THING WITH FEATHERS", expWiki: "Hope is the thing with feathers", born: 1830, died: 1886, field: "POETRY" },
   { name: "Hans Christian Andersen", wiki: "Hans Christian Andersen", cond: "[suspected] dyslexia", expLabel: "FAIRY TALES", expWiki: "Fairy tale", born: 1805, died: 1875, field: "LITERATURE" },
   { name: "Wolfgang Amadeus Mozart", wiki: "Wolfgang Amadeus Mozart", cond: "[suspected] tourette's", expLabel: "THE MAGIC FLUTE", expWiki: "The Magic Flute", born: 1756, died: 1791, field: "MUSIC" },
   { name: "Andy Warhol", wiki: "Andy Warhol", cond: "[suspected] autism", expLabel: "CAMPBELL'S SOUP CANS", expWiki: "Campbell's Soup Cans", born: 1928, died: 1987, field: "ART" },
   { name: "Thomas Jefferson", wiki: "Thomas Jefferson", cond: "[suspected] autism", expLabel: "DECLARATION OF INDEPENDENCE", expWiki: "United States Declaration of Independence", born: 1743, died: 1826, field: "STATECRAFT" },
-  { name: "Henry Ford", wiki: "Henry Ford", cond: "[suspected] dyslexia", expLabel: "MODEL T", expWiki: "Ford Model T", born: 1863, died: 1947, field: "INDUSTRY" },
-  { name: "Alexander Graham Bell", wiki: "Alexander Graham Bell", cond: "[suspected] dyslexia", expLabel: "TELEPHONE", expWiki: "Telephone", born: 1847, died: 1922, field: "INVENTION" },
+  { name: "Octavia E. Butler", wiki: "Octavia E. Butler", cond: "[self-described] dyslexia", expLabel: "KINDRED", expWiki: "Kindred (novel)", born: 1947, died: 2006, field: "SPECULATIVE FICTION" },
+  { name: "Agatha Christie", wiki: "Agatha Christie", cond: "[suspected] dysgraphia", expLabel: "MURDER ON THE ORIENT EXPRESS", expWiki: "Murder on the Orient Express", born: 1890, died: 1976, field: "CRIME FICTION" },
   { name: "Nikola Tesla", wiki: "Nikola Tesla", cond: "[suspected] ocd", expLabel: "ALTERNATING CURRENT", expWiki: "Alternating current", born: 1856, died: 1943, field: "ELECTRICITY" },
   { name: "Leonardo da Vinci", wiki: "Leonardo da Vinci", cond: "[suspected] adhd", expLabel: "MONA LISA", expWiki: "Mona Lisa", born: 1452, died: 1519, field: "ART / ENGINEERING" },
 ];
