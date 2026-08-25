@@ -22,6 +22,10 @@ type Win = {
   /* looping clip for a base window. `src` stays the poster still, and the
      spawned pile uses that, so spamming [ Click ] never decodes a dozen videos */
   video?: string;
+  /* per-clip framing. `videoZoom` pushes past cover to lose the source's outer
+     pixels; `videoFocusY` is the vertical crop position, 50 being centred. */
+  videoZoom?: number;
+  videoFocusY?: number;
   z: number;
   spawned?: boolean;
 };
@@ -34,7 +38,7 @@ type Win = {
    ratio so the scatter holds its proportions, which crops the clip's white
    bands top and bottom onto the form. */
 const BASE: Omit<Win, "z">[] = [
-  { id: 0, name: "the-activator.mov", left: "2%", top: "4%", w: "clamp(280px,36vw,540px)", ratio: "1467 / 1731", src: "/images/home/activator.webp", alt: "The activator — a slowly morphing orange form", video: "/images/home/activator.mp4" },
+  { id: 0, name: "the-activator.mov", left: "2%", top: "4%", w: "clamp(280px,36vw,540px)", ratio: "1467 / 1731", src: "/images/home/activator.webp", alt: "The activator — a slowly morphing orange form", video: "/images/home/activator.mp4", videoZoom: 1.06, videoFocusY: 59 },
   { id: 1, name: "OOH_final_final.png", left: "52%", top: "16%", w: "clamp(260px,34vw,500px)", ratio: "1389 / 1728", src: "/images/home/ooh-poster.webp", alt: "Eventually poster pasted on a concrete wall" },
   { id: 2, name: "arvo-keychain-ebd6337534b054fbe8.png", left: "14%", top: "56%", w: "clamp(220px,28vw,420px)", ratio: "1176 / 1728", src: "/images/home/keychain.webp", alt: "Hand holding the Eventually keychain" },
 ];
@@ -66,7 +70,17 @@ const TEXTURE = [
    plus play/pause on an IntersectionObserver, with the poster standing in until
    then. Stays paused under prefers-reduced-motion, where the poster is all of
    it. Same discipline as the orb marquee. */
-function ArtefactVideo({ src, poster }: { src: string; poster: string }) {
+function ArtefactVideo({
+  src,
+  poster,
+  zoom = 1,
+  focusY = 50,
+}: {
+  src: string;
+  poster: string;
+  zoom?: number;
+  focusY?: number;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -101,6 +115,12 @@ function ArtefactVideo({ src, poster }: { src: string; poster: string }) {
       preload="none"
       disablePictureInPicture
       tabIndex={-1}
+      /* object-cover fills the width exactly, which leaves the recording's own
+         outer pixels on show — there is a near-black 1-2px bar along the top of
+         the source and fainter lines bottom and right. The scale pushes past
+         cover so they fall outside the frame. focusY corrects the form sitting
+         4.6% below centre in a plain centred crop. */
+      style={{ transform: `scale(${zoom})`, objectPosition: `50% ${focusY}%` }}
       className="absolute inset-0 h-full w-full select-none object-cover"
     />
   );
@@ -177,7 +197,7 @@ export default function DragBoxes() {
           >
             <div className="relative w-full overflow-hidden bg-[#ececea]" style={{ aspectRatio: b.ratio }}>
               {b.video && !b.spawned ? (
-                <ArtefactVideo src={b.video} poster={b.src} />
+                <ArtefactVideo src={b.video} poster={b.src} zoom={b.videoZoom} focusY={b.videoFocusY} />
               ) : (
                 <Image
                   src={b.src}
