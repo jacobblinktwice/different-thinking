@@ -16,7 +16,7 @@
 import { useRef, useState } from "react";
 import DragWindow from "../DragWindow";
 
-const TO = "info@differentthinking.com";
+const TO = "info@differentthinking.ai";
 
 const ABOUT = ["WORKING_TOGETHER", "BEING_IN_THE_ROOM", "RESEARCH", "PRESS", "SOMETHING_ELSE"] as const;
 type About = (typeof ABOUT)[number];

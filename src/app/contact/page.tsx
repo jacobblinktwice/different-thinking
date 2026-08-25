@@ -65,10 +65,10 @@ export default function ContactPage() {
           <div className="md:col-span-2 lg:col-span-2 lg:pr-8">
             <p className="t-body leading-[1.4] tracking-[0] text-ink">Or just write to us directly.</p>
             <a
-              href="mailto:info@differentthinking.com"
+              href="mailto:info@differentthinking.ai"
               className="mt-4 block w-fit font-sans text-[clamp(22px,2.8vw,44px)] leading-[1.1] tracking-[-0.02em] text-ink"
             >
-              info@differentthinking.com
+              info@differentthinking.ai
             </a>
           </div>
 

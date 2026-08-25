@@ -9,10 +9,10 @@ export default function Footer() {
         <div className="flex flex-col md:col-span-2 md:col-start-4">
           <p className="t-body leading-[1.4] tracking-[0] text-ink">What&apos;s your cool bug?</p>
           <a
-            href="mailto:info@differentthinking.com"
+            href="mailto:info@differentthinking.ai"
             className="mt-4 w-fit font-sans text-[clamp(22px,2.8vw,44px)] leading-[1.1] tracking-[-0.02em] text-ink"
           >
-            info@differentthinking.com
+            info@differentthinking.ai
           </a>
 
           {/* stacked wordmark (SVG) */}
@@ -29,8 +29,8 @@ export default function Footer() {
             {"©2026\nDIFFERENT_THINKING({\n    // ALL RIGHTS RESERVED;\n})"}
           </pre>
 
-          {/* build credit */}
-          <p className="mt-4 font-sans text-[8px] leading-[1.7] tracking-[0.01em] text-[#B2B2B2]">
+          {/* build credit — deliberately louder than the copyright above it */}
+          <p className="t-body mt-4 leading-[1.4] tracking-[0] text-ink">
             WEBSITE BY{" "}
             <a
               href="https://www.blinktwice.studio/"

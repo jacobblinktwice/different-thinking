@@ -130,10 +130,9 @@ a:not(:has(img, svg)):hover,
    reads as a terminal rather than a pulse. Sized in em so it tracks whatever
    font-size the heading is at.
 
-   Height spans the full type height — Exposure's ascender to descender, which
-   measures 1.2em, not the 1em em-square — and drops below the baseline by the
-   font's descent so it brackets the glyphs exactly rather than floating above
-   them. */
+   One em tall, dropped slightly below the baseline so it sits within the type
+   rather than poking above the ascender — which also keeps it inside the 1.08
+   line box instead of growing the heading. */
 @keyframes dt-caret {
   0%,
   49% {
@@ -147,9 +146,9 @@ a:not(:has(img, svg)):hover,
 .dt-caret {
   display: inline-block;
   width: 0.32em;
-  height: 1.2em;
+  height: 1em;
   margin-left: 0.06em;
-  vertical-align: -0.25em;
+  vertical-align: -0.2em;
   background-color: currentColor;
   animation: dt-caret 1.06s steps(1, end) infinite;
 }
