@@ -10,29 +10,59 @@
    pages lead with a portrait of the poet, which puts the same face in two
    windows. Check both before adding a title. Clicking a portrait opens a dossier
    overlay of three draggable windows: a glitched render of the person (canvas
-   slice-shift treatment of their portrait), an info window (name // condition,
+   slice-shift treatment of their portrait), an info window (name // field,
    the Wikipedia extract, SRC/EXP links in the code dialect), and an image of
    the breakthrough they gave the world (the EXP page's Wikipedia image). */
 import { useEffect, useRef, useState } from "react";
 
-type Thinker = { name: string; wiki: string; cond: string; expLabel: string; expWiki: string; born: number; died: number; field: string };
+/* No condition field: these are different thinkers, not case notes. Most of the
+   old labels were historical guesswork, and speculating about a living person's
+   neurology in public is not something to publish.
+
+   `died` is optional — someone still alive reads as STILL RUNNING in the
+   specimen rail. `img` overrides the portrait when a page's lead image is not
+   the picture you want. */
+type Thinker = {
+  name: string;
+  wiki: string;
+  expLabel: string;
+  expWiki: string;
+  born: number;
+  died?: number;
+  field: string;
+  img?: string;
+};
 
 const THINKERS: Thinker[] = [
-  { name: "Albert Einstein", wiki: "Albert Einstein", cond: "[suspected] autism", expLabel: "THEORY OF RELATIVITY", expWiki: "Theory of relativity", born: 1879, died: 1955, field: "PHYSICS" },
-  { name: "Isaac Newton", wiki: "Isaac Newton", cond: "[suspected] autism", expLabel: "PRINCIPIA", expWiki: "Philosophiæ Naturalis Principia Mathematica", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
-  { name: "Steve Jobs", wiki: "Steve Jobs", cond: "[suspected] dyslexia", expLabel: "IPHONE", expWiki: "IPhone", born: 1955, died: 2011, field: "TECHNOLOGY" },
-  { name: "Alan Turing", wiki: "Alan Turing", cond: "[suspected] autism", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION" },
-  { name: "Thomas Edison", wiki: "Thomas Edison", cond: "[suspected] adhd", expLabel: "LIGHT BULB", expWiki: "Incandescent light bulb", born: 1847, died: 1931, field: "INVENTION" },
-  { name: "Charles Darwin", wiki: "Charles Darwin", cond: "[suspected] ocd", expLabel: "ON THE ORIGIN OF SPECIES", expWiki: "On the Origin of Species", born: 1809, died: 1882, field: "BIOLOGY" },
-  { name: "Emily Dickinson", wiki: "Emily Dickinson", cond: "[suspected] autism", expLabel: "HOPE IS THE THING WITH FEATHERS", expWiki: "Hope is the thing with feathers", born: 1830, died: 1886, field: "POETRY" },
-  { name: "Hans Christian Andersen", wiki: "Hans Christian Andersen", cond: "[suspected] dyslexia", expLabel: "FAIRY TALES", expWiki: "Fairy tale", born: 1805, died: 1875, field: "LITERATURE" },
-  { name: "Wolfgang Amadeus Mozart", wiki: "Wolfgang Amadeus Mozart", cond: "[suspected] tourette's", expLabel: "THE MAGIC FLUTE", expWiki: "The Magic Flute", born: 1756, died: 1791, field: "MUSIC" },
-  { name: "Andy Warhol", wiki: "Andy Warhol", cond: "[suspected] autism", expLabel: "CAMPBELL'S SOUP CANS", expWiki: "Campbell's Soup Cans", born: 1928, died: 1987, field: "ART" },
-  { name: "Thomas Jefferson", wiki: "Thomas Jefferson", cond: "[suspected] autism", expLabel: "DECLARATION OF INDEPENDENCE", expWiki: "United States Declaration of Independence", born: 1743, died: 1826, field: "STATECRAFT" },
-  { name: "Octavia E. Butler", wiki: "Octavia E. Butler", cond: "[self-described] dyslexia", expLabel: "KINDRED", expWiki: "Kindred (novel)", born: 1947, died: 2006, field: "SPECULATIVE FICTION" },
-  { name: "Agatha Christie", wiki: "Agatha Christie", cond: "[suspected] dysgraphia", expLabel: "MURDER ON THE ORIENT EXPRESS", expWiki: "Murder on the Orient Express", born: 1890, died: 1976, field: "CRIME FICTION" },
-  { name: "Nikola Tesla", wiki: "Nikola Tesla", cond: "[suspected] ocd", expLabel: "ALTERNATING CURRENT", expWiki: "Alternating current", born: 1856, died: 1943, field: "ELECTRICITY" },
-  { name: "Leonardo da Vinci", wiki: "Leonardo da Vinci", cond: "[suspected] adhd", expLabel: "MONA LISA", expWiki: "Mona Lisa", born: 1452, died: 1519, field: "ART / ENGINEERING" },
+  { name: "Albert Einstein", wiki: "Albert Einstein", expLabel: "THEORY OF RELATIVITY", expWiki: "Theory of relativity", born: 1879, died: 1955, field: "PHYSICS" },
+  { name: "Isaac Newton", wiki: "Isaac Newton", expLabel: "PRINCIPIA", expWiki: "Philosophiæ Naturalis Principia Mathematica", born: 1643, died: 1727, field: "PHYSICS / MATHEMATICS" },
+  { name: "Steve Jobs", wiki: "Steve Jobs", expLabel: "IPHONE", expWiki: "IPhone", born: 1955, died: 2011, field: "TECHNOLOGY" },
+  { name: "Alan Turing", wiki: "Alan Turing", expLabel: "TURING MACHINE", expWiki: "Turing machine", born: 1912, died: 1954, field: "COMPUTATION" },
+  { name: "Thomas Edison", wiki: "Thomas Edison", expLabel: "LIGHT BULB", expWiki: "Incandescent light bulb", born: 1847, died: 1931, field: "INVENTION" },
+  { name: "Charles Darwin", wiki: "Charles Darwin", expLabel: "ON THE ORIGIN OF SPECIES", expWiki: "On the Origin of Species", born: 1809, died: 1882, field: "BIOLOGY" },
+  { name: "Emily Dickinson", wiki: "Emily Dickinson", expLabel: "HOPE IS THE THING WITH FEATHERS", expWiki: "Hope is the thing with feathers", born: 1830, died: 1886, field: "POETRY" },
+  { name: "Hans Christian Andersen", wiki: "Hans Christian Andersen", expLabel: "FAIRY TALES", expWiki: "Fairy tale", born: 1805, died: 1875, field: "LITERATURE" },
+  { name: "Wolfgang Amadeus Mozart", wiki: "Wolfgang Amadeus Mozart", expLabel: "THE MAGIC FLUTE", expWiki: "The Magic Flute", born: 1756, died: 1791, field: "MUSIC" },
+  { name: "Andy Warhol", wiki: "Andy Warhol", expLabel: "CAMPBELL'S SOUP CANS", expWiki: "Campbell's Soup Cans", born: 1928, died: 1987, field: "ART" },
+  { name: "Thomas Jefferson", wiki: "Thomas Jefferson", expLabel: "DECLARATION OF INDEPENDENCE", expWiki: "United States Declaration of Independence", born: 1743, died: 1826, field: "STATECRAFT" },
+  { name: "Octavia E. Butler", wiki: "Octavia E. Butler", expLabel: "KINDRED", expWiki: "Kindred (novel)", born: 1947, died: 2006, field: "SPECULATIVE FICTION" },
+  { name: "Agatha Christie", wiki: "Agatha Christie", expLabel: "MURDER ON THE ORIENT EXPRESS", expWiki: "Murder on the Orient Express", born: 1890, died: 1976, field: "CRIME FICTION" },
+  { name: "Nikola Tesla", wiki: "Nikola Tesla", expLabel: "ALTERNATING CURRENT", expWiki: "Alternating current", born: 1856, died: 1943, field: "ELECTRICITY" },
+  { name: "Leonardo da Vinci", wiki: "Leonardo da Vinci", expLabel: "MONA LISA", expWiki: "Mona Lisa", born: 1452, died: 1519, field: "ART / ENGINEERING" },
+  /* Cavendish published natural philosophy under her own name in the 1660s, when
+     women did not, and wrote what is often called the first science fiction. */
+  { name: "Margaret Cavendish", wiki: "Margaret Cavendish", expLabel: "THE BLAZING WORLD", expWiki: "The Blazing World", born: 1623, died: 1673, field: "NATURAL PHILOSOPHY" },
+  /* Living, hence no `died`. Her page leads with a 1995 portrait, so `img` points
+     at the photograph of her beside the printed Apollo listings instead. */
+  {
+    name: "Margaret Hamilton",
+    wiki: "Margaret Hamilton (software engineer)",
+    expLabel: "APOLLO GUIDANCE COMPUTER",
+    expWiki: "Apollo Guidance Computer",
+    born: 1936,
+    field: "SOFTWARE ENGINEERING",
+    img: "https://upload.wikimedia.org/wikipedia/commons/d/db/Margaret_Hamilton_-_restoration.jpg",
+  },
 ];
 
 type Summary = { thumb: string | null; original: string | null; extract: string; url: string };
@@ -70,11 +100,14 @@ const checksum = (s: string) => {
 /* the SPECIMEN rail: a long column of separate coded stat fragments about the
    person, written in the brand dialect */
 function specimenBlocks(t: Thinker, idx: number): string[] {
-  const cond = usnake(t.cond.replace(/\[suspected\]\s*/, ""));
+  const life =
+    t.died === undefined
+      ? `CONST BORN = ${t.born};\nCONST DIED = NULL;\n// STILL RUNNING`
+      : `CONST BORN = ${t.born};\nCONST DIED = ${t.died};\nCONST RUNTIME = ${t.died - t.born}_YEARS;`;
   return [
     `[ SPECIMEN :: ${usnake(t.name)} ]`,
-    `CONST ID = 0x${String(idx + 1).padStart(4, "0")};\nCONST BORN = ${t.born};\nCONST DIED = ${t.died};\nCONST RUNTIME = ${t.died - t.born}_YEARS;`,
-    `CONST FIELD = "${t.field}";\nCONST WIRING = "${cond}"; // [SUSPECTED]`,
+    `CONST ID = 0x${String(idx + 1).padStart(4, "0")};\n${life}`,
+    `CONST FIELD = "${t.field}";\nCONST WIRING = "NON_STANDARD"; // NOT A DIAGNOSIS`,
     `CHECK [MIND / TEMPLATE] {\n    RETURN MISMATCH, NOT DISORDER;\n}`,
     `RUN OUTPUT() {\n    RETURN "${usnake(t.expWiki)}";\n}`,
     `// LOGGED AS SYMPTOMS\n// RAN AS FEATURES\nKEEP_RUNNING = TRUE;`,
@@ -240,6 +273,8 @@ export default function Thinkers() {
   const bioSettled = !!open && person?.for === open.wiki;
   const bio = bioSettled ? person!.data : null;
   const artefact = !!open && exp?.for === open.expWiki ? exp!.data : null;
+  /* an explicit img wins over whatever the page happens to lead with */
+  const portrait = open?.img ?? bio?.original ?? null;
 
   // open a dossier: load the person + their breakthrough
   useEffect(() => {
@@ -304,13 +339,13 @@ export default function Thinkers() {
             key={t.wiki}
             type="button"
             onClick={() => setOpen(t)}
-            title={`${t.name} // ${t.cond}`}
+            title={`${t.name} // ${t.field}`}
             className="group relative mr-3 aspect-square cursor-pointer overflow-hidden bg-[#ececea]"
           >
-            {thumbs[t.wiki] && (
+            {(t.img ?? thumbs[t.wiki]) && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={thumbs[t.wiki]}
+                src={t.img ?? thumbs[t.wiki]}
                 alt={t.name}
                 draggable={false}
                 className="h-full w-full object-cover grayscale transition-transform duration-300 ease-[var(--ease-snap)] group-hover:scale-[1.03]"
@@ -349,8 +384,8 @@ export default function Thinkers() {
             onFront={() => front(0)}
             style={{ left: `${wpos[0].left}%`, top: `${wpos[0].top}%`, width: "clamp(240px,26vw,400px)" }}
           >
-            {bio?.original ? (
-              <GlitchedPortrait src={bio.original} />
+            {portrait ? (
+              <GlitchedPortrait src={portrait} />
             ) : (
               <div className="aspect-[64/76] w-full bg-[#ececea]" />
             )}
@@ -365,7 +400,7 @@ export default function Thinkers() {
           >
             <div className="flex min-h-[340px] flex-col px-8 pb-8 pt-4">
               <h2 className="font-sans text-[clamp(18px,1.7vw,26px)] font-medium leading-[1.2] tracking-[-0.01em] text-ink">
-                {open.name} <span className="font-normal">{"//"}</span> {open.cond}
+                {open.name} <span className="font-normal">{"//"}</span> {open.field}
               </h2>
               <p className="mt-8 max-w-[58ch] font-sans text-[clamp(15px,1.4vw,22px)] leading-[1.4] tracking-[0] text-ink">
                 {bio ? bio.extract : bioSettled ? 'err :: no record returned' : "loading :: …"}
