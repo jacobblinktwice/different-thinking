@@ -4,6 +4,7 @@ import DataTexture from "./DataTexture";
 import DragBoxes from "./DragBoxes";
 import Footer from "./Footer";
 import Hero from "./Hero";
+import HomeReel from "./HomeReel";
 import HoverImages from "./HoverImages";
 import LiveLog from "./LiveLog";
 import NavIndex from "./NavIndex";
@@ -105,12 +106,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== MEDIA (16:9 placeholder, gutter to gutter) ===================== */}
+      {/* ===================== MEDIA (16:9 reel, gutter to gutter) ===================== */}
       <section className="relative z-[1] px-[var(--gutter)] pb-[clamp(40px,5vw,72px)]">
-        <div className="relative aspect-video w-full bg-[#ececea]">
-          <span className="absolute bottom-3 left-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
-            [ PLACEHOLDER :: 16x9 ]
-          </span>
+        <div className="relative aspect-video w-full overflow-hidden bg-[#ececea]">
+          <HomeReel src="/images/home/reel.mp4" poster="/images/home/reel-poster.webp" />
         </div>
       </section>
 
