@@ -15,6 +15,7 @@ npm run lint     # eslint
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | at launch | Public origin, e.g. `https://differentthinking.ai`. Used for the OG image URL, `robots.txt` and `sitemap.xml`. Unset, production uses the Vercel-assigned URL and previews use their own, so nothing advertises a domain that does not resolve. |
 | `LAB_KEY` | yes, to publish | Access code for `/lab`. Gates the write side of `/api/composition`. |
 | `BLOB_READ_WRITE_TOKEN` *or* `BLOB_STORE_ID` | production | Vercel Blob storage for the live glitch composition. Without one, `/api/composition` falls back to files under `.data/` in local dev, and refuses to write on Vercel. |
 
@@ -22,6 +23,18 @@ Copy `.env.example` to `.env.local` for local work. **`LAB_KEY` must be set in t
 Vercel project** — the composition API fails closed without it, so `/lab` cannot
 publish. It is deliberately not baked into the bundle: it used to be a constant
 shared with the client, which shipped the secret to every visitor.
+
+## Connecting the domain
+
+Buy it, add it in Vercel (Settings → Domains) either by pointing the
+registrar's nameservers at Vercel or with `A @ 76.76.21.21` and
+`CNAME www cname.vercel-dns.com`. Add apex and `www`, make one primary. TLS is
+automatic.
+
+Then set `NEXT_PUBLIC_SITE_URL` and redeploy — that is the whole code-side
+change. Email is separate: the addresses on the site need a mailbox provider
+plus MX and SPF/DKIM/DMARC records, and if Vercel holds the nameservers those
+records go in Vercel's DNS rather than at the registrar.
 
 ## Routes
 
