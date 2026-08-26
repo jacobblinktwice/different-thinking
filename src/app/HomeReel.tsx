@@ -2,7 +2,8 @@
 
 /* The 16:9 reel that fills the homepage media slot. Autoplays muted, because no
    browser will start a video with sound unasked, with a SOUND(); control to turn
-   it on — a click counts as the gesture that unmuting requires.
+   it on — a click counts as the gesture that unmuting requires — and a
+   REPLAY(); to take it back to the start.
 
    It sits well below the fold, so nothing is fetched until it comes into view:
    preload="none" plus play/pause on an IntersectionObserver, with the poster
@@ -58,6 +59,17 @@ export default function HomeReel({ src, poster }: { src: string; poster: string 
     });
   };
 
+  const replay = () => {
+    const v = ref.current;
+    if (!v) return;
+    v.currentTime = 0;
+    /* a replay is a user gesture, so this is also the way in under
+       prefers-reduced-motion, where nothing has autoplayed */
+    void v.play().catch(() => {
+      /* refused — the poster stands in */
+    });
+  };
+
   return (
     <>
       <video
@@ -71,18 +83,30 @@ export default function HomeReel({ src, poster }: { src: string; poster: string 
         disablePictureInPicture
         className="absolute inset-0 h-full w-full object-cover"
       />
-      <button
-        type="button"
-        onClick={toggleSound}
-        aria-pressed={sound}
-        aria-label={sound ? "Mute the reel" : "Unmute the reel"}
-        /* padding rather than position for the tap target: 8px type alone is a
-           47x12 hit area, which is nothing on a phone. p-3 against bottom/left-0
-           leaves the text exactly where bottom/left-3 put it. */
-        className="dt-cmd absolute bottom-0 left-0 cursor-pointer p-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2] hover:text-ink"
-      >
-        {sound ? "SOUND(OFF);" : "SOUND(ON);"}
-      </button>
+      {/* padding rather than position for the tap targets: 8px type alone is a
+          47x12 hit area, which is nothing on a phone. p-3 against a row pinned
+          at bottom/left-0 leaves the labels exactly where bottom/left-3 put
+          them, and the negative gap keeps the two sets of padding from adding
+          up into a wide dead space between them. */}
+      <div className="absolute bottom-0 left-0 flex items-center">
+        <button
+          type="button"
+          onClick={toggleSound}
+          aria-pressed={sound}
+          aria-label={sound ? "Mute the reel" : "Unmute the reel"}
+          className="dt-cmd cursor-pointer p-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2] hover:text-ink"
+        >
+          {sound ? "SOUND(OFF);" : "SOUND(ON);"}
+        </button>
+        <button
+          type="button"
+          onClick={replay}
+          aria-label="Play the reel from the start"
+          className="dt-cmd -ml-1 cursor-pointer p-3 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2] hover:text-ink"
+        >
+          REPLAY();
+        </button>
+      </div>
     </>
   );
 }
