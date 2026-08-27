@@ -35,6 +35,7 @@ export default function StickyNav() {
 
   return (
     <div
+      data-sticky-nav
       className={`pointer-events-none fixed inset-x-0 top-[clamp(20px,4vh,44px)] z-[60] px-[var(--gutter)] transition-opacity duration-300 ease-[var(--ease-snap)] ${
         atFooter ? "opacity-0" : "opacity-100"
       }`}

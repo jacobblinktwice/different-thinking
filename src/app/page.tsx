@@ -7,6 +7,7 @@ import Hero from "./Hero";
 import HomeReel from "./HomeReel";
 import HoverImages from "./HoverImages";
 import LiveLog from "./LiveLog";
+import Manifesto from "./Manifesto";
 import Rulers from "./Rulers";
 import ScrollReveal from "./ScrollReveal";
 import SliceShift from "./SliceShift";
@@ -69,26 +70,15 @@ export default function Home() {
 
       {/* ===================== ARTICLE (Figma editorial layout) ===================== */}
       <section id="about" className="relative px-[var(--gutter)] py-[clamp(40px,5vw,72px)]">
-        {/* mobile: stacked; tablet: THREE long CSS columns; desktop: FOUR long
+        {/* mobile: single stack, spine only until expanded (see Manifesto.tsx);
+            tablet: THREE long CSS columns; desktop: FOUR long
             columns spanning tracks 1-4 of the grid, with the repeated menu in
             track 5 (paragraphs flow column-major, kept whole via
             break-inside-avoid) */}
         {/* large display serif drifting beneath the columns */}
         <ArticleType />
         <div className="relative z-[1] lg:grid lg:grid-cols-5">
-          <div className="md:columns-3 md:gap-x-0 lg:col-span-4 lg:columns-4">
-            {COLUMNS.map((html, i) => (
-              /* continuous flow — no gaps, no indents. Cells may fragment
-                 across columns so the four columns balance to equal height. */
-              <div
-                key={i}
-                className="article-col t-body leading-[1.4] tracking-[0] text-[#8E8E8E] md:pr-8 [&_.wl]:underline [&_.wl]:decoration-[#8E8E8E]"
-              >
-                {/* inner wrapper = the reveal target */}
-                <div className="article-inner" dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }} />
-              </div>
-            ))}
-          </div>
+          <Manifesto columns={COLUMNS} />
         </div>
         <div data-bug="src" className="mt-16 font-sans text-[8px] tracking-[0.01em] text-[#B2B2B2]">
           {"// SRC: MANIFESTO.MD"}
