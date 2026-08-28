@@ -7,7 +7,7 @@
    SAVE writes the lab's working state + a version-history entry; PUBLISH
    pushes it live for every visitor. UI follows the live site's console
    language: sharp solid blocks, mono labels, no outlines. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Glitch } from "@/components/glitch";
 import {
@@ -169,6 +169,18 @@ function LabPage({ labKey }: { labKey: string }) {
   const [flash, setFlash] = useState<"saved" | "published" | null>(null);
   const [versions, setVersions] = useState<VersionEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  /* which history entry the editor is currently showing.
+     curSnap is the working composition serialized; the selection is then DERIVED
+     by matching it against each entry, rather than remembered when you click a
+     row. Remembering would go stale the moment you touched a slider and the
+     header would keep claiming you were on a version you had already edited
+     away from. Matching also means the panel is right on first load, where
+     nothing was clicked at all but the composition does equal an entry.
+     pickedT (an entry's timestamp — stable, unlike the vN labels, which shift as
+     saves push old entries off the end) is only the fallback: it remembers where
+     you STARTED so an edited composition can still show "v12*". */
+  const [curSnap, setCurSnap] = useState<string | null>(null);
+  const [pickedT, setPickedT] = useState<number | null>(null);
   const savedSnap = useRef<string | null>(null);
   const liveSnap = useRef<string | null>(null);
 
@@ -223,6 +235,8 @@ function LabPage({ labKey }: { labKey: string }) {
       const s = JSON.stringify(snapshotComposition(cur.boxes, cur.layer, cur.frontLayer));
       setDirtySaved(s !== savedSnap.current);
       setDirtyLive(s !== liveSnap.current);
+      setCurSnap(s);
+      setPickedT(vers.find((v) => JSON.stringify(v.snap) === s)?.t ?? null);
     })();
   }, []);
   // recompute the dirty flags on every change (debounced) — no local writes
@@ -232,9 +246,27 @@ function LabPage({ labKey }: { labKey: string }) {
       const s = JSON.stringify(snapshotComposition(boxes, layer, frontLayer));
       setDirtySaved(s !== savedSnap.current);
       setDirtyLive(s !== liveSnap.current);
+      setCurSnap(s);
     }, 300);
     return () => clearTimeout(t);
   }, [boxes, layer, frontLayer]);
+
+  /* exact content match = the version you are looking at. liveIdx is matched the
+     same way instead of trusting the stored `live` flag alone: that flag is
+     stamped on the entry a publish creates, so once that entry ages off the end
+     of the 15-deep list the panel stops showing a live marker at all even though
+     something is still live. */
+  const versionSnaps = useMemo(() => versions.map((v) => JSON.stringify(v.snap)), [versions]);
+  const selectedIdx = curSnap == null ? -1 : versionSnaps.indexOf(curSnap);
+  const [liveIdx, setLiveIdx] = useState(-1);
+  useEffect(() => {
+    setLiveIdx(liveSnap.current == null ? -1 : versionSnaps.indexOf(liveSnap.current));
+  }, [versionSnaps, curSnap, flash]);
+  const pickedIdx = pickedT == null ? -1 : versions.findIndex((v) => v.t === pickedT);
+  // no exact match but we know where it started → that version, plus a * for the edits
+  const shownIdx = selectedIdx >= 0 ? selectedIdx : pickedIdx;
+  const edited = selectedIdx < 0 && pickedIdx >= 0;
+  const vLabel = (i: number) => `v${versions.length - i}`;
 
   const [busy, setBusy] = useState<"save" | "publish" | null>(null);
   const persist = async (action: "save" | "publish") => {
@@ -249,7 +281,10 @@ function LabPage({ labKey }: { labKey: string }) {
       });
       const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; versions?: VersionEntry[] } | null;
       if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
-      if (Array.isArray(j.versions)) setVersions(j.versions);
+      if (Array.isArray(j.versions)) {
+        setVersions(j.versions);
+        setPickedT(j.versions[0]?.t ?? null);
+      }
     } catch (err) {
       setBusy(null);
       alert(`Couldn't ${action}: ${err instanceof Error ? err.message : err}`);
@@ -274,6 +309,8 @@ function LabPage({ labKey }: { labKey: string }) {
     setLayer(comp.layer);
     setFrontLayer(comp.frontLayer);
     setActive(0);
+    setPickedT(entry.t);
+    setCurSnap(JSON.stringify(entry.snap));
     setHistoryOpen(false);
   };
 
@@ -351,8 +388,24 @@ function LabPage({ labKey }: { labKey: string }) {
             </button>
           ))}
         </div>
-        <button onClick={() => setHistoryOpen((o) => !o)} className={historyOpen ? BTN_ON : BTN} title="Version history">
+        <button
+          onClick={() => setHistoryOpen((o) => !o)}
+          className={historyOpen ? BTN_ON : BTN}
+          title={
+            shownIdx < 0
+              ? "Version history"
+              : edited
+                ? `Editing ${vLabel(shownIdx)} — changed since you loaded it`
+                : `Showing ${vLabel(shownIdx)}`
+          }
+        >
           History
+          {shownIdx >= 0 && (
+            <span className={historyOpen ? "ml-1.5 text-neutral-400" : "ml-1.5 text-neutral-500"}>
+              {vLabel(shownIdx)}
+              {edited && "*"}
+            </span>
+          )}
         </button>
         <button
           onClick={() => persist("save")}
@@ -382,22 +435,35 @@ function LabPage({ labKey }: { labKey: string }) {
           <div className="absolute right-5 top-12 z-40 w-[280px] bg-paper p-1.5 shadow-[0_14px_40px_rgba(0,0,0,0.16)]">
             <p className="px-2.5 py-2 font-mono text-[10px] uppercase tracking-wider text-neutral-400">
               [ version history ]
+              {edited && <span className="normal-case tracking-normal"> — * = edited since loading</span>}
             </p>
             {versions.length === 0 && (
               <p className="px-2.5 pb-2.5 font-mono text-[11px] text-neutral-500">no saves yet</p>
             )}
-            {versions.map((v, i) => (
-              <button
-                key={v.t}
-                onClick={() => restoreVersion(v)}
-                className="flex w-full cursor-pointer items-baseline gap-2 px-2.5 py-2 text-left font-mono text-[11px] text-neutral-700 hover:bg-[#f2f2ef]"
-                title="Load this version into the editor"
-              >
-                <span className="text-neutral-400">v{versions.length - i}</span>
-                <span className="flex-1">{stamp(v.t)}</span>
-                {v.live && <span className="text-blue">live</span>}
-              </button>
-            ))}
+            {versions.map((v, i) => {
+              const here = i === shownIdx;
+              return (
+                <button
+                  key={v.t}
+                  onClick={() => restoreVersion(v)}
+                  aria-current={here ? "true" : undefined}
+                  className={`flex w-full cursor-pointer items-baseline gap-2 py-2 pr-2.5 text-left font-mono text-[11px] hover:bg-[#f2f2ef] ${
+                    here ? "bg-[#eaeae6] pl-1.5 font-medium text-ink" : "pl-2.5 text-neutral-700"
+                  }`}
+                  title={here ? "Already in the editor" : "Load this version into the editor"}
+                >
+                  {/* the bar carries the highlight at a glance; the row tint alone
+                      is too close to the hover tint to read as state */}
+                  {here && <span aria-hidden className="-my-0.5 w-1 self-stretch bg-ink" />}
+                  <span className={here ? "text-neutral-500" : "text-neutral-400"}>
+                    {vLabel(i)}
+                    {here && edited && "*"}
+                  </span>
+                  <span className="flex-1">{stamp(v.t)}</span>
+                  {i === liveIdx && <span className="text-blue">live</span>}
+                </button>
+              );
+            })}
           </div>
         )}
       </header>
