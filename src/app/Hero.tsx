@@ -172,7 +172,17 @@ export default function Hero() {
       mouse.y = e.clientY;
       mouse.seen = true;
     };
-    window.addEventListener("pointermove", onMove, { passive: true });
+
+    /* The bug walks toward the cursor, which on a phone meant it never moved at
+       all: there is no pointermove without a touch, so mouse.seen stayed false
+       and it sat still until someone prodded it. On a coarse pointer it wanders
+       on its own instead, from load, and pointermove is left unbound — binding
+       it would let a tap set a target the bug walks to and then stops at, which
+       is the same dead bug by another route. */
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    if (!coarse) window.addEventListener("pointermove", onMove, { passive: true });
+    let wander: { x: number; y: number } | null = null;
+    let restUntil = 0;
     btn.style.transition = "none";
     body.style.transition = "none";
 
@@ -183,16 +193,36 @@ export default function Hero() {
       const hr = hero.getBoundingClientRect();
       const br = btn.getBoundingClientRect();
       if (!anchor) anchor = { x: br.left - hr.left - pos.x, y: br.top - hr.top - pos.y };
-      if (mouse.seen) {
+      if (coarse || mouse.seen) {
         const margin = 24;
         const topMargin = 190; // stay below the title + nav so the bug never blocks links
         const maxX = hr.width - br.width - margin;
         const maxY = hr.height - br.height - margin;
+        // a short hero could put topMargin past maxY and invert the range
+        const minY = Math.min(topMargin, maxY);
         // caught: rest while the cursor is over (or nearly over) the bug
         const hovered =
+          !coarse &&
           mouse.x >= br.left - 10 && mouse.x <= br.right + 10 && mouse.y >= br.top - 10 && mouse.y <= br.bottom + 10;
-        const tx = Math.min(Math.max(mouse.x - hr.left - br.width / 2, margin), maxX) - anchor.x;
-        const ty = Math.min(Math.max(mouse.y - hr.top - br.height / 2, topMargin), maxY) - anchor.y;
+        let tx: number;
+        let ty: number;
+        if (coarse) {
+          // pick somewhere new once it arrives, after a beat of stillness, so it
+          // reads as an insect stopping and starting rather than gliding forever
+          if (!wander) wander = { x: margin + Math.random() * (maxX - margin), y: minY + Math.random() * (maxY - minY) };
+          tx = wander.x - anchor.x;
+          ty = wander.y - anchor.y;
+          if (Math.hypot(tx - pos.x, ty - pos.y) <= 30) {
+            if (!restUntil) restUntil = now + 500 + Math.random() * 1900;
+            else if (now >= restUntil) {
+              wander = null;
+              restUntil = 0;
+            }
+          }
+        } else {
+          tx = Math.min(Math.max(mouse.x - hr.left - br.width / 2, margin), maxX) - anchor.x;
+          ty = Math.min(Math.max(mouse.y - hr.top - br.height / 2, minY), maxY) - anchor.y;
+        }
         const dx = tx - pos.x;
         const dy = ty - pos.y;
         const dist = Math.hypot(dx, dy);

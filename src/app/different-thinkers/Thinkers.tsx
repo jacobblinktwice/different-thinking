@@ -224,6 +224,8 @@ function DragWindow({
 export default function Thinkers() {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<Thinker | null>(null);
+  // whether the open dossier owns a pushed history entry still to be consumed
+  const pushed = useRef(false);
   /* Tagged with the title each result was fetched for. The reset used to happen
      in the open effect, which runs after paint — so opening a dossier rendered
      one frame with the new name and the PREVIOUS person's portrait, and if the
@@ -262,6 +264,15 @@ export default function Thinkers() {
   const artefact = !!open && exp?.for === open.expWiki ? exp!.data : null;
   const portrait = open?.img ?? bio?.original ?? null;
 
+  /* Every close routes through here. Closing by × or Escape goes BACK rather
+     than straight to setOpen(null), so the entry opening pushed is consumed
+     instead of piling up — otherwise the next Back press would silently do
+     nothing, which is its own version of a broken back button. */
+  const closeOpen = () => {
+    if (pushed.current) window.history.back();
+    else setOpen(null);
+  };
+
   // open a dossier: load the person + their breakthrough
   useEffect(() => {
     if (!open) return;
@@ -298,15 +309,36 @@ export default function Thinkers() {
     const expWiki = open.expWiki;
     fetchSummary(wiki).then((s) => !dead && setPerson({ for: wiki, data: s }));
     fetchSummary(expWiki).then((s) => !dead && setExp({ for: expWiki, data: s }));
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeOpen();
     window.addEventListener("keydown", onKey);
+
+    /* The dossier is a solid full-screen overlay, so on a phone it reads as a
+       new page and Back is the obvious way out of it — except Back was leaving
+       the section entirely and landing on whatever came before, which is the
+       "back takes you to a random page" report.
+
+       Opening therefore pushes a history entry at the SAME url. Back pops it,
+       popstate closes the overlay, and the page underneath never changes. The
+       url is left alone deliberately: the App Router resolves popstate against
+       it, so an unchanged one makes this invisible to routing. */
+    window.history.pushState({ dtDossier: true }, "", window.location.href);
+    pushed.current = true;
+    const onPop = () => {
+      // the entry is already gone — clear the flag before closing so the close
+      // path does not call back() again and walk the user off the page
+      pushed.current = false;
+      setOpen(null);
+    };
+    window.addEventListener("popstate", onPop);
     document.documentElement.style.overflow = "hidden";
     return () => {
       dead = true;
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("popstate", onPop);
       document.documentElement.style.overflow = "";
     };
   }, [open]);
+
 
   const front = (i: number) =>
     setZs((z) => {
@@ -347,7 +379,7 @@ export default function Thinkers() {
         <div key={open.wiki} className="fixed inset-0 z-[70] overflow-hidden bg-[#e9e9e6]">
           <button
             type="button"
-            onClick={() => setOpen(null)}
+            onClick={closeOpen}
             aria-label="Close"
             className="absolute right-[var(--gutter)] top-6 z-[100] cursor-pointer font-sans text-[15px] leading-none text-[#6E6E6E] hover:text-ink"
           >

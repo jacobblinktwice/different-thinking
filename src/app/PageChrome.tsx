@@ -15,8 +15,11 @@ export default function PageChrome() {
       <p className="t-body hidden text-balance leading-[1.4] tracking-[0] md:col-start-2 md:block lg:col-start-4">
         An AI research lab building products for people who think differently.
       </p>
-      {/* max-md:hidden keeps NavIndex's own grid display intact on md+ */}
-      <NavIndex className="max-md:hidden md:col-start-3 lg:col-start-5" />
+      {/* Shown at every breakpoint. It used to carry max-md:hidden, which left
+          all four inner pages with NO navigation at all on a phone — the only
+          way out was the browser's back button, which is most likely what made
+          the back button feel broken in the first place. */}
+      <NavIndex className="md:col-start-3 lg:col-start-5" />
     </div>
   );
 }
