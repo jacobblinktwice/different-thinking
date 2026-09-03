@@ -21,6 +21,8 @@ const SAVED_PATH = "glitch/saved.json"; // the lab's working save
 const VERS_PATH = "glitch/versions.json";
 const MAX_VERSIONS = 15;
 
+type VersionRow = { t: number; n?: number; snap: unknown; live?: boolean };
+
 /* The write key lives in the environment, never in the bundle. It used to be a
    constant shared with lab/page.tsx — a "use client" file — which shipped the
    secret to every visitor, so anyone could read it out of the JS and publish a
@@ -124,8 +126,33 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: false, error: "bad composition" }, { status: 400 });
   }
   const prev = await readJson(VERS_PATH);
-  const entry = action === "publish" ? { t: Date.now(), snap, live: true } : { t: Date.now(), snap };
-  const versions = [entry, ...(Array.isArray(prev) ? prev : [])].slice(0, MAX_VERSIONS);
+  /* Every entry carries a PERMANENT number, stamped once here.
+
+     The lab used to label rows by position (`v${versions.length - i}`), which
+     meant a save renumbered everything under it: pick v12, save, and the row
+     called v12 now holds different work. From the editor that reads as the save
+     having overwritten the version you had selected. A number assigned at
+     creation and never recomputed makes a save purely additive — v12 stays v12
+     for as long as it is in the list.
+
+     Entries written before this are backfilled oldest-first (the list is
+     newest-first, hence the reverse), so their numbers keep the order the panel
+     has been showing rather than being invented. */
+  const prevArr = Array.isArray(prev) ? (prev as VersionRow[]) : [];
+  let counter = 0;
+  const numbered = prevArr
+    .slice()
+    .reverse()
+    .map((e) => {
+      const n = typeof e?.n === "number" ? e.n : counter + 1;
+      counter = Math.max(counter, n);
+      return { ...e, n };
+    })
+    .reverse();
+  const nextN = numbered.reduce((m, e) => Math.max(m, e.n), 0) + 1;
+  const entry =
+    action === "publish" ? { t: Date.now(), n: nextN, snap, live: true } : { t: Date.now(), n: nextN, snap };
+  const versions = [entry, ...numbered].slice(0, MAX_VERSIONS);
   // save = the lab's working state + a history entry; publish = live for everyone
   await writeJson(SAVED_PATH, snap);
   if (action === "publish") await writeJson(COMP_PATH, snap);

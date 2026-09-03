@@ -176,9 +176,9 @@ function LabPage({ labKey }: { labKey: string }) {
      header would keep claiming you were on a version you had already edited
      away from. Matching also means the panel is right on first load, where
      nothing was clicked at all but the composition does equal an entry.
-     pickedT (an entry's timestamp — stable, unlike the vN labels, which shift as
-     saves push old entries off the end) is only the fallback: it remembers where
-     you STARTED so an edited composition can still show "v12*". */
+     pickedT (the entry's timestamp, which is its identity — the vN number is
+     for reading, and predates most entries) is only the fallback: it remembers
+     where you STARTED, so an edited composition can still show "v12*". */
   const [curSnap, setCurSnap] = useState<string | null>(null);
   const [pickedT, setPickedT] = useState<number | null>(null);
   const savedSnap = useRef<string | null>(null);
@@ -257,16 +257,26 @@ function LabPage({ labKey }: { labKey: string }) {
      of the 15-deep list the panel stops showing a live marker at all even though
      something is still live. */
   const versionSnaps = useMemo(() => versions.map((v) => JSON.stringify(v.snap)), [versions]);
-  const selectedIdx = curSnap == null ? -1 : versionSnaps.indexOf(curSnap);
+  const pickedIdx = pickedT == null ? -1 : versions.findIndex((v) => v.t === pickedT);
+  /* Identical compositions can sit at several places in the list — restoring an
+     entry and saving it leaves two rows holding the same work — and a plain
+     indexOf would then mark the NEWEST of them, so clicking v12 lit up v18
+     instead. When the row you actually picked still matches, that row wins;
+     indexOf is only for a composition you arrived at some other way (first
+     load, or an edit that happens to land back on a stored one). */
+  const selectedIdx =
+    curSnap == null ? -1 : pickedIdx >= 0 && versionSnaps[pickedIdx] === curSnap ? pickedIdx : versionSnaps.indexOf(curSnap);
   const [liveIdx, setLiveIdx] = useState(-1);
   useEffect(() => {
     setLiveIdx(liveSnap.current == null ? -1 : versionSnaps.indexOf(liveSnap.current));
   }, [versionSnaps, curSnap, flash]);
-  const pickedIdx = pickedT == null ? -1 : versions.findIndex((v) => v.t === pickedT);
   // no exact match but we know where it started → that version, plus a * for the edits
   const shownIdx = selectedIdx >= 0 ? selectedIdx : pickedIdx;
   const edited = selectedIdx < 0 && pickedIdx >= 0;
-  const vLabel = (i: number) => `v${versions.length - i}`;
+  /* the entry's own stamped number, so a save adds v16 and leaves every other
+     label alone. Position is only the fallback for pre-numbering entries, which
+     the API backfills the next time anything is written. */
+  const vLabel = (i: number) => `v${versions[i]?.n ?? versions.length - i}`;
 
   const [busy, setBusy] = useState<"save" | "publish" | null>(null);
   const persist = async (action: "save" | "publish") => {

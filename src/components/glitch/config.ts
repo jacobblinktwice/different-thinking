@@ -186,7 +186,11 @@ export function saveDraft(boxes: BoxConfig[], layer: LayerConfig, frontLayer: Fr
   }
 }
 
-export type VersionEntry = { t: number; snap: ReturnType<typeof snapshotComposition>; live?: boolean };
+/* `n` is the entry's permanent version number, stamped by the API when the
+   entry is created and never recomputed — positional labels shifted under every
+   save. Optional because entries written before it exist; the API backfills
+   them on the next write, and the lab falls back to position until it does. */
+export type VersionEntry = { t: number; n?: number; snap: ReturnType<typeof snapshotComposition>; live?: boolean };
 
 export function listVersions(): VersionEntry[] {
   try {
