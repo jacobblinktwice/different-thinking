@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 
 /* The brand guidelines (with the glitch lab as their hero) are a static site in
-   public/guidelines. They are served at /guidelines and, once GUIDELINES_HOST is
-   set (e.g. "brand.differentthinking.com", added as a domain on this same Vercel
-   project), at the root of that subdomain too. /api stays the site's API on both,
-   so the lab reads and publishes the same live composition. */
-const GUIDELINES_HOST = process.env.GUIDELINES_HOST;
+   public/guidelines. They are served at /guidelines and at the root of the brand
+   subdomain. The subdomain does nothing until it is added as a domain on this
+   Vercel project and its DNS points here; GUIDELINES_HOST overrides the name.
+   /api stays the site's API on both, so the lab reads and publishes the same
+   live composition. */
+const GUIDELINES_HOST = process.env.GUIDELINES_HOST || "brand.differentthinking.ai";
 
 const nextConfig: NextConfig = {
   async rewrites() {
