@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // the brand guidelines: a prebuilt static site and the lab source it is built from
+    "public/guidelines/**",
+    "guidelines-src/**",
   ]),
 ]);
 
