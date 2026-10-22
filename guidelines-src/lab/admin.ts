@@ -33,12 +33,11 @@ export interface LabCtx {
   /** controls that change only the preview/export and cannot be saved (non-neutral ones listed) */
   viewOnly(): string[];
   say(t: string, ms?: number): void;
-  select(i: number | null): void;
 }
 
 const KEY = "dt-lab-key";
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const BOX_NAMES = ["Red", "Teal", "Blue", "Purple"];
+const EYE = '<svg class="eye" viewBox="0 0 16 16" aria-hidden="true"><path class="eye-o" d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="currentColor"/><circle class="eye-o" cx="8" cy="8" r="2" fill="currentColor"/><path class="eye-c" d="M2 9.5c1.6 1.4 3.6 2.2 6 2.2s4.4-.8 6-2.2M4 11.3 3 13m4.2-1-.4 2m4.2-2.6 1 1.8" fill="none" stroke="currentColor"/></svg>';
 
 export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   const $ = <T extends HTMLElement>(s: string) => root.querySelector(s) as T;
@@ -177,7 +176,7 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   tabs.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab!)));
 
   /* ---- Advanced: the full editor, generated from the effect schema ---- */
-  let target: number | "layer" | "front" = 0;
+  let target: number | "layer" | "front" | "logo" = 0;
   const open = new Set<string>(["layout"]);
   let addOpen = false;
   const edit = () => { ctx.refresh(); };
@@ -206,9 +205,12 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
     if (!key) { adv.innerHTML = ""; return; }
     const B = ctx.base();
     if (typeof target === "number" && target >= B.boxes.length) target = 0;
-    const tabsHtml = `<div class="adv-targets">${B.boxes.map((_, i) => `<button type="button" data-t="${i}" aria-pressed="${target === i}" title="${BOX_NAMES[i] || ""}">${i + 1}</button>`).join("")}<button type="button" data-t="layer" aria-pressed="${target === "layer"}">Dup</button><button type="button" data-t="front" aria-pressed="${target === "front"}">Front</button></div>`;
+    const name = target === "layer" ? "Echo" : target === "front" ? "Front layer" : target === "logo" ? "Logotype" : `Box ${target + 1}`;
+    const tabsHtml = `<div class="adv-title"><span>${name}</span><small>Select a layer to edit it</small></div>`;
     let body = "";
-    if (target === "layer") {
+    if (target === "logo") {
+      body += `<p class="adv-note" style="padding-top:12px">The logotype sits over exports only. It has no effects, so there is nothing to edit here.</p>`;
+    } else if (target === "layer") {
       const L = B.layer;
       body += `<p class="adv-note">A duplicate of every box, behind them, with its own slice and pixel stretch. Reactivity scales how much the pointer drives the glitch on the website.</p>`;
       body += sec("layer", "Duplicate layer",
@@ -233,7 +235,6 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
       body += b.effects.map((e, i) => fxHtml(e, i, b.effects.length)).join("");
     }
     adv.innerHTML = tabsHtml + body;
-    ctx.select(typeof target === "number" ? target : null);
   }
   function fxHtml(e: Effect, i: number, n: number) {
     const def = S[e.type]; if (!def) return "";
@@ -241,9 +242,9 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
     const grad = def.hasGrad && Array.isArray(e.grad)
       ? `<div class="adv-sub">Gradient</div><div class="adv-grad" style="background:linear-gradient(90deg,${e.grad.map((s) => `${s.c} ${Math.round(s.p * 100)}%`).join(",")})"></div><div class="adv-stops">${e.grad.map((s, k) => `<span><input type="color" data-g="${i}.${k}" value="${/^#[0-9a-f]{6}$/i.test(s.c) ? s.c : "#000000"}"><input type="text" data-g="${i}.${k}" value="${esc(s.c)}" spellcheck="false"></span>`).join("")}</div>`
       : "";
-    return `<div class="adv-sec${e.on ? "" : " adv-off"}"><div class="adv-head"><button type="button" class="adv-name" data-open="${id}"><i>${isOpen ? "▾" : "▸"}</i>${esc(def.name)}</button>` +
-      `<button type="button" class="adv-ic" data-fx="up" data-i="${i}" title="Move up"${i === 0 ? " disabled" : ""}>↑</button><button type="button" class="adv-ic" data-fx="down" data-i="${i}" title="Move down"${i === n - 1 ? " disabled" : ""}>↓</button>` +
-      `<button type="button" class="adv-ic" data-fx="eye" data-i="${i}" title="${e.on ? "Hide" : "Show"}">${e.on ? "◉" : "○"}</button><button type="button" class="adv-ic" data-fx="del" data-i="${i}" title="Remove">–</button></div>` +
+    void n;
+    return `<div class="adv-sec${e.on ? "" : " adv-off"}" data-fxi="${i}"><div class="adv-head"><span class="adv-grip" draggable="true" data-grip="${i}" title="Drag to reorder" aria-hidden="true">⋮⋮</span><button type="button" class="adv-name" data-open="${id}"><i>${isOpen ? "▾" : "▸"}</i>${esc(def.name)}</button>` +
+      `<button type="button" class="adv-ic" data-fx="eye" data-i="${i}" aria-pressed="${e.on}" title="${e.on ? "Hide" : "Show"}" aria-label="${e.on ? "Hide" : "Show"} ${esc(def.name)}">${EYE}</button><button type="button" class="adv-ic" data-fx="del" data-i="${i}" title="Remove" aria-label="Remove ${esc(def.name)}">–</button></div>` +
       (isOpen ? `<div class="adv-body">${grad}${paramsHtml(`fx.${i}`, def.params, e.params)}</div>` : "") + "</div>";
   }
   /* resolve a data-p path to the object + key it edits; a trailing % means stored 0..1, shown 0..100 */
@@ -300,8 +301,6 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   }
   adv.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
-    const tb = t.closest<HTMLButtonElement>("[data-t]");
-    if (tb) { const v = tb.dataset.t!; target = v === "layer" || v === "front" ? v : +v; addOpen = false; renderAdv(); return; }
     const ob = t.closest<HTMLButtonElement>("[data-open]");
     if (ob) { const id = ob.dataset.open!; if (open.has(id)) open.delete(id); else open.add(id); renderAdv(); return; }
     if (t.closest("[data-add]")) { addOpen = !addOpen; renderAdv(); return; }
@@ -312,16 +311,53 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
       const st = ctx.base().boxes[target].effects, i = +fb.dataset.i!;
       if (fb.dataset.fx === "eye") st[i].on = !st[i].on;
       if (fb.dataset.fx === "del") st.splice(i, 1);
-      if (fb.dataset.fx === "up" && i > 0) st.splice(i - 1, 0, st.splice(i, 1)[0]);
-      if (fb.dataset.fx === "down" && i < st.length - 1) st.splice(i + 1, 0, st.splice(i, 1)[0]);
       edit(); renderAdv();
     }
   });
 
+  /* effects reorder by drag: grab the grip, drop above or below another effect */
+  let dragFx = -1;
+  const clearDrop = () => adv.querySelectorAll(".adv-sec").forEach((x) => x.classList.remove("dragging", "drop-above", "drop-below"));
+  adv.addEventListener("dragstart", (e) => {
+    const g = (e.target as HTMLElement).closest<HTMLElement>("[data-grip]");
+    if (!g) return;
+    dragFx = +g.dataset.grip!;
+    e.dataTransfer!.effectAllowed = "move"; e.dataTransfer!.setData("text/plain", String(dragFx));
+    g.closest(".adv-sec")!.classList.add("dragging");
+  });
+  adv.addEventListener("dragover", (e) => {
+    const sec = (e.target as HTMLElement).closest<HTMLElement>("[data-fxi]");
+    if (dragFx < 0 || !sec) return;
+    e.preventDefault();
+    const r = sec.getBoundingClientRect(), above = e.clientY < r.top + r.height / 2;
+    adv.querySelectorAll(".adv-sec").forEach((x) => x.classList.remove("drop-above", "drop-below"));
+    if (+sec.dataset.fxi! !== dragFx) sec.classList.add(above ? "drop-above" : "drop-below");
+  });
+  adv.addEventListener("drop", (e) => {
+    const sec = (e.target as HTMLElement).closest<HTMLElement>("[data-fxi]");
+    if (dragFx < 0 || !sec || typeof target !== "number") return;
+    e.preventDefault();
+    const r = sec.getBoundingClientRect(), above = e.clientY < r.top + r.height / 2;
+    const st = ctx.base().boxes[target].effects, to = +sec.dataset.fxi!;
+    if (to !== dragFx) {
+      const moved = st.splice(dragFx, 1)[0];
+      let at = to + (above ? 0 : 1); if (dragFx < at) at--;
+      st.splice(at, 0, moved); edit();
+    }
+    dragFx = -1; clearDrop(); renderAdv();
+  });
+  adv.addEventListener("dragend", () => { dragFx = -1; clearDrop(); });
+
   setAdmin(key); // restore an unlocked session
   return {
-    /** the frame was clicked/dragged on a box: make it the Advanced target */
-    target(i: number) { if (typeof target === "number" && target === i) return; target = i; if (root.classList.contains("lab-advtab")) renderAdv(); },
+    /** a layer was selected (Layers panel or the frame): admins get its editor in Advanced */
+    focus(key: string) {
+      if (!key) return;
+      target = key === "layer" || key === "front" || key === "logo" ? key : +key.slice(4);
+      addOpen = false;
+      if (!key) return;
+      if (root.classList.contains("lab-admin")) { if (!root.classList.contains("lab-advtab")) showTab("adv"); else renderAdv(); }
+    },
     /** the base changed from outside (layout drag, version load): redraw the open panel */
     changed() { if (root.classList.contains("lab-advtab")) renderAdv(); paint(); },
   };

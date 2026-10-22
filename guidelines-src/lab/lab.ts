@@ -64,6 +64,7 @@ interface State {
   logo: boolean;
   paused: boolean;
   echoOff: boolean;
+  frontOff: boolean;
   fmt: number;
   exf: number;
   exs: number;
@@ -83,6 +84,7 @@ const fresh = (): State => ({
   paused: false,
   res: 0,
   echoOff: false,
+  frontOff: false,
   fmt: 0,
   exf: 0,
   exs: 3,
@@ -162,6 +164,7 @@ function build(st: State, full = false, hits = !full): Composition {
   for (const p of [c.layer.pixstretch, c.frontLayer.pixstretch] as Num[]) p.offset *= fStretchL;
   c.layer.offsetX *= fEcho; c.layer.offsetY *= fEcho;
   c.layer.enabled = fEcho > 0.02 && !st.echoOff && solo < 0;
+  c.frontLayer.enabled = c.frontLayer.enabled && !st.frontOff;
   return c;
 }
 let HITS: { i: number; x: number; y: number; w: number; h: number }[] = [];
@@ -206,7 +209,7 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
   const stage = area;
   const toast = $<HTMLDivElement>(".lab-toast", root);
   let engine: GlitchEngine | null = null;
-  try { engine = new GlitchEngine(canvas); engine.dprCap = 2; engine.refRes = Math.round(900 * (1 + 2 * OS)); } catch (e) { root.classList.add("lab-nogl"); }
+  try { engine = new GlitchEngine(canvas); engine.dprCap = 2; engine.refRes = 900; } catch (e) { root.classList.add("lab-nogl"); }
   let comp = build(st);
   const say = (t: string, ms = 2600) => { toast.textContent = t; toast.classList.add("on"); clearTimeout((say as any).t); (say as any).t = setTimeout(() => toast.classList.remove("on"), ms); };
   const syncers: (() => void)[] = [];
@@ -275,12 +278,26 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
   });
   on('[data-layer="logo"]', () => { st.logo = !st.logo; syncAll(); });
   on('[data-layer="echo"]', () => { st.echoOff = !st.echoOff; syncAll(); });
+  on('[data-layer="front"]', () => { st.frontOff = !st.frontOff; syncAll(); });
+  /* clicking a layer SELECTS it (only the eye hides it). A selected box stays outlined in the frame,
+     and on the website admins get that layer's full editor in Advanced. */
+  let selKey = "";
+  const selectLayer = (key: string) => {
+    selKey = key;
+    all(".ll-row[data-sel]").forEach((r) => r.setAttribute("aria-current", String(r.dataset.sel === key)));
+    pinned = key.startsWith("box:") ? +key.slice(4) : -1; showSel(-1);
+    ADMIN?.focus(key);
+  };
+  on("[data-selbtn]", (b) => { const k = (b.closest(".ll-row") as HTMLElement).dataset.sel!; selectLayer(selKey === k && !ADMIN ? "" : k); });
   syncers.push(() => {
     const so = soloOf(st);
     all("[data-box]").forEach((b) => b.setAttribute("aria-pressed", String(so >= 0 ? +b.dataset.box! === so : st.on[+b.dataset.box!])));
+    all('[data-layer="front"]').forEach((b) => b.setAttribute("aria-pressed", String(!st.frontOff)));
+    all(".ll-eye").forEach((b) => b.closest(".ll-row")?.classList.toggle("is-off", b.getAttribute("aria-pressed") === "false"));
     root.classList.toggle("lab-solo", so >= 0);
     all('[data-layer="logo"]').forEach((b) => b.setAttribute("aria-pressed", String(st.logo)));
     all('[data-layer="echo"]').forEach((b) => b.setAttribute("aria-pressed", String(!st.echoOff)));
+    all(".ll-eye").forEach((b) => b.closest(".ll-row")?.classList.toggle("is-off", b.getAttribute("aria-pressed") === "false"));
   });
   /* frame + fill */
   on("[data-frame]", (b) => { st.frame = +b.dataset.frame!; syncAll(); });
@@ -345,7 +362,7 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
     if (!hit) return;
     e.stopImmediatePropagation();
     bdrag = { i: hit.i, x: e.clientX, y: e.clientY, p: [st.pos[hit.i][0], st.pos[hit.i][1]], id: e.pointerId };
-    area.setPointerCapture(e.pointerId); root.classList.add("lab-moving"); showSel(hit.i);
+    area.setPointerCapture(e.pointerId); root.classList.add("lab-moving"); selectLayer("box:" + hit.i);
   }, true);
   area.addEventListener("pointermove", (e) => {
     if (bdrag && e.pointerId === bdrag.id) {
@@ -360,7 +377,7 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
   const endBox = (e: PointerEvent) => {
     if (!bdrag || e.pointerId !== bdrag.id) return;
     const i = bdrag.i; bdrag = null; root.classList.remove("lab-moving"); e.stopImmediatePropagation();
-    if (ADMIN) { ADMIN.target(i); if (root.classList.contains("lab-advtab")) { bakeNow(); ADMIN.changed(); } }
+    if (ADMIN && root.classList.contains("lab-advtab")) { bakeNow(); ADMIN.changed(); }
     say(`Box ${i + 1} moved`, 1400);
   };
   area.addEventListener("pointerup", endBox, true); area.addEventListener("pointercancel", endBox, true);
@@ -423,7 +440,19 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
      scrubs both ways and settles exactly where you stop. Exports always use the controls, never this. */
   const BREAK: Num = { slice: 100, stretch: 88, grain: 78, echo: 92, spread: 82, refract: 80 };
   let brk = 0, brkComp: Composition | null = null, brkAt = -1, viewBase: Composition | null = null, viewSrc: Composition | null = null;
-  const viewComp = (k: number) => { const src = brokenComp(k); if (src !== viewSrc) { viewSrc = src; viewBase = overscan(src); } return viewBase!; };
+  /* PERF: the canvas only overscans the frame (2.9× the pixels) while the hero is being scrolled and the glitch
+     can spill past the frame. At rest it is exactly the frame: identical picture, a third of the GPU work. */
+  let osOn = false;
+  const setOS = (on: boolean) => {
+    if (on === osOn || !engine) return;
+    osOn = on; frameEl.classList.toggle("lab-os", on);
+    engine.refRes = on ? Math.round(900 * (1 + 2 * OS)) : 900; // same grain per frame pixel either way
+    viewSrc = null; leanBase = null; sizeDirty = true; maskKey = "";
+  };
+  const viewComp = (k: number) => { const src = brokenComp(k); if (src !== viewSrc) { viewSrc = src; viewBase = osOn ? overscan(src) : clone(src); } return viewBase!; };
+  /* PERF: read the canvas size from a ResizeObserver instead of forcing layout every frame */
+  let cw = canvas.clientWidth, sizeDirty = true, maskKey = "";
+  new ResizeObserver(() => { cw = canvas.clientWidth; sizeDirty = true; }).observe(canvas);
   const brokenComp = (k: number) => {
     if (k <= 0.001) return comp;
     if (brkComp && Math.abs(k - brkAt) < 0.004) return brkComp;
@@ -447,14 +476,15 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
     const p = reduce ? 0 : parseFloat(root.style.getPropertyValue("--p")) || 0; // raw scroll progress through the hero
     const target2 = p < 0.04 ? 0 : Math.min(1, (p - 0.04) / 0.8);
     brk += (target2 * target2 * (3 - 2 * target2) - brk) * 0.18; // smoothstep, eased toward the scroll position
+    if (brk > 0.003) setOS(true); else if (brk < 0.002) setOS(false);
     engine.bg = rgb01(groundHex(st));
     /* render at the size it is shown: device pixels × the scroll transition's CSS scale, in steps, capped */
     const fs = parseFloat(frameEl.style.getPropertyValue("--fs")) || 1;
-    const base = Math.min(devicePixelRatio || 1, 2) * canvas.clientWidth;
+    const base = Math.min(devicePixelRatio || 1, 2) * cw;
     const want = Math.max(1, Math.min(fs, 3600 / Math.max(1, base)));
     const step = Math.max(1, Math.floor(want * 4) / 4);
-    if (Math.abs(step - engine.boost) > 0.01) engine.boost = step;
-    engine.resize();
+    if (Math.abs(step - engine.boost) > 0.01) { engine.boost = step; sizeDirty = true; }
+    if (sizeDirty) { engine.resize(); sizeDirty = false; }
     const c = viewComp(brk);
     /* direction: the echo leans toward the pointer, slices tear the way you move side to side, and
        height stretches the pixels up or down. Applied to the view only, never to exports. */
@@ -472,9 +502,11 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
     (c.layer.pixstretch as Num).ty = leanBase.lty + lean.y * 24;
     (c.frontLayer.slice as Num).shiftV = leanBase.fsv + ay * 2.5;
     (c.layer.slice as Num).shiftV = leanBase.lsv + ay * 2;
-    const edge = (OS / (1 + 2 * OS)) * 100, open = Math.min(1, brk * 1.4);
-    frameEl.style.setProperty("--ma", (edge * (1 - open)).toFixed(3) + "%");
-    frameEl.style.setProperty("--mb", (edge * (1 - open) + 14 * open).toFixed(3) + "%");
+    if (osOn) {
+      const edge = (OS / (1 + 2 * OS)) * 100, open = Math.min(1, brk * 1.4);
+      const ma = (edge * (1 - open)).toFixed(2), mb = (edge * (1 - open) + 14 * open).toFixed(2);
+      if (ma + mb !== maskKey) { maskKey = ma + mb; frameEl.style.setProperty("--ma", ma + "%"); frameEl.style.setProperty("--mb", mb + "%"); } // PERF: no style recalc when unchanged
+    }
     engine.render(c.boxes, "landing", elapsed + brk * 2.5, c.layer, gainOf(st) * (1 + drive * 0.6) * (1 + brk * 1.6), c.frontLayer, 1, true);
   };
   requestAnimationFrame(loop);
@@ -511,7 +543,6 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
         return n;
       },
       say,
-      select: (i) => { pinned = i ?? -1; showSel(-1); },
     });
   }
 
@@ -640,7 +671,7 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
    opts.loupe: a 2D canvas that shows a pixel-exact zoom of the area around the cursor. */
 export function live(canvas: HTMLCanvasElement, opts: { box?: number; cursor?: boolean; loupe?: HTMLCanvasElement; zoom?: number; ghost?: HTMLElement; readout?: HTMLElement; mark?: HTMLElement } = {}) {
   let engine: GlitchEngine;
-  try { engine = new GlitchEngine(canvas); engine.dprCap = 2; } catch (e) { canvas.parentElement?.classList.add("lab-nogl"); return; }
+  try { engine = new GlitchEngine(canvas); engine.dprCap = 1.5; } catch (e) { canvas.parentElement?.classList.add("lab-nogl"); return; } // PERF: demos at 1.5× density
   const keepBase = BASE; BASE = FROZEN; // these always show the guidelines' own composition, never the live one
   const st = fresh();
   if (opts.box != null && opts.box >= 0) st.layout = "T" + opts.box;
@@ -654,7 +685,8 @@ export function live(canvas: HTMLCanvasElement, opts: { box?: number; cursor?: b
     host.addEventListener("pointermove", (e) => { if (e.pointerType !== "mouse") return; const r = canvas.getBoundingClientRect(); pos.x = (e.clientX - r.left) / r.width; pos.y = (e.clientY - r.top) / r.height; pos.in = true; }, { passive: true });
     host.addEventListener("pointerleave", () => { pos.in = false; pos.last = performance.now() / 1000; });
   }
-  let visible = false, elapsed = 2 + (opts.box ?? 0) * 3, tPrev = 0, drive = 0;
+  let visible = false, elapsed = 2 + (opts.box ?? 0) * 3, tPrev = 0, drive = 0, lastDraw = 0, sized = false;
+  new ResizeObserver(() => (sized = false)).observe(canvas);
   const lean = { x: 0, y: 0 };
   new IntersectionObserver((es) => (visible = es[0].isIntersecting), { rootMargin: "80px" }).observe(canvas);
   const lctx = opts.loupe ? opts.loupe.getContext("2d")! : null;
@@ -664,6 +696,8 @@ export function live(canvas: HTMLCanvasElement, opts: { box?: number; cursor?: b
     const dt = Math.min(now - (tPrev || now), 0.05); tPrev = now;
     if (!visible) return;
     if (!reduce) elapsed += dt;
+    if (now - lastDraw < 1 / 31) return; // PERF: the demos draw at 30 fps; the hero keeps 60
+    lastDraw = now;
     let cx = pos.x, cy = pos.y, active = pos.in;
     if (opts.cursor && !pos.in && now - pos.last > 1.2 && !reduce) {
       /* ghost cursor: a slow figure-of-eight from the calm centre out to the corners and back */
@@ -675,8 +709,8 @@ export function live(canvas: HTMLCanvasElement, opts: { box?: number; cursor?: b
     /* same response as the lab hero: intensity builds toward ANY edge, and the direction steers the glitch
        (echo leans toward the pointer, slices tear side to side, the stretch line follows up and down) */
     const dx = opts.cursor && active ? Math.max(-1, Math.min(1, (cx - 0.5) * 2)) : 0, dy = opts.cursor && active ? Math.max(-1, Math.min(1, (cy - 0.5) * 2)) : 0;
-    drive += (Math.max(Math.abs(dx), Math.abs(dy)) - drive) * 0.08; // same smoothing as the website
-    lean.x += (dx - lean.x) * 0.08; lean.y += (dy - lean.y) * 0.08;
+    drive += (Math.max(Math.abs(dx), Math.abs(dy)) - drive) * 0.15; // = the website's 8% per frame, at 30 fps
+    lean.x += (dx - lean.x) * 0.15; lean.y += (dy - lean.y) * 0.15;
     const mul = opts.cursor ? 1 + drive * (0.4 + 1 * 2.4) : 1; // reactivity 100
     let L = comp.layer, F = comp.frontLayer;
     if (opts.cursor) {
@@ -689,7 +723,7 @@ export function live(canvas: HTMLCanvasElement, opts: { box?: number; cursor?: b
       F = steer(F, 1);
     }
     if (opts.readout) opts.readout.textContent = `X = ${lean.x >= 0 ? " " : ""}${lean.x.toFixed(2)};  Y = ${lean.y >= 0 ? " " : ""}${lean.y.toFixed(2)};  INTENSITY = ${mul.toFixed(2)}×;`;
-    engine.resize();
+    if (!sized) { engine.resize(); sized = true; }
     engine.render(comp.boxes, "landing", elapsed, L, gainOf(st) * mul, F, 1, true);
     if (lctx && opts.loupe) {
       const L = opts.loupe, z = opts.zoom || 4;
