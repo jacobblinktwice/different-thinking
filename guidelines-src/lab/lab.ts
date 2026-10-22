@@ -227,7 +227,16 @@ export function mount(root: HTMLElement, logoSvg: string, opts: { api?: string; 
   const restack = () => {
     const anchor = layerList.querySelector('li[data-echoli]');
     st.order.slice().reverse().forEach((i) => { const li = layerList.querySelector(`li[data-boxli="${i}"]`); if (li) layerList.insertBefore(li, anchor); });
+    // Echo's children mirror the boxes, in the same stacking order
+    let after: Element | null = anchor;
+    st.order.slice().reverse().forEach((i) => { const li = layerList.querySelector(`li[data-echochild="${i}"]`); if (li && after) { after.after(li); after = li; } });
   };
+  /* groups (Front layer, Echo) open and close like Figma's */
+  on("[data-caret]", (b) => {
+    const open = b.getAttribute("aria-expanded") !== "true";
+    b.setAttribute("aria-expanded", String(open));
+    all(`li[data-parent="${b.dataset.caret}"]`).forEach((li) => (li.hidden = !open));
+  });
   const moveTo = (i: number, frontIdx: number) => {
     const front = st.order.slice().reverse().filter((x) => x !== i);
     front.splice(Math.max(0, Math.min(front.length, frontIdx)), 0, i);
