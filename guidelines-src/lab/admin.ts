@@ -82,9 +82,19 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   };
 
   /* ---- unlock ---- */
+  /* the admin buttons are always visible; for anyone not unlocked they open the login panel, and once the
+     code is accepted the action they clicked carries on (open History, Advanced, Save or Push live) */
+  let pending: (() => void) | null = null;
+  const openLogin = (then: (() => void) | null) => {
+    pending = then; hist.hidden = true;
+    unlock.hidden = false; unlock.classList.remove("err");
+    (unlock.querySelector("input") as HTMLInputElement).focus();
+  };
+  const needAdmin = (fn: () => void) => () => { if (key) fn(); else openLogin(fn); };
+  unlock.querySelector("[data-close]")?.addEventListener("click", () => { unlock.hidden = true; pending = null; });
+  unlock.addEventListener("keydown", (e) => { if (e.key === "Escape") { unlock.hidden = true; pending = null; } });
   $<HTMLButtonElement>('[data-a="admin"]').addEventListener("click", () => {
-    unlock.hidden = !unlock.hidden;
-    if (!unlock.hidden) (unlock.querySelector("input") as HTMLInputElement).focus();
+    if (unlock.hidden) openLogin(null); else unlock.hidden = true;
   });
   unlock.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -92,10 +102,16 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
     if (!cand) return;
     let ok = false;
     try { ok = (await fetch(api, { method: "POST", headers: { "x-lab-key": cand } })).ok; } catch { ok = false; }
-    if (ok) { inp.value = ""; unlock.hidden = true; setAdmin(cand); ctx.say("Admin unlocked: Save, Push live and Advanced are on"); }
+    if (ok) {
+      inp.value = ""; unlock.hidden = true; setAdmin(cand); ctx.say("Admin unlocked: Save, Push live and Advanced are on");
+      const go = pending; pending = null; if (go) setTimeout(go, 0);
+    }
     else { inp.value = ""; unlock.classList.add("err"); setTimeout(() => unlock.classList.remove("err"), 1200); }
   });
-  $<HTMLButtonElement>('[data-a="lock"]').addEventListener("click", () => { setAdmin(null); ctx.say("Locked. Edits and exports still work."); });
+  $<HTMLButtonElement>('[data-a="lock"]').addEventListener("click", () => {
+    if (!key) { if (unlock.hidden) openLogin(null); else unlock.hidden = true; return; }
+    setAdmin(null); ctx.say("Locked. Edits and exports still work.");
+  });
 
   /* ---- save / push live ---- */
   const persist = async (action: "save" | "publish") => {
@@ -121,13 +137,13 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
     }
     busy = false; paint(); renderAdv();
   };
-  saveBtn.addEventListener("click", () => persist("save"));
-  liveBtn.addEventListener("click", () => persist("publish"));
+  saveBtn.addEventListener("click", needAdmin(() => persist("save")));
+  liveBtn.addEventListener("click", needAdmin(() => persist("publish")));
 
   /* ---- history (admins only) ---- */
   const vLabel = (i: number) => `v${versions[i]?.n ?? versions.length - i}`;
   const stamp = (t: number) => new Date(t).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-  histBtn.addEventListener("click", () => { hist.hidden = !hist.hidden; paint(); });
+  histBtn.addEventListener("click", needAdmin(() => { hist.hidden = !hist.hidden; paint(); }));
   hist.addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-v]");
     if (!b) return;
@@ -139,12 +155,17 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   });
   document.addEventListener("pointerdown", (e) => {
     if (!hist.hidden && !pub.contains(e.target as Node)) { hist.hidden = true; paint(); }
-    if (!unlock.hidden && !pub.contains(e.target as Node)) unlock.hidden = true;
+    if (!unlock.hidden && !pub.contains(e.target as Node) && !(e.target as HTMLElement).closest?.('[data-tab="adv"]')) { unlock.hidden = true; pending = null; }
   });
 
   let lastCur = "";
   function paint() {
-    if (!key) return;
+    if (!key) {
+      histBtn.querySelector("b")!.textContent = "";
+      saveBtn.disabled = liveBtn.disabled = false; saveBtn.classList.remove("on"); liveBtn.classList.remove("on");
+      saveBtn.textContent = "Save"; liveBtn.textContent = "Push live";
+      return;
+    }
     const cur = curSnap(); lastCur = cur;
     const snaps = versions.map((v) => JSON.stringify(v.snap));
     const pi = picked == null ? -1 : versions.findIndex((v) => v.t === picked);
@@ -173,7 +194,7 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
     root.classList.toggle("lab-advtab", t === "adv");
     if (t === "adv") { ctx.bake(); renderAdv(); }
   }
-  tabs.forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab!)));
+  tabs.forEach((b) => b.addEventListener("click", () => (b.dataset.tab === "adv" ? needAdmin(() => showTab("adv"))() : showTab(b.dataset.tab!))));
 
   /* ---- Advanced: the full editor, generated from the effect schema ---- */
   let target: number | "layer" | "front" | "logo" = 0;
