@@ -37,7 +37,9 @@ export interface LabCtx {
 
 const KEY = "dt-lab-key";
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const EYE = '<svg class="eye" viewBox="0 0 16 16" aria-hidden="true"><path class="eye-o" d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="currentColor"/><circle class="eye-o" cx="8" cy="8" r="2" fill="currentColor"/><path class="eye-c" d="M2 9.5c1.6 1.4 3.6 2.2 6 2.2s4.4-.8 6-2.2M4 11.3 3 13m4.2-1-.4 2m4.2-2.6 1 1.8" fill="none" stroke="currentColor"/></svg>';
+import ICONS from "./icons.json"; // one icon set (Lucide), shared with the page build
+const ico = (n: keyof typeof ICONS, cls = "") => `<svg class="i i-${n}${cls ? " " + cls : ""}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+const EYE = ico("eye") + ico("eye-off");
 
 export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   const $ = <T extends HTMLElement>(s: string) => root.querySelector(s) as T;
@@ -219,22 +221,22 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
   }
   function sec(id: string, title: string, body: string, extra = "") {
     const isOpen = open.has(id);
-    return `<div class="adv-sec${extra}"><div class="adv-head"><button type="button" class="adv-name" data-open="${id}"><i>${isOpen ? "▾" : "▸"}</i>${esc(title)}</button></div>${isOpen ? `<div class="adv-body">${body}</div>` : ""}</div>`;
+    return `<div class="adv-sec${extra}"><div class="adv-head"><button type="button" class="adv-name" data-open="${id}"><i class="adv-chev${isOpen ? " open" : ""}">${ico("chevron-right")}</i>${esc(title)}</button></div>${isOpen ? `<div class="adv-body">${body}</div>` : ""}</div>`;
   }
   function renderAdv() {
     if (!adv) return;
     if (!key) { adv.innerHTML = ""; return; }
     const B = ctx.base();
     if (typeof target === "number" && target >= B.boxes.length) target = 0;
-    const name = target === "layer" ? "Echo" : target === "front" ? "Front layer" : target === "logo" ? "Logotype" : `Box ${target + 1}`;
+    const name = target === "layer" ? "Offset copy" : target === "front" ? "Box group" : `Box ${target + 1}`;
     const tabsHtml = `<div class="adv-title"><span>${name}</span><small>Select a layer to edit it</small></div>`;
     let body = "";
     if (target === "logo") {
       body += `<p class="adv-note" style="padding-top:12px">The logotype sits over exports only. It has no effects, so there is nothing to edit here.</p>`;
     } else if (target === "layer") {
       const L = B.layer;
-      body += `<p class="adv-note">A duplicate of every box, behind them, with its own slice and pixel stretch. Reactivity scales how much the pointer drives the glitch on the website.</p>`;
-      body += sec("layer", "Duplicate layer",
+      body += `<p class="adv-note">A copy of the box group, offset and dimmed behind it, with its own slice and pixel stretch. Reactivity here sets how much the pointer drives the glitch on the website.</p>`;
+      body += sec("layer", "Offset copy",
         `<label class="adv-field"><span>Enabled</span><input type="checkbox" data-p="layer.enabled"${L.enabled ? " checked" : ""}></label>` +
         slider("layer.opacity%", "Opacity", 0, 100, 1, L.opacity * 100, "%") +
         slider("layer.reactivity", "Reactivity", 0, 100, 1, L.reactivity, "%") +
@@ -244,15 +246,15 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
         `<div class="adv-sub">Pixel stretch</div>` + paramsHtml("layer.pixstretch", S.pixstretch.params, L.pixstretch, ["offset", "smooth", "falloff", "prot", "pangle"]));
     } else if (target === "front") {
       const F = B.frontLayer;
-      body += `<p class="adv-note">One slice shift and pixel stretch over every box together, on top of each box's own effects.</p>`;
-      body += sec("front", "Front layer",
+      body += `<p class="adv-note">The group the boxes sit in. Its slice and pixel stretch run over every box together, on top of each box's own effects.</p>`;
+      body += sec("front", "Box group",
         `<label class="adv-field"><span>Enabled</span><input type="checkbox" data-p="front.enabled"${F.enabled ? " checked" : ""}></label>` +
         `<div class="adv-sub">Slice shift · H + V</div>` + paramsHtml("front.slice", S.slice.params, F.slice, ["shift", "shiftV", "soft", "random", "speed", "glitch"]) +
         `<div class="adv-sub">Pixel stretch</div>` + paramsHtml("front.pixstretch", S.pixstretch.params, F.pixstretch, ["offset", "smooth", "falloff", "prot", "pangle"]));
     } else {
       const b = B.boxes[target];
       body += sec("layout", "Layout & size", (["x", "y", "w", "h"] as const).map((k) => slider(`box.layout.${k}%`, { x: "X", y: "Y", w: "Width", h: "Height" }[k], k === "w" || k === "h" ? 2 : 0, 100, 0.1, b.layout[k] * 100, "%")).join(""));
-      body += `<div class="adv-stackhead"><span>Effect stack · ${b.effects.filter((e) => e.on).length}/${b.effects.length}</span><button type="button" class="adv-add" data-add aria-expanded="${addOpen}">+</button>${addOpen ? `<div class="adv-addmenu">${Object.keys(S).map((t) => `<button type="button" data-addfx="${t}">${esc(S[t].name)}</button>`).join("")}</div>` : ""}</div>`;
+      body += `<div class="adv-stackhead"><span>Effect stack · ${b.effects.filter((e) => e.on).length}/${b.effects.length}</span><button type="button" class="adv-add" data-add aria-expanded="${addOpen}">${ico("plus")}</button>${addOpen ? `<div class="adv-addmenu">${Object.keys(S).map((t) => `<button type="button" data-addfx="${t}">${esc(S[t].name)}</button>`).join("")}</div>` : ""}</div>`;
       body += b.effects.map((e, i) => fxHtml(e, i, b.effects.length)).join("");
     }
     adv.innerHTML = tabsHtml + body;
@@ -264,8 +266,8 @@ export function wireAdmin(root: HTMLElement, api: string, ctx: LabCtx) {
       ? `<div class="adv-sub">Gradient</div><div class="adv-grad" style="background:linear-gradient(90deg,${e.grad.map((s) => `${s.c} ${Math.round(s.p * 100)}%`).join(",")})"></div><div class="adv-stops">${e.grad.map((s, k) => `<span><input type="color" data-g="${i}.${k}" value="${/^#[0-9a-f]{6}$/i.test(s.c) ? s.c : "#000000"}"><input type="text" data-g="${i}.${k}" value="${esc(s.c)}" spellcheck="false"></span>`).join("")}</div>`
       : "";
     void n;
-    return `<div class="adv-sec${e.on ? "" : " adv-off"}" data-fxi="${i}"><div class="adv-head"><span class="adv-grip" draggable="true" data-grip="${i}" title="Drag to reorder" aria-hidden="true">⋮⋮</span><button type="button" class="adv-name" data-open="${id}"><i>${isOpen ? "▾" : "▸"}</i>${esc(def.name)}</button>` +
-      `<button type="button" class="adv-ic" data-fx="eye" data-i="${i}" aria-pressed="${e.on}" title="${e.on ? "Hide" : "Show"}" aria-label="${e.on ? "Hide" : "Show"} ${esc(def.name)}">${EYE}</button><button type="button" class="adv-ic" data-fx="del" data-i="${i}" title="Remove" aria-label="Remove ${esc(def.name)}">–</button></div>` +
+    return `<div class="adv-sec${e.on ? "" : " adv-off"}" data-fxi="${i}"><div class="adv-head"><span class="adv-grip" draggable="true" data-grip="${i}" title="Drag to reorder" aria-hidden="true">${ico("grip")}</span><button type="button" class="adv-name" data-open="${id}"><i class="adv-chev${isOpen ? " open" : ""}">${ico("chevron-right")}</i>${esc(def.name)}</button>` +
+      `<button type="button" class="adv-ic" data-fx="eye" data-i="${i}" aria-pressed="${e.on}" title="${e.on ? "Hide" : "Show"}" aria-label="${e.on ? "Hide" : "Show"} ${esc(def.name)}">${EYE}</button><button type="button" class="adv-ic" data-fx="del" data-i="${i}" title="Remove" aria-label="Remove ${esc(def.name)}">${ico("minus")}</button></div>` +
       (isOpen ? `<div class="adv-body">${grad}${paramsHtml(`fx.${i}`, def.params, e.params)}</div>` : "") + "</div>";
   }
   /* resolve a data-p path to the object + key it edits; a trailing % means stored 0..1, shown 0..100 */
